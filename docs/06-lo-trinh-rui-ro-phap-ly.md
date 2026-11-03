@@ -1,0 +1,133 @@
+# 06 — Lộ trình, Rủi ro & Góc nhìn pháp lý
+
+## 1. Lộ trình triển khai
+
+| Giai đoạn | Thời lượng | Phạm vi | Tiêu chí nghiệm thu |
+|---|---|---|---|
+| **GĐ0 — Chốt nghiệp vụ & nền móng** | 1 tuần | Chốt tài liệu 01 và các câu hỏi ở mục 5 · Khởi tạo Next.js, CI, PostgreSQL, migration từ `db/schema-draft.sql` · Đăng nhập + 2FA · Bố cục, thanh bên, chế độ tối | Đăng nhập 2FA được; CI xanh; CSDL tạo hoàn toàn từ migration; trang trống chạy trên môi trường thật |
+| **GĐ1 — MVP lõi** | 3 tuần | Danh mục · Chuyến / Đơn mua / Máy (thêm hàng loạt) · Kiện 3 chặng + Gửi đi/Đã nhận + mốc tự động · Chi phí + **costing engine** (kèm kiểm thử thuộc tính) · Bán nhanh, cọc · Hồ sơ máy · Tổng quan cơ bản (KPI, vốn theo chặng, cảnh báo trong ứng dụng) | **Nhập lại một chuyến thật đã có trên Excel từ đầu đến cuối: giá vốn và lãi từng máy khớp 0 đồng** (hoặc giải thích được từng chênh lệch) |
+| **GĐ2 — Vận hành đầy đủ** | 2–3 tuần | Sổ thu chi, tài khoản, chuyển tiền, công nợ · Báo cáo + xuất Excel · Chứng từ (R2) · PWA + quét mã, nhận hàng bằng quét · Chốt / mở lại chuyến · Giao diện nhật ký kiểm toán · Nhập dữ liệu cũ từ Excel · Sao lưu tự động · Báo cáo doanh thu thuế + cảnh báo ngưỡng | **Vận hành thật 2 chuyến liên tiếp mà không cần Excel song song** |
+| **GĐ3 — Tự động hoá & thông minh** | Liên tục | Cảnh báo Telegram · Tỷ giá tự động · Đồng bộ tracking qua API · Giá thị trường tham khảo & gợi ý giá bán · Dự báo dòng tiền · Xuất PDF · Tích hợp hoá đơn điện tử (nếu cần) | Theo từng tính năng |
+
+```mermaid
+gantt
+    title Lộ trình phát triển (dự kiến, bắt đầu 09/11/2026)
+    dateFormat YYYY-MM-DD
+    axisFormat %d/%m
+    section GĐ0
+    Chốt nghiệp vụ                 :g0a, 2026-11-09, 3d
+    Nền móng (repo, CI, DB, auth)  :g0b, 2026-11-09, 7d
+    section GĐ1 — MVP
+    Danh mục, chuyến, đơn mua, máy :g1a, after g0b, 5d
+    Vận chuyển 3 chặng + mốc       :g1b, after g1a, 4d
+    Costing engine + kiểm thử      :crit, g1c, after g1a, 6d
+    Bán hàng + hồ sơ máy           :g1d, after g1b, 4d
+    Tổng quan cơ bản               :g1e, after g1d, 3d
+    Đối chiếu chuyến thật          :milestone, m1, after g1e, 0d
+    section GĐ2
+    Thu chi + công nợ              :g2a, after g1e, 5d
+    Báo cáo + xuất Excel           :g2b, after g2a, 4d
+    PWA, quét mã, chứng từ         :g2c, after g1e, 6d
+    Nhập dữ liệu cũ, sao lưu, thuế :g2d, after g2b, 4d
+    Vận hành thật 2 chuyến         :milestone, m2, after g2d, 0d
+    section GĐ3
+    Telegram, tỷ giá, tracking     :g3a, after g2d, 10d
+```
+
+**Ưu tiên khi phải cắt giảm:** costing engine và mốc vận chuyển là **không thể cắt**. Có thể dời: biểu đồ nâng cao, Kanban kéo thả (dùng nút bấm thay thế), PWA ngoại tuyến, tracking API.
+
+---
+
+## 2. Rủi ro & biện pháp
+
+| # | Rủi ro | Mức | Biện pháp |
+|---|---|---|---|
+| 1 | Nhập sai/thiếu tỷ giá, cân nặng → giá vốn sai mà không biết | Cao | Bắt buộc tỷ giá thực tế; cân nặng mặc định theo mẫu máy; nhãn "dự toán"; **đối soát tự động** Σ giá vốn = Σ đơn mua + Σ chi phí |
+| 2 | Nhập liệu mất công → bỏ dùng, quay về Excel | Cao | Thao tác theo kiện; dán danh sách serial; quét mã vạch; gợi ý từ lần nhập trước; bán nhanh trên điện thoại |
+| 3 | Cách tính mới khác cách tính quen thuộc → mất niềm tin vào số liệu | Trung bình | Nghiệm thu GĐ1 bằng chuyến thật; mọi con số đều "bấm vào xem nguồn" |
+| 4 | Mất dữ liệu | Thấp | PITR + `pg_dump` hằng ngày sang nơi khác + xuất toàn bộ; diễn tập khôi phục mỗi quý |
+| 5 | Lộ dữ liệu tài chính / khách hàng | Thấp–Trung bình | 2FA, cookie an toàn, bucket riêng tư, cảnh báo đăng nhập lạ, không lưu bí mật trong repo |
+| 6 | Pháp luật thuế thay đổi (ngưỡng đã được nâng từ 500 triệu lên 1 tỷ ngay trong năm 2026) | Cao | **Không hard-code** ngưỡng, tỷ lệ: đưa vào `app_settings`; báo cáo thuế tách module riêng |
+| 7 | Phình phạm vi (thêm tính năng liên tục) | Trung bình | Bám lộ trình; tính năng mới vào GĐ3 trừ khi chặn việc vận hành |
+| 8 | Khoá vào nhà cung cấp | Thấp | PostgreSQL chuẩn, mã nguồn của chủ hàng, xuất dữ liệu bất kỳ lúc nào |
+
+---
+
+## 3. Góc nhìn pháp lý & thuế — những điều hệ thống phải phục vụ
+
+> **Lưu ý:** Phần này nhằm định hướng **thiết kế hệ thống** cho đúng nghĩa vụ pháp lý, không thay thế ý kiến tư vấn cho trường hợp cụ thể. Quy định về thuế hộ kinh doanh đã thay đổi nhiều lần trong 2025–2026; trước khi áp dụng phải đối chiếu **toàn văn và bản hợp nhất** tại thời điểm thực hiện. Thông tin dưới đây được tra cứu đến tháng 11/2026.
+
+### 3.1. Thuế hộ kinh doanh từ năm 2026
+
+| Nội dung | Căn cứ đã tra cứu | Hệ thống phải làm gì |
+|---|---|---|
+| **Bỏ thuế khoán**, chuyển sang tự kê khai, tự nộp từ 01/01/2026 | Điều 10 Nghị quyết 198/2025/QH15 | Hệ thống trở thành **sổ sách chính thức**: doanh thu từng giao dịch, theo tháng/quý/năm, xuất được cho kế toán |
+| Ngưỡng doanh thu **không phải nộp thuế GTGT và TNCN: 1 tỷ đồng/năm** (nâng từ 500 triệu) | Nghị định 68/2026/NĐ-CP, được sửa đổi bởi Nghị định 141/2026/NĐ-CP ngày 29/4/2026 | View `v_yearly_revenue` + cảnh báo khi đạt 80% ngưỡng; ngưỡng là **tham số** `tax.revenue_threshold_vnd` |
+| Doanh thu năm **trên 1 tỷ** phải dùng **hoá đơn điện tử có mã của cơ quan thuế**; nếu vượt trong năm thì phải áp dụng, với thời hạn đăng ký 30 ngày kể từ ngày cuối cùng của kỳ tính thuế có doanh thu luỹ kế vượt ngưỡng | Khoản 5 Điều 8 Nghị định 68/2026/NĐ-CP (đã sửa đổi bởi Nghị định 141/2026/NĐ-CP) | Trường `sales.einvoice_no`; báo cáo đơn bán **chưa xuất hoá đơn**; giai đoạn sau có thể kết nối nhà cung cấp hoá đơn điện tử |
+| Thuế TNCN có thể tính **theo doanh thu** hoặc **theo thu nhập = doanh thu − chi phí hợp lý, hợp lệ** (phạm vi áp dụng và thuế suất từng phương pháp cần đối chiếu toàn văn) | Hướng dẫn kỳ khai quý I/2026 trên Cổng TTĐT Chính phủ | Mỗi khoản chi có cờ **`has_valid_invoice`** + chứng từ đính kèm → báo cáo "chi phí có chứng từ hợp lệ", giúp so sánh hai phương pháp và chọn phương án có lợi **một cách hợp pháp** |
+| Kỳ khai GTGT theo quý nếu doanh thu năm ≤ 50 tỷ | Như trên | Báo cáo doanh thu theo quý |
+
+**Ước lượng quy mô:** với giá bán bình quân khoảng 30 triệu đồng/máy, chỉ khoảng **34 máy/năm** là doanh thu đã chạm 1 tỷ đồng. Nghĩa là hoạt động nhập – bán hàng Apple gần như chắc chắn thuộc diện **phải kê khai, nộp thuế và dùng hoá đơn điện tử**. Vì vậy hệ thống phải được thiết kế như **sổ sách kế toán** ngay từ đầu, không chỉ là công cụ xem lãi.
+
+### 3.2. Chứng minh nguồn gốc hàng hoá nhập khẩu — rủi ro lớn nhất của mô hình
+
+- Theo các nguồn tra cứu, **Nghị định 98/2020/NĐ-CP** (đã được sửa đổi, bổ sung bởi Nghị định 17/2022/NĐ-CP) tại khoản 6 Điều 3 liệt kê các trường hợp bị coi là **hàng nhập lậu**, trong đó có hàng hoá nhập khẩu lưu thông trên thị trường **không có hoá đơn, chứng từ kèm theo** theo quy định; hành vi kinh doanh hàng nhập lậu bị xử phạt theo Điều 15. *(Cần đối chiếu bản hợp nhất hiện hành.)*
+- Hệ quả thực tế: một kiện hàng trên đường HN → SG hoặc máy đang bày bán có thể bị kiểm tra; nếu không xuất trình được chứng từ, rủi ro **bị phạt và tịch thu** là có thật.
+
+**Hệ thống đáp ứng bằng "Hồ sơ nguồn gốc" cho từng máy:**
+1. Đính kèm theo đơn mua: hoá đơn/biên nhận mua tại Mỹ.
+2. Đính kèm theo kiện: vận đơn/AWB, chứng từ thông quan hoặc chứng từ nhập khẩu do bên vận chuyển/nhập khẩu uỷ thác cung cấp, phiếu giao nhận HN → SG.
+3. Tra IMEI/Serial → mở **toàn bộ chứng từ của máy trong một chạm** (trên điện thoại).
+4. Tuỳ chọn bắt buộc: không cho **chốt chi phí** chuyến khi đơn mua chưa có hoá đơn đính kèm; cảnh báo máy đang tồn kho mà thiếu chứng từ.
+
+> **Khuyến nghị ngoài phần mềm:** làm rõ với đơn vị vận chuyển Mỹ → VN rằng hàng được khai báo hải quan theo hình thức nào và họ cung cấp được chứng từ gì đứng tên ai. Đây là điểm quyết định tính hợp pháp của nguồn hàng — phần mềm chỉ giúp **lưu giữ và xuất trình** chứng cứ, không thay thế được chứng từ hợp lệ.
+
+### 3.3. Dữ liệu cá nhân của khách hàng
+
+- **Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15**, hiệu lực từ 01/01/2026. Lưu tên, số điện thoại, địa chỉ khách là hoạt động xử lý dữ liệu cá nhân.
+- Hệ thống: chỉ thu thông tin cần cho giao hàng và bảo hành; không xuất danh sách khách hàng hàng loạt ra ngoài; bảo mật (2FA, mã hoá khi lưu trữ của dịch vụ CSDL); có chức năng **ẩn danh hoá** khách theo yêu cầu — giữ giao dịch phục vụ nghĩa vụ thuế, xoá thông tin định danh.
+
+### 3.4. Bảo hành và quyền lợi người tiêu dùng
+
+- **Luật Bảo vệ quyền lợi người tiêu dùng 2023** (số 19/2023/QH15): người bán phải thực hiện đúng cam kết đã công bố, trong đó có bảo hành.
+- Hệ thống: lưu **thời hạn bảo hành của shop theo từng máy** (`warranty_until`), lịch sử nhận/trả bảo hành, in/gửi phiếu bán – bảo hành cho khách.
+
+---
+
+## 4. Định nghĩa "xong" cho bản MVP
+
+- [ ] Tạo chuyến, đơn mua, thêm máy hàng loạt (dán danh sách serial/IMEI).
+- [ ] Tạo kiện cho 3 chặng, gán máy, "Gửi đi"/"Đã nhận" sinh mốc tự động cho mọi máy.
+- [ ] Ghi chi phí theo chặng với 4 phương pháp phân bổ; tổng phân bổ khớp tuyệt đối.
+- [ ] Hồ sơ máy hiển thị giá vốn chi tiết và dòng thời gian M1–M8.
+- [ ] Bán nhanh: tra máy, xem trước lãi, xác nhận; hỗ trợ cọc.
+- [ ] Tổng quan: vốn theo chặng, doanh thu/lãi tháng, tồn kho, cảnh báo kiện quá hạn và máy tồn lâu.
+- [ ] Lãi hiển thị đúng nhãn "Tạm tính"/"Chốt".
+- [ ] Kiểm thử costing engine đạt ≥ 95% độ phủ; kiểm thử đối chiếu 1 chuyến thật = 0 đồng chênh lệch.
+- [ ] Đăng nhập 2FA; sao lưu hằng ngày hoạt động.
+
+---
+
+## 5. Những điều cần bạn xác nhận
+
+Mỗi câu hỏi đã có **giả định mặc định** — nếu không có ý kiến khác, sẽ triển khai theo giả định.
+
+| # | Câu hỏi | Giả định mặc định |
+|---|---|---|
+| 1 | Hiện đang quản lý bằng gì (Excel / Google Sheets / sổ tay)? Có cần chuyển dữ liệu cũ không? | Có; chuyển 2–3 chuyến gần nhất để đối chiếu |
+| 2 | Thanh toán tại Mỹ bằng gì: thẻ Việt Nam, thẻ Mỹ, nhờ người mua hộ, gift card? | Thẻ Việt Nam; nhập tỷ giá thực tế theo sao kê |
+| 3 | Forwarder Mỹ → VN tính phí theo kg, theo máy, hay % giá trị? | Theo kg + phụ thu % giá trị |
+| 4 | Có mua máy cũ / open box từ cá nhân, eBay không? | Có; quản lý tình trạng máy (`condition`) + ghi chú pin/ngoại hình |
+| 5 | Bán qua kênh nào? Có sàn TMĐT (Shopee, TikTok Shop) không? | Mạng xã hội + khách quen; sàn để GĐ3 |
+| 6 | Có bán trả góp / cho khách nợ không? | Có ghi nhận công nợ đơn giản |
+| 7 | Đã đăng ký hộ kinh doanh chưa? Doanh thu năm dự kiến? | Ưu tiên module thuế & hoá đơn ở GĐ2 |
+| 8 | Ưu tiên vận hành "không phải trông" hay "chi phí thấp nhất"? | Dịch vụ quản lý (Vercel + Neon/Supabase + R2) |
+| 9 | Tính giá vốn **đích danh từng máy** hay **bình quân**? | **Đích danh** — mỗi máy có serial, chính xác nhất cho hàng giá trị cao |
+
+---
+
+## 6. Bước tiếp theo
+
+1. Đọc [tài liệu 01 — Nghiệp vụ](01-nghiep-vu.md), xác nhận hoặc điều chỉnh công thức và trả lời các câu hỏi ở mục 5.
+2. Gửi file Excel của **một chuyến thật** (có thể che thông tin khách hàng) — dùng làm bộ dữ liệu đối chiếu chuẩn cho costing engine.
+3. Bắt đầu **GĐ0**: khởi tạo mã nguồn ứng dụng trong repo này.
