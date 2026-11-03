@@ -33,6 +33,7 @@
 | `reporting` | Truy vấn view, báo cáo theo kỳ/chuyến/dòng máy/kênh, xuất Excel |
 | `fx` | Tỷ giá tham khảo hằng ngày, gợi ý tỷ giá khi nhập liệu |
 | `attachments` | Tải lên chứng từ (presigned URL), xem, xoá mềm |
+| `scanning` | Nhận kết quả quét từ trình duyệt, **kiểm tra lại** (Luhn, trùng, ngữ cảnh), Hộp chờ duyệt, khớp `variant_codes`, xác nhận thành máy; gọi AI đọc ảnh nếu được bật — xem [tài liệu 07](07-quet-ma-va-nhap-lieu.md) |
 | `alerts` | Quy tắc cảnh báo + gửi Telegram |
 | `audit` | Ghi và tra cứu nhật ký thay đổi |
 | `data-io` | Nhập từ Excel/CSV (chuyển dữ liệu cũ), xuất toàn bộ dữ liệu |
@@ -184,6 +185,9 @@ Tất cả yêu cầu cần phiên đăng nhập hợp lệ. Phản hồi JSON; 
 | | `GET /reports/:name/export?format=xlsx` | Xuất Excel |
 | **Tỷ giá** | `GET/POST /exchange-rates` · `POST /exchange-rates/sync` | Tra cứu / nhập tay / đồng bộ |
 | **Chứng từ** | `POST /attachments/presign` · `POST /attachments` · `DELETE /attachments/:id` | Tải lên và quản lý |
+| **Quét mã** | `POST /scans` · `GET /scans?status=` · `PATCH /scans/:id` · `POST /scans/:id/confirm` · `POST /scans/:id/discard` · `POST /scans/:id/ai-read` | Quét / Hộp chờ duyệt / xác nhận — chi tiết tại [tài liệu 07, mục 7](07-quet-ma-va-nhap-lieu.md) |
+| | `GET /variants/resolve?code=` · `POST /variant-codes` | Part No./UPC → cấu hình; ghi nhớ mã mới |
+| | `POST /purchase-orders/:id/items/bulk` | Lưu cả lưới nhập máy trong một transaction |
 | **Hệ thống** | `GET /audit-logs?entityType=&entityId=` · `POST /export/all` | Nhật ký; xuất toàn bộ dữ liệu (ZIP) |
 
 ---
@@ -224,7 +228,8 @@ Tất cả yêu cầu cần phiên đăng nhập hợp lệ. Phản hồi JSON; 
 
 | Mức | Phạm vi | Công cụ | Mục tiêu |
 |---|---|---|---|
-| Unit | `domain/*`: phân bổ, giá vốn, lãi, trạng thái, tiền tệ | Vitest + fast-check | **≥ 95% độ phủ**; kiểm thử thuộc tính cho phân bổ |
+| Unit | `domain/*`: phân bổ, giá vốn, lãi, trạng thái, tiền tệ, **phân loại mã (IMEI/Serial/Part No.)** | Vitest + fast-check | **≥ 95% độ phủ**; kiểm thử thuộc tính cho phân bổ |
+| Bộ ảnh mẫu | ≥ 50 ảnh thật: nhãn hộp, màn hình *Giới thiệu*, ảnh khó, hoá đơn | Vitest + zxing-wasm trên Node | Tỉ lệ tự đọc không được tụt sau mỗi lần sửa (tài liệu 07, mục 9) |
 | Tích hợp | Services với PostgreSQL thật (container trong CI) | Vitest | Transaction, ràng buộc, tính lại giá vốn |
 | Đối chiếu | Bộ dữ liệu chuẩn (ví dụ tài liệu 01 + 2–3 chuyến thật đã tính tay bằng Excel) | Vitest | **Sai lệch = 0 đồng** |
 | E2E | Tạo chuyến → đơn mua → kiện 3 chặng → bán → xem lãi | Playwright | Các luồng chính không gãy khi cập nhật |

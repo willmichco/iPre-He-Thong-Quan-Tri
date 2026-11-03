@@ -21,6 +21,7 @@ flowchart LR
     ROOT --> VC[Vận chuyển<br/>Bảng tiến độ · Gantt · Quá hạn]
     ROOT --> KHO[Kho máy]
     KHO --> HS[Hồ sơ máy<br/>Giá vốn · Dòng thời gian · Bán · Bảo hành]
+    ROOT --> QM[Quét mã<br/>Camera · Ảnh · Ảnh màn hình<br/>Hộp chờ duyệt]
     ROOT --> BH[Bán hàng<br/>Bán nhanh · Đơn bán · Cọc · Công nợ]
     ROOT --> TC[Thu chi<br/>Sổ quỹ · Tài khoản · Chuyển tiền]
     ROOT --> BC[Báo cáo<br/>Lãi lỗ · Dòng máy · Kênh · Vận chuyển · Thuế]
@@ -35,6 +36,7 @@ flowchart LR
 - **Thanh bên trái** (thu gọn được): các mục như sơ đồ trên, có huy hiệu số (vd: Vận chuyển ⚠ 2 kiện quá hạn).
 - **Thanh trên:** ô tìm kiếm toàn cục · tỷ giá USD tham khảo hôm nay · nút nhanh **[+ Chuyến hàng] [+ Bán máy]** · chuông thông báo · chuyển sáng/tối.
 - **Điện thoại:** thanh điều hướng dưới cùng 5 mục: Tổng quan · Kho · **[Quét]** (nút giữa, to) · Bán · Thêm.
+- **Nút "+" ở mọi màn hình** mở form nhập tay tương ứng (phím tắt `N`); mọi ô IMEI/Serial/Part No. có nút 📷 để quét riêng ô đó.
 
 ---
 
@@ -186,7 +188,14 @@ Dạng **Kanban** theo cột trạng thái, mỗi thẻ là một kiện:
 
 ### 4.6. Nhận hàng tại SG (điện thoại)
 
-Mở kiện HN→SG → **quét lần lượt từng hộp**: máy khớp danh sách → ✓ xanh; máy không có trong kiện → ⚠ cảnh báo; quét xong → "Thiếu 1 máy: AirPods Pro SN…" → [Xác nhận đã nhận] (máy thiếu giữ trạng thái đang vận chuyển, mở sự cố).
+Mở kiện HN→SG → **quét lần lượt từng hộp**: máy khớp danh sách → ✓ xanh; máy không có trong kiện → ⚠ cảnh báo; quét xong → "Thiếu 1 máy: AirPods Pro SN…" → [Xác nhận đã nhận] (máy thiếu giữ trạng thái đang vận chuyển, mở sự cố). Phác thảo màn hình và các luồng quét khác: [tài liệu 07, mục 5](07-quet-ma-va-nhap-lieu.md).
+
+### 4.6b. Quét mã bằng hình ảnh & nhập liệu tay
+
+Thiết kế đầy đủ ở **[tài liệu 07](07-quet-ma-va-nhap-lieu.md)**:
+- Sáu cửa vào: camera trực tiếp, chụp/chọn nhiều ảnh, ảnh chụp màn hình, máy quét USB/Bluetooth, dán văn bản, gõ tay.
+- **Hộp chờ duyệt** cho ảnh chụp loạt; mỗi trường có nhãn nguồn (mã vạch / OCR / AI / tay).
+- Form nhập tay cho mọi đối tượng + **lưới nhập máy kiểu bảng tính** (dán từ Excel, điền xuống, kiểm IMEI ngay khi gõ).
 
 ### 4.7. Thu chi
 
@@ -223,7 +232,10 @@ Mọi báo cáo: chọn kỳ, so sánh kỳ trước, xuất Excel.
 | `CostWaterfall` | Biểu đồ thác nước cấu trúc giá vốn |
 | `CapitalByStageBar` | Thanh "Vốn đang nằm ở đâu" |
 | `DataTable` | Bảng lọc/sắp xếp/chọn nhiều/xuất; lưu góc nhìn |
-| `BarcodeScanner` | Camera quét Code128/QR (Serial, IMEI trên hộp Apple) |
+| `Scanner` | Camera trực tiếp + ảnh + máy quét USB; đọc Code 128/UPC/EAN/QR, OCR khi cần; trả về mã đã phân loại (IMEI/Serial/Part No.) |
+| `ScanReviewTable` | Hộp chờ duyệt: ảnh thu nhỏ, giá trị đọc được, nhãn nguồn, cảnh báo, sửa trực tiếp |
+| `EntryGrid` | Lưới nhập liệu kiểu bảng tính: dán nhiều dòng, `Tab`/`Enter`, `Ctrl+D`, kiểm tra từng ô |
+| `FieldSourceBadge` | Nhãn nguồn của trường: mã vạch / OCR / AI / tay |
 | `CommandPalette` | Tìm kiếm toàn cục `⌘K` + lệnh nhanh |
 | `AttachmentDropzone` | Kéo thả / chụp ảnh chứng từ |
 

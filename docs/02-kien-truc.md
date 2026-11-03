@@ -48,7 +48,9 @@
 | Tác vụ định kỳ | **Cron** của nền tảng → gọi route `/api/cron/*` có khoá bí mật | Tỷ giá, cảnh báo trễ, tồn lâu, hạn đổi trả, sao lưu. |
 | Thông báo | **Telegram Bot API** | Miễn phí, tức thì, xem trên điện thoại. |
 | Xuất file | **ExcelJS** (xlsx); PDF ở giai đoạn sau | Báo cáo gửi kế toán, lưu trữ. |
-| Quét mã vạch | **@zxing/browser** (dự phòng) + **BarcodeDetector API** (nếu trình duyệt hỗ trợ) | Safari trên iPhone chưa hỗ trợ BarcodeDetector → cần ZXing. |
+| Quét mã vạch từ camera & ảnh | **zxing-wasm** (WebAssembly, chạy trong Web Worker) + **BarcodeDetector API** khi trình duyệt có | Đọc nhiều mã trên một ảnh; chạy được trên Safari iPhone (vốn chưa có BarcodeDetector). Chi tiết: [tài liệu 07](07-quet-ma-va-nhap-lieu.md). |
+| Nhận dạng chữ (OCR) | **Tesseract.js** | Đọc IMEI/Serial từ ảnh chụp màn hình *Cài đặt › Giới thiệu*; chạy trên thiết bị, miễn phí. |
+| AI đọc ảnh *(tuỳ chọn, tắt mặc định)* | **Claude API** qua SDK `@anthropic-ai/sdk`, gọi từ máy chủ | Chỉ cho ảnh khó và hoá đơn → đơn mua; kết quả vẫn qua kiểm tra và bước duyệt. |
 | Kiểm thử | **Vitest** + **fast-check** (kiểm thử thuộc tính cho phân bổ) + **Playwright** (E2E) | Bộ máy tính giá vốn phải được kiểm thử kỹ nhất. |
 | Chất lượng mã | ESLint + Prettier + TypeScript strict | |
 | CI/CD | **GitHub Actions** → triển khai tự động khi merge `main` | |
@@ -62,7 +64,7 @@
 flowchart TB
     subgraph Client["Thiết bị của chủ hàng"]
         PC["Máy tính<br/>(trình duyệt)"]
-        Phone["Điện thoại<br/>(PWA + camera quét IMEI)"]
+        Phone["Điện thoại<br/>(PWA + camera quét IMEI/Serial,<br/>giải mã vạch & OCR ngay trên máy)"]
         TG["Telegram<br/>(nhận cảnh báo)"]
     end
 
@@ -87,6 +89,7 @@ flowchart TB
     subgraph Ext["Dịch vụ ngoài (giai đoạn sau)"]
         FX["Nguồn tỷ giá"]
         TRK["API tracking<br/>USPS/UPS/FedEx/forwarder"]
+        AI["AI đọc ảnh<br/>(tuỳ chọn, tắt mặc định)"]
     end
 
     PC --> UI
@@ -97,6 +100,7 @@ flowchart TB
     SVC --> DOM
     SVC --> REPO --> PG
     SVC --> R2
+    SVC -.-> AI
     CRON --> FX
     CRON --> TRK
     CRON --> TG
@@ -155,13 +159,14 @@ iPre-He-Thong-Quan-Tri/
 │   │   │   ├── allocation.ts         # Phân bổ phần dư lớn nhất
 │   │   │   ├── costing.ts            # Tính giá vốn từng máy
 │   │   │   ├── item-status.ts        # Máy trạng thái: sự kiện → trạng thái
+│   │   │   ├── identifiers.ts        # Phân loại & kiểm tra IMEI/Serial/Part No. (dùng chung với trình duyệt)
 │   │   │   └── profit.ts             # Lãi máy, lãi chuyến, ROI
 │   │   ├── services/                 # Use case, transaction, audit
 │   │   ├── db/
 │   │   │   ├── schema/               # Drizzle schema (từ db/schema-draft.sql)
 │   │   │   ├── views.sql
 │   │   │   └── migrations/
-│   │   ├── integrations/             # fx, tracking, telegram, storage
+│   │   ├── integrations/             # fx, tracking, telegram, storage, ai-label-reader (tuỳ chọn)
 │   │   └── auth/
 │   ├── components/
 │   │   ├── ui/                       # shadcn/ui
@@ -169,7 +174,8 @@ iPre-He-Thong-Quan-Tri/
 │   │   ├── charts/
 │   │   ├── timeline/                 # Dòng thời gian máy/chuyến, Gantt chặng
 │   │   ├── money-input/              # Nhập "34,5tr" → 34.500.000
-│   │   └── barcode-scanner/
+│   │   ├── entry-grid/               # Lưới nhập liệu kiểu bảng tính (dán từ Excel)
+│   │   └── scanner/                  # Camera, ảnh, máy quét USB · zxing-wasm · Tesseract.js (Web Worker)
 │   └── lib/
 │       ├── format.ts                 # Định dạng VND/USD/ngày giờ vi-VN
 │       └── validators/               # Lược đồ Zod dùng chung

@@ -5,9 +5,9 @@
 | Giai đoạn | Thời lượng | Phạm vi | Tiêu chí nghiệm thu |
 |---|---|---|---|
 | **GĐ0 — Chốt nghiệp vụ & nền móng** | 1 tuần | Chốt tài liệu 01 và các câu hỏi ở mục 5 · Khởi tạo Next.js, CI, PostgreSQL, migration từ `db/schema-draft.sql` · Đăng nhập + 2FA · Bố cục, thanh bên, chế độ tối | Đăng nhập 2FA được; CI xanh; CSDL tạo hoàn toàn từ migration; trang trống chạy trên môi trường thật |
-| **GĐ1 — MVP lõi** | 3 tuần | Danh mục · Chuyến / Đơn mua / Máy (thêm hàng loạt) · Kiện 3 chặng + Gửi đi/Đã nhận + mốc tự động · Chi phí + **costing engine** (kèm kiểm thử thuộc tính) · Bán nhanh, cọc · Hồ sơ máy · Tổng quan cơ bản (KPI, vốn theo chặng, cảnh báo trong ứng dụng) | **Nhập lại một chuyến thật đã có trên Excel từ đầu đến cuối: giá vốn và lãi từng máy khớp 0 đồng** (hoặc giải thích được từng chênh lệch) |
-| **GĐ2 — Vận hành đầy đủ** | 2–3 tuần | Sổ thu chi, tài khoản, chuyển tiền, công nợ · Báo cáo + xuất Excel · Chứng từ (R2) · PWA + quét mã, nhận hàng bằng quét · Chốt / mở lại chuyến · Giao diện nhật ký kiểm toán · Nhập dữ liệu cũ từ Excel · Sao lưu tự động · Báo cáo doanh thu thuế + cảnh báo ngưỡng | **Vận hành thật 2 chuyến liên tiếp mà không cần Excel song song** |
-| **GĐ3 — Tự động hoá & thông minh** | Liên tục | Cảnh báo Telegram · Tỷ giá tự động · Đồng bộ tracking qua API · Giá thị trường tham khảo & gợi ý giá bán · Dự báo dòng tiền · Xuất PDF · Tích hợp hoá đơn điện tử (nếu cần) | Theo từng tính năng |
+| **GĐ1 — MVP lõi** | 3–4 tuần | Danh mục · Chuyến / Đơn mua / Máy · **Toàn bộ form nhập tay + lưới nhập máy kiểu bảng tính** · **Quét mã vạch bằng camera và từ ảnh** (IMEI/Serial/Part No.), máy quét USB, dán văn bản, `variant_codes` · Kiện 3 chặng + Gửi đi/Đã nhận + mốc tự động · Chi phí + **costing engine** (kèm kiểm thử thuộc tính) · Bán nhanh, cọc · Hồ sơ máy · Tổng quan cơ bản (KPI, vốn theo chặng, cảnh báo trong ứng dụng) | **Nhập lại một chuyến thật đã có trên Excel từ đầu đến cuối: giá vốn và lãi từng máy khớp 0 đồng** (hoặc giải thích được từng chênh lệch) |
+| **GĐ2 — Vận hành đầy đủ** | 2–3 tuần | Sổ thu chi, tài khoản, chuyển tiền, công nợ · Báo cáo + xuất Excel · Chứng từ (R2) · PWA · **OCR ảnh chụp màn hình, Hộp chờ duyệt, nhận kiện bằng quét đối chiếu, bộ ảnh mẫu trong CI** · Chốt / mở lại chuyến · Giao diện nhật ký kiểm toán · Nhập dữ liệu cũ từ Excel · Sao lưu tự động · Báo cáo doanh thu thuế + cảnh báo ngưỡng | **Vận hành thật 2 chuyến liên tiếp mà không cần Excel song song** |
+| **GĐ3 — Tự động hoá & thông minh** | Liên tục | **AI đọc ảnh khó + hoá đơn → đơn mua** (tuỳ chọn) · Cảnh báo Telegram · Tỷ giá tự động · Đồng bộ tracking qua API · Giá thị trường tham khảo & gợi ý giá bán · Dự báo dòng tiền · Xuất PDF · Tích hợp hoá đơn điện tử (nếu cần) | Theo từng tính năng |
 
 ```mermaid
 gantt
@@ -19,19 +19,22 @@ gantt
     Nền móng (repo, CI, DB, auth)  :g0b, 2026-11-09, 7d
     section GĐ1 — MVP
     Danh mục, chuyến, đơn mua, máy :g1a, after g0b, 5d
+    Form nhập tay + lưới nhập máy  :g1f, after g1a, 4d
+    Quét mã vạch (camera, ảnh)     :g1g, after g1f, 4d
     Vận chuyển 3 chặng + mốc       :g1b, after g1a, 4d
     Costing engine + kiểm thử      :crit, g1c, after g1a, 6d
     Bán hàng + hồ sơ máy           :g1d, after g1b, 4d
-    Tổng quan cơ bản               :g1e, after g1d, 3d
+    Tổng quan cơ bản               :g1e, after g1g, 3d
     Đối chiếu chuyến thật          :milestone, m1, after g1e, 0d
     section GĐ2
     Thu chi + công nợ              :g2a, after g1e, 5d
     Báo cáo + xuất Excel           :g2b, after g2a, 4d
-    PWA, quét mã, chứng từ         :g2c, after g1e, 6d
+    PWA, OCR, hộp chờ duyệt, chứng từ :g2c, after g1e, 6d
     Nhập dữ liệu cũ, sao lưu, thuế :g2d, after g2b, 4d
     Vận hành thật 2 chuyến         :milestone, m2, after g2d, 0d
     section GĐ3
     Telegram, tỷ giá, tracking     :g3a, after g2d, 10d
+    AI đọc ảnh + hoá đơn (tuỳ chọn) :g3b, after g2d, 7d
 ```
 
 **Ưu tiên khi phải cắt giảm:** costing engine và mốc vận chuyển là **không thể cắt**. Có thể dời: biểu đồ nâng cao, Kanban kéo thả (dùng nút bấm thay thế), PWA ngoại tuyến, tracking API.
@@ -43,7 +46,8 @@ gantt
 | # | Rủi ro | Mức | Biện pháp |
 |---|---|---|---|
 | 1 | Nhập sai/thiếu tỷ giá, cân nặng → giá vốn sai mà không biết | Cao | Bắt buộc tỷ giá thực tế; cân nặng mặc định theo mẫu máy; nhãn "dự toán"; **đối soát tự động** Σ giá vốn = Σ đơn mua + Σ chi phí |
-| 2 | Nhập liệu mất công → bỏ dùng, quay về Excel | Cao | Thao tác theo kiện; dán danh sách serial; quét mã vạch; gợi ý từ lần nhập trước; bán nhanh trên điện thoại |
+| 2 | Nhập liệu mất công → bỏ dùng, quay về Excel | Cao | Thao tác theo kiện; lưới nhập kiểu bảng tính, dán từ Excel; quét mã vạch bằng camera/ảnh; gợi ý từ lần nhập trước; bán nhanh trên điện thoại |
+| 2b | Quét/OCR đọc sai IMEI, Serial → sai định danh máy | Trung bình | Ưu tiên mã vạch (có số kiểm tra); IMEI kiểm Luhn ở cả trình duyệt, máy chủ và CSDL; trường OCR/AI luôn phải xác nhận; bộ ảnh mẫu kiểm thử tự động |
 | 3 | Cách tính mới khác cách tính quen thuộc → mất niềm tin vào số liệu | Trung bình | Nghiệm thu GĐ1 bằng chuyến thật; mọi con số đều "bấm vào xem nguồn" |
 | 4 | Mất dữ liệu | Thấp | PITR + `pg_dump` hằng ngày sang nơi khác + xuất toàn bộ; diễn tập khôi phục mỗi quý |
 | 5 | Lộ dữ liệu tài chính / khách hàng | Thấp–Trung bình | 2FA, cookie an toàn, bucket riêng tư, cảnh báo đăng nhập lạ, không lưu bí mật trong repo |
@@ -96,7 +100,9 @@ gantt
 
 ## 4. Định nghĩa "xong" cho bản MVP
 
-- [ ] Tạo chuyến, đơn mua, thêm máy hàng loạt (dán danh sách serial/IMEI).
+- [ ] Tạo chuyến, đơn mua, thêm máy hàng loạt bằng lưới nhập tay (dán danh sách serial/IMEI từ Excel).
+- [ ] Quét IMEI/Serial/Part No. bằng camera và từ ảnh hộp máy; Part No. tự điền cấu hình; IMEI sai số kiểm tra bị chặn.
+- [ ] Có form nhập tay cho mọi đối tượng (chuyến, đơn mua, máy, kiện, chi phí, đơn bán, thu chi, khách).
 - [ ] Tạo kiện cho 3 chặng, gán máy, "Gửi đi"/"Đã nhận" sinh mốc tự động cho mọi máy.
 - [ ] Ghi chi phí theo chặng với 4 phương pháp phân bổ; tổng phân bổ khớp tuyệt đối.
 - [ ] Hồ sơ máy hiển thị giá vốn chi tiết và dòng thời gian M1–M8.
@@ -123,6 +129,9 @@ Mỗi câu hỏi đã có **giả định mặc định** — nếu không có �
 | 7 | Đã đăng ký hộ kinh doanh chưa? Doanh thu năm dự kiến? | Ưu tiên module thuế & hoá đơn ở GĐ2 |
 | 8 | Ưu tiên vận hành "không phải trông" hay "chi phí thấp nhất"? | Dịch vụ quản lý (Vercel + Neon/Supabase + R2) |
 | 9 | Tính giá vốn **đích danh từng máy** hay **bình quân**? | **Đích danh** — mỗi máy có serial, chính xác nhất cho hàng giá trị cao |
+| 10 | Bạn quét chủ yếu bằng điện thoại, hay sẽ mua thêm máy quét mã vạch cầm tay? | Điện thoại; hệ thống vẫn hỗ trợ máy quét USB/Bluetooth nếu có |
+| 11 | Có muốn bật **AI đọc ảnh** (tốn phí theo lượt, ảnh gửi ra dịch vụ ngoài) không? | **Tắt**; chỉ cân nhắc ở GĐ3 sau khi đo hiệu quả mã vạch + OCR |
+| 12 | Gửi giúp 10–20 ảnh nhãn hộp thật (iPhone, iPad, Mac, AirPods) và vài ảnh chụp màn hình *Cài đặt › Giới thiệu* | Dùng làm bộ ảnh mẫu để tinh chỉnh bộ nhận dạng |
 
 ---
 

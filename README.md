@@ -16,6 +16,7 @@ với mốc thời gian rõ ràng cho từng chặng và giá vốn chính xác 
 | 04 | [Backend](docs/04-backend.md) | Module, **costing engine**, máy trạng thái, bất biến nghiệp vụ, REST API, tác vụ định kỳ, kiểm thử |
 | 05 | [Frontend](docs/05-frontend.md) | Sơ đồ trang, wireframe từng màn hình, component, quy ước hiển thị |
 | 06 | [Lộ trình, Rủi ro & Pháp lý](docs/06-lo-trinh-rui-ro-phap-ly.md) | Các giai đoạn & tiêu chí nghiệm thu, rủi ro, thuế hộ kinh doanh 2026, nguồn gốc hàng hoá, câu hỏi cần xác nhận |
+| 07 | [Quét mã & Nhập liệu tay](docs/07-quet-ma-va-nhap-lieu.md) | **Quét IMEI/Serial/mã máy bằng camera và hình ảnh** (mã vạch, OCR, AI tuỳ chọn), Hộp chờ duyệt, form nhập tay, lưới nhập kiểu bảng tính |
 
 ## Lược đồ cơ sở dữ liệu
 
