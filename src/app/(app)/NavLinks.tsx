@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { NavIcon } from "./_components/NavIcon";
 import { NAV } from "./nav";
 
 export function NavLinks({ compact = false }: { compact?: boolean }) {
@@ -12,22 +13,13 @@ export function NavLinks({ compact = false }: { compact?: boolean }) {
       {items.map((n) => {
         const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
         return compact ? (
-          <Link
-            key={n.href}
-            href={n.href}
-            aria-current={active ? "page" : undefined}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] ${active ? "text-primary font-semibold" : "text-muted"}`}
-          >
-            <span aria-hidden className="text-base leading-none">
-              {n.icon}
-            </span>
+          <Link key={n.href} href={n.href} aria-current={active ? "page" : undefined} className="tab-link">
+            <NavIcon name={n.icon} className="h-[22px] w-[22px]" />
             {n.label}
           </Link>
         ) : (
           <Link key={n.href} href={n.href} aria-current={active ? "page" : undefined} className="nav-link">
-            <span aria-hidden className="w-5 text-center">
-              {n.icon}
-            </span>
+            <NavIcon name={n.icon} />
             {n.label}
           </Link>
         );

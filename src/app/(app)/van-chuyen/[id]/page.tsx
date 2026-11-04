@@ -57,7 +57,7 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
         <span className="text-sm">{LEG_LABEL[s.legType as LegType]}</span>
         <span
           data-testid="shipment-status"
-          className={`text-xs rounded-full px-2 py-0.5 ${s.status === "HOLD" ? "bg-[var(--danger)] text-white" : s.status === "ARRIVED" ? "bg-primary text-[var(--primary-text)]" : "border border-border"}`}
+          className={`text-xs rounded-full px-2 py-0.5 ${s.status === "HOLD" ? "bg-[var(--danger)] text-[var(--surface-solid)]" : s.status === "ARRIVED" ? "bg-primary text-[var(--primary-text)]" : "bg-[var(--fill)]"}`}
         >
           {SHIPMENT_STATUS_LABEL[s.status] ?? s.status}
         </span>

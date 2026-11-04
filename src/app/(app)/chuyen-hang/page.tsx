@@ -41,7 +41,7 @@ export default async function BatchesPage() {
           <ul className="flex flex-col gap-3">
             {batches.map((b) => (
               <li key={b.id}>
-                <Link href={`/chuyen-hang/${b.id}`} className="card block p-4 hover:border-primary" aria-label={`Chuyến ${b.code}`}>
+                <Link href={`/chuyen-hang/${b.id}`} className="card block p-4 transition-transform hover:-translate-y-0.5" aria-label={`Chuyến ${b.code}`}>
                   <div className="flex flex-wrap items-baseline gap-2">
                     <b>{b.code}</b>
                     {b.name && <span className="text-muted">{b.name}</span>}

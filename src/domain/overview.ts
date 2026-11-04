@@ -200,7 +200,7 @@ export function alertSettingsFrom(rows: readonly { key: string; value: string }[
 
 export type AlertLevel = "critical" | "warning" | "info";
 export const ALERT_LEVEL_LABEL: Record<AlertLevel, string> = { critical: "Gấp", warning: "Chú ý", info: "Nhắc" };
-export const ALERT_LEVEL_ICON: Record<AlertLevel, string> = { critical: "⛔", warning: "⚠", info: "ℹ" };
+export const ALERT_LEVEL_ICON: Record<AlertLevel, string> = { critical: "!", warning: "!", info: "i" };
 
 export interface Alert {
   kind: "SHIPMENT_LATE" | "SHIPMENT_HOLD" | "AGED_STOCK" | "RETURN_DEADLINE" | "RECEIVABLE" | "TAX_THRESHOLD" | "DEPOSIT_READY";

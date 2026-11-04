@@ -24,15 +24,15 @@ function Delta({ bp, suffix = "" }: { bp: number | null; suffix?: string }) {
 function Kpi({ label, value, sub, testid, href }: { label: string; value: string; sub: React.ReactNode; testid: string; href?: string }) {
   const body = (
     <>
-      <div className="text-xs font-medium uppercase tracking-wide text-muted">{label}</div>
-      <div className="mt-1 text-2xl font-bold tabular-nums" data-testid={`${testid}-value`}>
+      <div className="text-[13px] font-medium text-muted">{label}</div>
+      <div className="mt-1 text-[28px] font-semibold leading-tight tracking-tight tabular-nums" data-testid={`${testid}-value`}>
         {value}
       </div>
       <div className="mt-0.5 text-xs text-muted">{sub}</div>
     </>
   );
   return href ? (
-    <Link href={href} className="card block p-4 hover:border-primary" data-testid={testid}>
+    <Link href={href} className="card block p-4 transition-transform hover:-translate-y-0.5" data-testid={testid}>
       {body}
     </Link>
   ) : (
@@ -42,7 +42,11 @@ function Kpi({ label, value, sub, testid, href }: { label: string; value: string
   );
 }
 
-const levelClass = { critical: "border-[var(--danger)]", warning: "border-[var(--warn)]", info: "border-border" } as const;
+const levelClass = {
+  critical: "bg-danger font-bold text-[var(--surface-solid)]",
+  warning: "bg-[var(--warn)] font-bold text-[var(--surface-solid)]",
+  info: "bg-[var(--fill-strong)] text-text",
+} as const;
 
 export default async function OverviewPage({ searchParams }: PageProps<"/">) {
   const db = await catalogDb();
@@ -77,21 +81,18 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
         </div>
       </div>
 
-      <nav aria-label="Kỳ báo cáo" className="mt-3 flex gap-1 overflow-x-auto border-b border-border">
-        {PERIODS.map((k) => (
-          <Link
-            key={k}
-            href={k === "thang-nay" ? "/" : `/?ky=${k}`}
-            aria-current={k === key ? "page" : undefined}
-            className={`whitespace-nowrap px-3 py-2 text-sm border-b-2 -mb-px ${k === key ? "border-primary text-primary font-semibold" : "border-transparent text-muted"}`}
-          >
-            {PERIOD_LABEL[k]}
-          </Link>
-        ))}
-        <span className="ml-auto hidden self-center whitespace-nowrap px-2 text-xs text-muted sm:inline">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <nav aria-label="Kỳ báo cáo" className="segmented">
+          {PERIODS.map((k) => (
+            <Link key={k} href={k === "thang-nay" ? "/" : `/?ky=${k}`} aria-current={k === key ? "page" : undefined}>
+              {PERIOD_LABEL[k]}
+            </Link>
+          ))}
+        </nav>
+        <span className="hidden whitespace-nowrap text-xs text-muted sm:inline">
           {o.period.label} · so với {o.period.prevLabel}
         </span>
-      </nav>
+      </div>
 
       {/* Thẻ KPI */}
       <section aria-label="Chỉ số chính" className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -206,13 +207,20 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
             <ul className="mt-2 flex flex-col gap-2" data-testid="alerts">
               {o.alerts.map((a, k) => (
                 <li key={`${a.kind}-${k}`} data-kind={a.kind}>
-                  <Link href={a.href} className={`block rounded-lg border-l-4 bg-[var(--bg)] px-3 py-2 hover:underline ${levelClass[a.level]}`}>
-                    <span className="text-sm">
-                      <span aria-hidden>{ALERT_LEVEL_ICON[a.level]} </span>
-                      <span className="sr-only">{ALERT_LEVEL_LABEL[a.level]}: </span>
-                      {a.title}
+                  <Link
+                    href={a.href}
+                    className="flex items-start gap-3 rounded-2xl bg-[var(--fill)] px-3 py-2.5 transition-colors hover:bg-[var(--fill-strong)]"
+                  >
+                    <span aria-hidden className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs ${levelClass[a.level]}`}>
+                      {ALERT_LEVEL_ICON[a.level]}
                     </span>
-                    {a.detail && <span className="block text-xs text-muted">{a.detail}</span>}
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium">
+                        <span className="sr-only">{ALERT_LEVEL_LABEL[a.level]}: </span>
+                        {a.title}
+                      </span>
+                      {a.detail && <span className="block text-xs text-muted">{a.detail}</span>}
+                    </span>
                   </Link>
                 </li>
               ))}
@@ -225,7 +233,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
                 {shortVnd(o.yearRevenueVnd)} / {shortVnd(o.settings.revenueThresholdVnd)}
               </span>
             </div>
-            <div className="mt-1 h-2 rounded-full bg-[var(--bg)]" aria-hidden>
+            <div className="mt-1 h-2 rounded-full bg-[var(--fill)]" aria-hidden>
               <div
                 className={`h-2 rounded-full ${(o.taxBp ?? 0) >= o.settings.thresholdWarningRatio * 10000 ? "bg-danger" : "bg-primary"}`}
                 style={{ width: `${Math.min((o.taxBp ?? 0) / 100, 100)}%` }}
@@ -296,7 +304,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
               const denom = b.itemCount || 1;
               return (
                 <li key={b.id} aria-label={b.code}>
-                  <Link href={`/chuyen-hang/${b.id}`} className="card block p-3 hover:border-primary">
+                  <Link href={`/chuyen-hang/${b.id}`} className="card block p-4 transition-transform hover:-translate-y-0.5">
                     <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
                       <span className="font-mono font-semibold">{b.code}</span>
                       <span className="text-muted">
@@ -304,7 +312,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
                         {b.status === "ARRIVED" && !b.finalized ? " · chưa chốt chi phí" : ""} · {b.itemCount} máy · {shortVnd(b.capitalVnd)}
                       </span>
                     </div>
-                    <div className="mt-2 flex h-2 w-full gap-[2px] overflow-hidden rounded-full bg-[var(--bg)]" aria-hidden>
+                    <div className="mt-2 flex h-2 w-full gap-[2px] overflow-hidden rounded-full bg-[var(--fill)]" aria-hidden>
                       {segs
                         .filter((s) => s.n > 0)
                         .map((s) => (

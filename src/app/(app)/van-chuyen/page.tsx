@@ -57,7 +57,7 @@ export default async function ShippingBoard() {
                     <Link
                       key={s.id}
                       href={`/van-chuyen/${s.id}`}
-                      className={`block rounded-lg border p-2 text-sm hover:border-primary ${late ? "border-[var(--danger)]" : "border-border"} bg-[var(--bg)]`}
+                      className={`block rounded-xl border p-2.5 text-sm hover:border-primary ${late ? "border-[var(--danger)]" : "border-border"} bg-[var(--fill)]`}
                       aria-label={`Kiện ${s.trackingNumber ?? s.referenceCode ?? "chưa có mã"}`}
                     >
                       <div className="font-mono text-xs truncate">{s.trackingNumber ?? s.referenceCode ?? "(chưa có mã)"}</div>

@@ -246,7 +246,7 @@ export async function listCosts(db: Db, scope: { batchId?: string; shipmentId?: 
             OR c.batch_id = ${scope.batchId ?? null}::uuid
             OR EXISTS (SELECT 1 FROM item_cost_allocations a JOIN items i ON i.id = a.item_id
                         WHERE a.cost_id = c.id AND i.batch_id = ${scope.batchId ?? null}::uuid))
-     ORDER BY c.incurred_at, c.created_at`;
+     ORDER BY c.incurred_at, c.created_at, c.id`;
   return rows.map((r) => {
     const targetType: TargetType = r.batch_id ? "BATCH" : r.purchase_order_id ? "PURCHASE_ORDER" : r.shipment_id ? "SHIPMENT" : "ITEM";
     return {

@@ -111,7 +111,7 @@ export function HBars({
         const body = (
           <>
             <span className="w-24 shrink-0 text-sm">{r.label}</span>
-            <span className="relative h-3 grow rounded-full bg-[var(--bg)]" aria-hidden>
+            <span className="relative h-3 grow rounded-full bg-[var(--fill)]" aria-hidden>
               {pct > 0 && (
                 <span
                   className={`absolute inset-y-0 left-0 rounded-full ${r.value < 0n ? "bg-danger" : "bg-primary"}`}
@@ -128,7 +128,7 @@ export function HBars({
         return (
           <li key={r.key} aria-label={`${r.label}: ${formatVnd(r.value)} ₫${r.note ? ` · ${r.note}` : ""}`}>
             {r.href ? (
-              <Link href={r.href} className="flex items-center gap-3 rounded-lg px-1 py-0.5 hover:bg-[var(--bg)]">
+              <Link href={r.href} className="flex items-center gap-3 rounded-xl px-1.5 py-1 hover:bg-[var(--fill)]">
                 {body}
               </Link>
             ) : (
