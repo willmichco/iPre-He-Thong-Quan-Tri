@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { NAV } from "../nav";
 
 export function generateStaticParams() {
-  return NAV.filter((n) => n.href !== "/" && n.href !== "/quet-ma").map((n) => ({ section: n.href.slice(1) }));
+  // trang đã có thư mục riêng (đã làm xong) không dùng trang "đang xây dựng"
+  return NAV.filter((n) => !n.ready && n.href !== "/").map((n) => ({ section: n.href.slice(1) }));
 }
 export const dynamicParams = false;
 

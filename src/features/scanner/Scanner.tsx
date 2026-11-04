@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type ReactNode } from "react";
 import {
   FIELD_LABELS,
   FIELD_ORDER,
@@ -46,6 +46,8 @@ export interface ScannerProps {
   liveCamera?: boolean;
   /** Ảnh nhãn hộp mẫu để thử nhanh khi chưa có hộp thật. */
   sampleLabelUrl?: string;
+  /** Hiện thông tin danh mục của Part No. vừa đọc (cấu hình, cân nặng; mã lạ → gợi ý gán). Bản độc lập không có. */
+  renderPartNumberInfo?: (partNumber: string) => ReactNode;
 }
 
 const SOURCE_BADGE: Record<FieldSource, { label: string; cls: string }> = {
@@ -151,6 +153,7 @@ export function Scanner({
   saveFile = defaultSaveFile,
   liveCamera = true,
   sampleLabelUrl,
+  renderPartNumberInfo,
 }: ScannerProps) {
   // Component chỉ chạy phía trình duyệt (xem ScannerClient) nên đọc localStorage ngay được.
   const [session, setSession] = useState<StreamState>(() => loadSession(storageKey));
@@ -463,9 +466,10 @@ export function Scanner({
       if (x.serial && x.serial !== acc.serial) pending.push(`Serial ${x.serial}`);
       if (x.partNumber && x.partNumber !== acc.partNumber) pending.push(`Part No. ${x.partNumber}`);
       // dòng nào chứa giá trị đang chờ → lần sau chỉ đọc lại các dòng đó
-      const want = [x.serial && x.serial !== acc.serial ? x.serial : null, x.partNumber && x.partNumber !== acc.partNumber ? x.partNumber.slice(0, 5) : null].filter(
-        (v): v is string => Boolean(v),
-      );
+      const want = [
+        x.serial && x.serial !== acc.serial ? x.serial : null,
+        x.partNumber && x.partNumber !== acc.partNumber ? x.partNumber.slice(0, 5) : null,
+      ].filter((v): v is string => Boolean(v));
       const hit = lines.filter((l) => want.some((v) => lineHas(l.text, v)));
       const focus =
         want.length && want.every((v) => hit.some((l) => lineHas(l.text, v))) && canvas.height > 0
@@ -662,6 +666,7 @@ export function Scanner({
                       {i.message}
                     </p>
                   ))}
+                {renderPartNumberInfo && r.fields.partNumber?.value && renderPartNumberInfo(r.fields.partNumber.value)}
                 {r.extras.length > 0 && <p className="sc-extras">Mã khác đọc được: {r.extras.join(" · ")}</p>}
               </article>
             );

@@ -122,7 +122,7 @@ describe("dịch vụ giá vốn ↔ PostgreSQL", () => {
       const fin = await finalizeBatchCosts(tx, CH011);
       expect(fin.summary).toMatchObject({ totalLandedCostVnd: "55961208", realizedProfitVnd: "2691128", unsoldCostVnd: "6982336" });
       const logs = await tx<{ action: string; reason: string | null }[]>`
-        SELECT action, after->>'reason' AS reason FROM audit_logs WHERE entity_id = ${CH011} ORDER BY id`;
+        SELECT action, after->>'reason' AS reason FROM audit_logs WHERE entity_id = ${CH011} AND occurred_at = now() ORDER BY id`;
       expect(logs).toEqual([
         { action: "REOPEN", reason: "Forwarder gửi hoá đơn cước điều chỉnh" },
         { action: "FINALIZE", reason: null },

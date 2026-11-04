@@ -18,8 +18,8 @@ export default function OverviewPage() {
                 </span>
                 {n.label}
               </span>
-              <span className={`text-xs rounded-full px-2 py-0.5 ${n.phase === "GĐ0" ? "bg-primary text-[var(--primary-text)]" : "border border-border text-muted"}`}>
-                {n.phase === "GĐ0" ? "Dùng thử được" : n.phase}
+              <span className={`text-xs rounded-full px-2 py-0.5 ${n.ready ? "bg-primary text-[var(--primary-text)]" : "border border-border text-muted"}`}>
+                {n.ready ? "Dùng được" : n.phase}
               </span>
             </div>
             <p className="mt-2 text-sm text-muted">{n.description}</p>

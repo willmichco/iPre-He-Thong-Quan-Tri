@@ -62,7 +62,13 @@ gantt
   - máy trả người bán: cài đặt `costing.returned_item_policy` = `REALLOCATE` (mặc định) / `WRITE_OFF`
   - `npm run costing:check` (CI chạy sau khi nạp dữ liệu ví dụ: bộ máy đọc CSDL phải ra đúng 15 dòng giá vốn đã ghi) · `npm run costing:recalc -- <mã chuyến>`
   - 12 kiểm thử tích hợp với PostgreSQL thật (`npm run test:db`, mỗi ca chạy trong transaction rồi huỷ)
-- [ ] Danh mục (mẫu máy, cấu hình, mã Part No.), nhà bán, đơn vị vận chuyển
+- [x] **Danh mục** (`/danh-muc`, `src/server/catalog/service.ts`, `src/domain/catalog.ts`):
+  - mẫu máy → cấu hình (SKU tự gợi ý, cân nặng mặc định) → mã Part No./UPC/EAN; nơi mua; đơn vị vận chuyển (chặng, mẫu link tra vận đơn, số ngày giao); tài khoản tiền
+  - tra mã: mã chưa có → hỏi **một lần** để gán cấu hình; bộ quét hiện ngay cấu hình + cân nặng của Part No. vừa đọc, mã lạ có link gán
+  - ô số kiểu Việt Nam (`0,6` · `1.199,00` · `$1,199`); lỗi hiện dưới từng ô, không mất dữ liệu đã gõ
+  - xoá bị chặn khi đang dùng (máy, đơn mua, kiện, giao dịch); mọi thay đổi ghi `audit_logs`
+  - đổi cân nặng mặc định → tự tính lại giá vốn các chuyến liên quan; chuyến đã chốt → chặn
+  - còn lại cho GĐ2: danh mục thu chi; khách hàng làm cùng màn hình Bán hàng
 - [ ] Chuyến · Đơn mua · Máy: form nhập tay + lưới nhập máy kiểu bảng tính (dán từ Excel, nối với bộ quét mã)
 - [ ] Kiện 3 chặng: tạo kiện, gán máy (quét), "Gửi đi" / "Đã nhận" sinh mốc M1–M8 cho mọi máy
 - [ ] Chi phí theo chặng (form) → tự tính lại giá vốn

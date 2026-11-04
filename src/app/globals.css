@@ -11,6 +11,7 @@
   --danger: #b42318;
   --warn-bg: #fff4dc;
   --warn: #8a5a00;
+  --ok: #157f3b;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -24,9 +25,11 @@
     --danger: #ff7b6e;
     --warn-bg: #2d2412;
     --warn: #f0b84a;
+    --ok: #4ccf7a;
   }
 }
 :root[data-theme="dark"] {
+  --ok: #4ccf7a;
   --bg: #0f1217;
   --surface: #171b22;
   --text: #e8ebf0;
@@ -83,8 +86,42 @@ body {
     color: var(--primary-text);
     font-weight: 600;
   }
-  .btn-primary:disabled {
+  .btn-primary:disabled,
+  .btn-secondary:disabled,
+  .btn-danger:disabled {
     opacity: 0.5;
+  }
+  .btn-secondary {
+    min-height: 44px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 500;
+  }
+  .btn-danger {
+    min-height: 44px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    color: var(--danger);
+    font-weight: 500;
+  }
+  .btn-danger:hover {
+    background: var(--bg);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .field[aria-invalid="true"] {
+    border-color: var(--danger);
   }
   .nav-link {
     display: flex;
