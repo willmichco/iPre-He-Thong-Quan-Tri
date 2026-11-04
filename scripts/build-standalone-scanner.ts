@@ -6,7 +6,7 @@
  *   npm run build:standalone   → dist/quet-ma-thu.html
  */
 import { build, type Plugin } from "esbuild";
-import { copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
@@ -127,7 +127,7 @@ ${html}</body>
   copyFileSync(join(root, "public", "nhan-mau.svg"), join(pagesDir, "nhan-mau.svg"));
   // Bộ đọc chữ (OCR) tự phục vụ — chép từ public/ocr (tạo bởi scripts/copy-wasm.mjs)
   mkdirSync(join(pagesDir, "ocr"), { recursive: true });
-  for (const f of readdirSync(join(root, "public", "ocr"))) copyFileSync(join(root, "public", "ocr", f), join(pagesDir, "ocr", f));
+  cpSync(join(root, "public", "ocr"), join(pagesDir, "ocr"), { recursive: true }); // gồm cả ocr/fast/
   console.log("✓ dist/pages/ (index.html, nhan-mau.svg, .nojekyll) — cho GitHub Pages");
 }
 

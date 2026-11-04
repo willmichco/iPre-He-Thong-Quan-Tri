@@ -16,8 +16,8 @@ export interface TextExtraction {
 }
 
 // Nhãn neo của serial (Anh/Việt, kể cả khi OCR làm mất dấu tiếng Việt)
-// OCR tiếng Anh đọc "Số sê-ri" thành "S6 sé-ri", "SB sé", "SO se ri"…
-const SERIAL_ANCHOR = /(SERIAL(\s*(NO\.?|NUMBER|#))?|S[ỐÔO6B8]\s*S[ÊEÉ](?:[\s-]*R[IÍ])?(?=[\s:]|$)|\(S\))/i;
+// OCR tiếng Anh đọc "Số sê-ri" thành "S6 sé-ri", "$6 sé-ri", "SB sé", "SO se ri", "S8seri"…
+const SERIAL_ANCHOR = /(SERIAL(\s*(NO\.?|NUMBER|#))?|(?<![A-Z0-9])[S$5][ỐÔỔO06B8]\s*[S$5][ÊEÉÈ8](?:[\s-]*R[IÍ1l])?(?=[\s:]|$)|\(S\))/i;
 // Chuỗi đứng riêng (không dính vào chữ phía trước như "IMEI2"), cho phép ký tự OCR hay nhầm với chữ số
 const IMEI_LIKE = /(?<![A-Z0-9])[0-9OISBDZ](?:[0-9OISBDZ ]{10,40})[0-9OISBDZ](?![A-Z0-9])/g;
 const PART_IN_TEXT = /\b([A-Z0-9]{5}[A-Z]{1,2})\s?[/|]\s?A\b/g;

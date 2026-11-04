@@ -22,7 +22,12 @@ copy(join(tessDist, "worker.min.js"), out("ocr", "worker.min.js"));
 for (const f of ["tesseract-core-lstm.wasm.js", "tesseract-core-simd-lstm.wasm.js", "tesseract-core-relaxedsimd-lstm.wasm.js"]) {
   copy(join(coreDir, f), out("ocr", f));
 }
-// Bản "best_int": chính xác như bản best nhưng nhỏ hơn ~4 lần (≈2,9 MB)
+// Hai bộ dữ liệu tiếng Anh:
+//  - ocr/eng.traineddata.gz       bản "best_int" (@tesseract.js-data/eng) — ảnh tải lên/dán vào: ưu tiên đọc đúng
+//  - ocr/fast/eng.traineddata.gz  bản "fast" (tesseract-ocr/tessdata_fast, Apache-2.0, lưu ở assets/ocr/) — camera:
+//    đọc màn hình nhanh hơn ~1,5–2 lần; đã đo: bản này đọc sót IMEI trên một số ảnh chụp màn hình nền sáng,
+//    nên không dùng cho ảnh tải lên.
 copy(join(engDir, "4.0.0_best_int", "eng.traineddata.gz"), out("ocr", "eng.traineddata.gz"));
+copy(join(process.cwd(), "assets", "ocr", "eng-fast.traineddata.gz"), out("ocr", "fast", "eng.traineddata.gz"));
 
 console.log("✓ public/wasm/zxing_reader.wasm · public/ocr/ (Tesseract)");

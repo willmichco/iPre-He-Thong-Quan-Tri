@@ -193,7 +193,7 @@ export function Scanner({
         const crop = await cropTextRegion(image);
         let first: ReturnType<typeof extractFromText> | null = null;
         if (crop) {
-          first = extractFromText(await recognizeCanvas(ocrBase, crop, progress), { ocr: true });
+          first = extractFromText(await recognizeCanvas(ocrBase, crop, progress, "photo"), { ocr: true });
           if (isComplete(first)) return first;
         }
         // vùng cắt chưa đọc đủ (hoặc không tìm được vùng) → đọc thêm cả ảnh rồi GỘP, không bỏ kết quả đã có
@@ -852,6 +852,7 @@ function CameraPanel({
     let quietReads = 0;
     let regionSince = 0;
     let lastShot = 0;
+    let blurSkips = 0;
     let anchor: Gray | null = null;
     const sharpWin: number[] = [];
     const small = document.createElement("canvas");
@@ -886,16 +887,20 @@ function CameraPanel({
         const display = region ? toDisplayBox(region, f, video, wrap) : null;
         const sharpEnough = sh > 0 && sh >= 0.8 * Math.max(...sharpWin);
         // Đứng yên đủ 2 khung & nét → chụp. Tay không giữ được yên (hoặc màn hình nhấp nháy khi chụp trực tiếp):
-        // vùng chữ đã thấy ≥ 0,7 giây thì vẫn chụp khung nét nhất gần đây — không bao giờ treo ở "Giữ yên máy".
-        const waitedLong = regionSince > 0 && t - Math.max(regionSince, lastShot) > 700;
-        const canShoot = reading === 0 || (reading < 2 && t - lastShot > 350);
-        if (canShoot && !idle && region && sharpEnough && (steady >= 2 || waitedLong)) {
+        // vùng chữ đã thấy ≥ 0,5 giây thì vẫn chụp khung nét nhất gần đây — không bao giờ treo ở "Giữ yên máy".
+        const waitedLong = regionSince > 0 && t - Math.max(regionSince, lastShot) > 500;
+        const canShoot = reading === 0 || (reading < 2 && t - lastShot > 250);
+        const crop = canShoot && !idle && region && sharpEnough && (steady >= 2 || waitedLong) ? cropForOcr(video, region, f) : null;
+        // Khung nhòe (không đo được nét chữ) → bỏ, không tốn một lượt đọc chữ (tối đa 4 khung liền, phòng đo sai)
+        const blurred = crop !== null && crop.ink === 0 && blurSkips < 4;
+        if (blurred) blurSkips++;
+        if (crop && !blurred) {
+          blurSkips = 0;
           lastShot = t;
           reading++;
           anchor = gray;
           setScan((sc) => ({ ...sc, phase: "reading", box: display, flash: Date.now() }));
-          const crop = cropForOcr(video, region, f);
-          onScreenCapture(crop)
+          onScreenCapture(crop.canvas)
             .then((r) => {
               const lastMs = Date.now() - t;
               const gotNew = hasNew(r.newly);
@@ -914,7 +919,7 @@ function CameraPanel({
             .finally(() => {
               reading--;
             });
-        } else if (reading === 0) {
+        } else if (reading === 0 && !blurred) {
           setScan((sc) => ({
             ...sc,
             box: display,
@@ -923,7 +928,7 @@ function CameraPanel({
         }
       }
       setNow(Date.now());
-      timer = window.setTimeout(tick, 120);
+      timer = window.setTimeout(tick, 80);
     };
     tick();
     return () => {
@@ -1301,7 +1306,7 @@ function toDisplayBox(r: TextRegion, f: number, video: HTMLVideoElement, wrap: H
  * Cắt vùng chữ ở ĐỘ PHÂN GIẢI GỐC của camera và phóng to để mỗi dòng chữ cao ~56 px
  * (cỡ chữ Tesseract đọc tốt nhất). Đây là khác biệt lớn nhất so với đọc cả khung hình.
  */
-function cropForOcr(video: HTMLVideoElement, r: TextRegion, f: number): HTMLCanvasElement {
+function cropForOcr(video: HTMLVideoElement, r: TextRegion, f: number): { canvas: HTMLCanvasElement; ink: number } {
   const margin = Math.max(r.lineHeight, 8);
   const sx = Math.max(0, (r.x - margin) * f);
   const sy = Math.max(0, (r.y - margin) * f);
@@ -1313,23 +1318,23 @@ function cropForOcr(video: HTMLVideoElement, r: TextRegion, f: number): HTMLCanv
   native.height = Math.max(1, Math.round(sh));
   const nctx = native.getContext("2d", { willReadFrequently: true })!;
   nctx.drawImage(video, sx, sy, sw, sh, 0, 0, native.width, native.height);
-  // 2) đo chiều cao nét chữ thật rồi đưa về ~18 px — cỡ bộ đọc chữ đọc đúng mà nhanh nhất (đã đo:
-  //    chữ 13–26 px đọc đúng, 7 px đọc sai; camera 4K cho chữ 50–80 px → thu nhỏ, đọc nhanh gấp nhiều lần)
+  // 2) đo chiều cao nét chữ thật rồi đưa về ~14 px — cỡ bộ đọc chữ đọc đúng mà nhanh nhất (đã đo:
+  //    chữ 11–26 px đọc đúng, 7 px đọc sai; camera 4K cho chữ 50–80 px → thu nhỏ, đọc nhanh gấp nhiều lần)
   const ink = inkLineHeight(toGray(nctx.getImageData(0, 0, native.width, native.height).data, native.width, native.height));
   let scale = ink > 0 ? Math.min(2.5, Math.max(0.3, INK_TARGET_PX / ink)) : Math.min(3, Math.max(1, 56 / Math.max(4, r.lineHeight * f)));
   scale = Math.min(scale, 2000 / Math.max(sw, sh));
-  if (Math.abs(scale - 1) < 0.05) return native;
+  if (Math.abs(scale - 1) < 0.05) return { canvas: native, ink };
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(sw * scale));
   canvas.height = Math.max(1, Math.round(sh * scale));
   const ctx = canvas.getContext("2d")!;
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(native, 0, 0, canvas.width, canvas.height);
-  return canvas;
+  return { canvas, ink };
 }
 
 /** Chiều cao nét chữ mục tiêu khi đưa vào bộ đọc chữ (px). */
-const INK_TARGET_PX = 18;
+const INK_TARGET_PX = 14;
 
 /** Ảnh tĩnh: tìm vùng chữ trên bản thu nhỏ rồi cắt ở độ phân giải gốc, phóng to (null nếu không thấy vùng chữ rõ). */
 async function cropTextRegion(image: Blob): Promise<HTMLCanvasElement | null> {

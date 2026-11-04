@@ -167,3 +167,14 @@ describe("extractFromText — OCR đọc một ký tự thành hai trong Part No
     expect(extractFromText(text, { ocr: true }).partNumber).toBe(part);
   });
 });
+
+describe("nhãn Số sê-ri bị OCR đọc lệch vẫn được nhận là nhãn (serial đủ phiếu ngay)", () => {
+  it.each(["$6 sé-ri      F2LXQ7Y9KD", "S8seri   F2LXQ7Y9KD", "5ố sê-rl  F2LXQ7Y9KD", "S6 sé-ri F2LXQ7Y9KD"])("%s", (line) => {
+    const x = extractFromText(line, { ocr: true });
+    expect(x.serial).toBe("F2LXQ7Y9KD");
+    expect(x.serialAnchored).toBe(true);
+  });
+  it("chữ thường có 'so se' giữa câu không bị coi là nhãn", () => {
+    expect(extractFromText("Iso se F2LXQ7Y9KD", { ocr: true }).serialAnchored).toBe(false);
+  });
+});

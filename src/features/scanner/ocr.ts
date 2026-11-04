@@ -33,22 +33,28 @@ function absolute(base: string) {
 }
 
 /**
- * Nhóm 2 bộ đọc chữ chạy SONG SONG: camera chụp 2 khung liên tiếp → đọc cùng lúc → Serial đủ 2 phiếu
- * sau MỘT lượt đọc thay vì hai lượt nối tiếp. Bộ thứ 2 chỉ khởi tạo khi cần (ảnh tải lên dùng 1 bộ).
+ * Hai loại bộ đọc chữ:
+ *  - "camera" (2 bộ, chạy SONG SONG): dữ liệu bản fast, không tự đọc lại dòng đảo màu → nhanh. Camera chụp 2 khung
+ *    liên tiếp và đọc cùng lúc → Serial đủ 2 phiếu sau MỘT lượt đọc.
+ *  - "photo" (1 bộ): dữ liệu bản best_int, mặc định của Tesseract → ảnh tải lên/dán vào đọc đúng nhất.
  */
-const POOL_SIZE = 2;
-const pool: (Promise<Worker> | null)[] = Array(POOL_SIZE).fill(null);
-const busy: boolean[] = Array(POOL_SIZE).fill(false);
+export type OcrKind = "camera" | "photo";
+const SLOTS: Record<OcrKind, number[]> = { camera: [0, 1], photo: [2] };
+const pool: (Promise<Worker> | null)[] = [null, null, null];
+const busy: boolean[] = [false, false, false];
 const waiters: (() => void)[] = [];
 
-function createOcrWorker(base: string, onProgress?: (p: number) => void): Promise<Worker> {
+function createOcrWorker(base: string, kind: OcrKind, onProgress?: (p: number) => void): Promise<Worker> {
   const root = absolute(base);
+  const fast = kind === "camera";
   return import("tesseract.js")
     .then(({ createWorker }) =>
       createWorker("eng", 1, {
         workerPath: `${root}/worker.min.js`,
         corePath: root,
-        langPath: root,
+        langPath: fast ? `${root}/fast` : root,
+        // khoá bộ nhớ đệm riêng cho từng bộ dữ liệu (cùng tên "eng")
+        cachePath: fast ? "ipre-ocr-fast" : "ipre-ocr-best",
         gzip: true,
         logger: (m: { status: string; progress: number }) => {
           if (m.status.startsWith("loading") || m.status.startsWith("initializ")) onProgress?.(m.progress);
@@ -61,7 +67,10 @@ function createOcrWorker(base: string, onProgress?: (p: number) => void): Promis
         // đã đo trên ảnh mẫu: đọc đúng hơn PSM 11/3, kể cả khung hình camera mờ, ám màu.
         tessedit_pageseg_mode: "6" as never,
         preserve_interword_spaces: "1",
-      });
+        // Camera: không để Tesseract tự đọc lại dòng kém tự tin ở dạng đảo màu (nhân đôi thời gian ở dòng khó);
+        // ảnh nền tối đã được đảo sẵn ở toOcrGray().
+        ...(fast ? { tessedit_do_invert: "0" } : {}),
+      } as never);
       return w;
     });
 }
@@ -69,7 +78,7 @@ function createOcrWorker(base: string, onProgress?: (p: number) => void): Promis
 function slot(i: number, base: string, onProgress?: (p: number) => void): Promise<Worker> {
   const existing = pool[i];
   if (existing) return existing;
-  const created = createOcrWorker(base, onProgress).catch((e) => {
+  const created = createOcrWorker(base, SLOTS.camera.includes(i) ? "camera" : "photo", onProgress).catch((e) => {
     pool[i] = null;
     throw e;
   });
@@ -78,18 +87,39 @@ function slot(i: number, base: string, onProgress?: (p: number) => void): Promis
 }
 
 export function getOcrWorker(base: string, onProgress?: (p: number) => void): Promise<Worker> {
-  return slot(0, base, onProgress);
+  return slot(SLOTS.photo[0], base, onProgress);
 }
 
-/** Khởi tạo sẵn bộ đọc chữ (tải ~7 MB lần đầu) ngay khi bật camera — lần chụp đầu khỏi phải chờ. */
-export function warmOcr(base: string, workers = POOL_SIZE, onProgress?: (p: number) => void): Promise<unknown> {
-  return Promise.all(Array.from({ length: Math.min(workers, POOL_SIZE) }, (_, i) => slot(i, base, i === 0 ? onProgress : undefined))).catch(() => undefined);
+/** Khởi tạo sẵn các bộ đọc chữ của camera khi chọn "Màn hình máy" — lần chụp đầu khỏi phải chờ. */
+export function warmOcr(base: string, onProgress?: (p: number) => void): Promise<unknown> {
+  return Promise.all(
+    SLOTS.camera.map((i, k) => {
+      const fresh = !pool[i];
+      const w = slot(i, base, k === 0 ? onProgress : undefined);
+      // Lần đọc ĐẦU TIÊN của một bộ đọc chậm gấp 2–3 lần (khởi động mạng nơ-ron) → đọc nháp một ảnh nhỏ ngay
+      // lúc khởi tạo, để lần chụp thật đầu tiên đã ở tốc độ bình thường.
+      return fresh ? w.then((wk) => wk.recognize(warmupImage())) : w;
+    }),
+  ).catch(() => undefined);
 }
 
-async function withWorker<T>(base: string, maxWorkers: number, onProgress: ((p: number) => void) | undefined, fn: (w: Worker) => Promise<T>): Promise<T> {
+function warmupImage(): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = 320;
+  c.height = 48;
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = "#000";
+  ctx.font = "20px sans-serif";
+  ctx.fillText("Serial F2LXQ7Y9KD 3500", 8, 32);
+  return c;
+}
+
+async function withWorker<T>(base: string, kind: OcrKind, onProgress: ((p: number) => void) | undefined, fn: (w: Worker) => Promise<T>): Promise<T> {
   for (;;) {
-    const i = busy.findIndex((b, k) => !b && k < maxWorkers);
-    if (i >= 0) {
+    const i = SLOTS[kind].find((k) => !busy[k]);
+    if (i !== undefined) {
       busy[i] = true;
       try {
         return await fn(await slot(i, base, onProgress));
@@ -138,9 +168,9 @@ async function prepare(image: Blob): Promise<HTMLCanvasElement> {
   }
 }
 
-/** Đọc chữ trên một canvas đã cắt sẵn vùng văn bản (camera, chế độ "Màn hình máy"). */
-export function recognizeCanvas(base: string, canvas: HTMLCanvasElement, onProgress?: (p: number) => void): Promise<string> {
-  return withWorker(base, POOL_SIZE, onProgress, async (worker) => {
+/** Đọc chữ trên một canvas đã cắt sẵn vùng văn bản (mặc định: bộ đọc của camera, chế độ "Màn hình máy"). */
+export function recognizeCanvas(base: string, canvas: HTMLCanvasElement, onProgress?: (p: number) => void, kind: OcrKind = "camera"): Promise<string> {
+  return withWorker(base, kind, onProgress, async (worker) => {
     const t0 = performance.now();
     toOcrGray(canvas);
     const { data } = await worker.recognize(canvas);
@@ -152,7 +182,7 @@ export function recognizeCanvas(base: string, canvas: HTMLCanvasElement, onProgr
 
 /** Đọc toàn bộ chữ trên ảnh. Các lần gọi được xếp hàng (một bộ đọc). */
 export function recognizeText(base: string, image: Blob, onProgress?: (p: number) => void): Promise<string> {
-  return withWorker(base, 1, onProgress, async (worker) => {
+  return withWorker(base, "photo", onProgress, async (worker) => {
     const canvas = await prepare(image);
     const { data } = await worker.recognize(canvas);
     logOcr(data.text);
