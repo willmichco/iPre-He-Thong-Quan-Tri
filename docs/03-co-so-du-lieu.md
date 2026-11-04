@@ -1,6 +1,6 @@
 # 03 — Thiết kế Cơ sở dữ liệu
 
-> Lược đồ đầy đủ: [`db/schema-draft.sql`](../db/schema-draft.sql) — **đã chạy thử trên PostgreSQL 16**, kèm dữ liệu ví dụ [`db/seed-vi-du.sql`](../db/seed-vi-du.sql). Các view báo cáo trả về đúng từng đồng như ví dụ ở tài liệu 01.
+> Lược đồ đầy đủ: [`db/migrations/0001_khoi_tao.sql`](../db/migrations/0001_khoi_tao.sql) — **đã chạy thử trên PostgreSQL 16**, kèm dữ liệu ví dụ [`db/seed-vi-du.sql`](../db/seed-vi-du.sql). Các view báo cáo trả về đúng từng đồng như ví dụ ở tài liệu 01.
 
 ## 1. Sơ đồ quan hệ (ERD)
 

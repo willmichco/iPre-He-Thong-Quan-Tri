@@ -4,7 +4,7 @@
 
 | Giai đoạn | Thời lượng | Phạm vi | Tiêu chí nghiệm thu |
 |---|---|---|---|
-| **GĐ0 — Chốt nghiệp vụ & nền móng** | 1 tuần | Chốt tài liệu 01 và các câu hỏi ở mục 5 · Khởi tạo Next.js, CI, PostgreSQL, migration từ `db/schema-draft.sql` · Đăng nhập + 2FA · Bố cục, thanh bên, chế độ tối | Đăng nhập 2FA được; CI xanh; CSDL tạo hoàn toàn từ migration; trang trống chạy trên môi trường thật |
+| **GĐ0 — Chốt nghiệp vụ & nền móng** | 1 tuần | Chốt tài liệu 01 và các câu hỏi ở mục 5 · Khởi tạo Next.js, CI, PostgreSQL, migration từ `db/migrations/0001_khoi_tao.sql` · Đăng nhập + 2FA · Bố cục, thanh bên, chế độ tối | Đăng nhập 2FA được; CI xanh; CSDL tạo hoàn toàn từ migration; trang trống chạy trên môi trường thật |
 | **GĐ1 — MVP lõi** | 3–4 tuần | Danh mục · Chuyến / Đơn mua / Máy · **Toàn bộ form nhập tay + lưới nhập máy kiểu bảng tính** · **Quét mã vạch bằng camera và từ ảnh** (IMEI/Serial/Part No.), máy quét USB, dán văn bản, `variant_codes` · Kiện 3 chặng + Gửi đi/Đã nhận + mốc tự động · Chi phí + **costing engine** (kèm kiểm thử thuộc tính) · Bán nhanh, cọc · Hồ sơ máy · Tổng quan cơ bản (KPI, vốn theo chặng, cảnh báo trong ứng dụng) | **Nhập lại một chuyến thật đã có trên Excel từ đầu đến cuối: giá vốn và lãi từng máy khớp 0 đồng** (hoặc giải thích được từng chênh lệch) |
 | **GĐ2 — Vận hành đầy đủ** | 2–3 tuần | Sổ thu chi, tài khoản, chuyển tiền, công nợ · Báo cáo + xuất Excel · Chứng từ (R2) · PWA · **OCR ảnh chụp màn hình, Hộp chờ duyệt, nhận kiện bằng quét đối chiếu, bộ ảnh mẫu trong CI** · Chốt / mở lại chuyến · Giao diện nhật ký kiểm toán · Nhập dữ liệu cũ từ Excel · Sao lưu tự động · Báo cáo doanh thu thuế + cảnh báo ngưỡng | **Vận hành thật 2 chuyến liên tiếp mà không cần Excel song song** |
 | **GĐ3 — Tự động hoá & thông minh** | Liên tục | **AI đọc ảnh khó + hoá đơn → đơn mua** (tuỳ chọn) · Cảnh báo Telegram · Tỷ giá tự động · Đồng bộ tracking qua API · Giá thị trường tham khảo & gợi ý giá bán · Dự báo dòng tiền · Xuất PDF · Tích hợp hoá đơn điện tử (nếu cần) | Theo từng tính năng |
@@ -36,6 +36,16 @@ gantt
     Telegram, tỷ giá, tracking     :g3a, after g2d, 10d
     AI đọc ảnh + hoá đơn (tuỳ chọn) :g3b, after g2d, 7d
 ```
+
+### Tiến độ GĐ0 (cập nhật 04/11/2026)
+
+- [x] Khung Next.js 16 + TypeScript + Tailwind; bố cục thanh bên (máy tính) và thanh điều hướng dưới (điện thoại), chế độ tối theo hệ thống
+- [x] Đăng nhập một tài khoản chủ: email + mật khẩu + mã 2 lớp TOTP, chống dò mật khẩu, phiên cookie HttpOnly
+- [x] CSDL tạo hoàn toàn từ migration (`db/migrations/0001_khoi_tao.sql`), công cụ migrate có kiểm tra mã băm, Docker Compose cho máy phát triển
+- [x] CI (GitHub Actions): kiểm tra kiểu, lint, kiểm thử đơn vị, migration + đối chiếu số liệu ví dụ, build, kiểm thử đầu-cuối
+- [x] **Bộ quét mã dùng thử được** (đưa sớm từ GĐ1): camera, ảnh, máy quét USB, dán, nhập tay; xuất CSV / sao chép sang Excel
+- [ ] Triển khai lên môi trường thật — chờ bạn chọn nơi triển khai (câu hỏi số 8, mục 5)
+- [ ] Chốt nghiệp vụ tài liệu 01 và các câu hỏi ở mục 5
 
 **Ưu tiên khi phải cắt giảm:** costing engine và mốc vận chuyển là **không thể cắt**. Có thể dời: biểu đồ nâng cao, Kanban kéo thả (dùng nút bấm thay thế), PWA ngoại tuyến, tracking API.
 

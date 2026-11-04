@@ -1,6 +1,7 @@
 -- =============================================================================
 -- iPre — Hệ thống quản trị nhập hàng Apple (Mỹ → Việt Nam)
--- LƯỢC ĐỒ CƠ SỞ DỮ LIỆU — BẢN NHÁP THIẾT KẾ (PostgreSQL 16+)
+-- MIGRATION 0001 — KHỞI TẠO LƯỢC ĐỒ (PostgreSQL 16+)
+-- Chạy bằng: npm run db:migrate (mỗi migration chạy trong một transaction)
 --
 -- Quy ước:
 --   * Tiền VND lưu bằng BIGINT (đơn vị: đồng) — không bao giờ dùng số thực (float).
@@ -11,7 +12,6 @@
 --     tính và ghi vào item_cost_allocations — báo cáo chỉ việc cộng.
 -- =============================================================================
 
-BEGIN;
 
 -- -----------------------------------------------------------------------------
 -- 0. KIỂU LIỆT KÊ (ENUM)
@@ -733,5 +733,3 @@ INSERT INTO app_settings (key, value) VALUES
   ('scan.ocr_enabled',               'true'),
   ('scan.ai_enabled',                'false'),       -- AI đọc ảnh: tắt mặc định, chủ hàng tự bật
   ('scan.ai_model',                  '"claude-opus-5-5"');
-
-COMMIT;

@@ -1,0 +1,24 @@
+# PostgreSQL cho máy phát triển:  docker compose up -d
+# Chuỗi kết nối tương ứng (đặt trong .env.local):
+#   DATABASE_URL=postgres://ipre:ipre_dev@localhost:5432/ipre
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ipre
+      POSTGRES_PASSWORD: ipre_dev
+      POSTGRES_DB: ipre
+      TZ: UTC
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ipre_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ipre -d ipre"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  ipre_pgdata:

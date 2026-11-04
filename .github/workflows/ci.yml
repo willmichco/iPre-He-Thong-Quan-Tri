@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Kiểm tra, kiểm thử, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ipre
+          POSTGRES_PASSWORD: ipre_ci
+          POSTGRES_DB: ipre
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ipre -d ipre"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgres://ipre:ipre_ci@localhost:5432/ipre
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - name: Kiểm tra kiểu dữ liệu
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Kiểm thử đơn vị
+        run: npm test
+
+      - name: Migration + dữ liệu ví dụ
+        run: |
+          npm run db:seed
+          npm run db:migrate   # chạy lại phải không đổi gì
+      - name: Đối chiếu số liệu ví dụ (phải khớp từng đồng với docs/01)
+        run: |
+          result=$(psql "$DATABASE_URL" -At -c "select total_landed_cost_vnd||'|'||realized_profit_vnd||'|'||roi_on_sold_pct from v_batch_summary where code='CH-2026-011'")
+          echo "$result"
+          test "$result" = "55943208|2706128|5.53"
+
+      - name: Build
+        run: npm run build
+      - name: Bản quét mã chạy thử độc lập
+        run: npm run build:standalone
+
+      - name: Cài trình duyệt cho kiểm thử đầu-cuối
+        run: npx playwright install --with-deps chromium
+      - name: Kiểm thử đầu-cuối
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
