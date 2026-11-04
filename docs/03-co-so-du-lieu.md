@@ -1,6 +1,6 @@
 # 03 — Thiết kế Cơ sở dữ liệu
 
-> Lược đồ đầy đủ: [`db/schema-draft.sql`](../db/schema-draft.sql) — **đã chạy thử trên PostgreSQL 16**, kèm dữ liệu ví dụ [`db/seed-vi-du.sql`](../db/seed-vi-du.sql). Các view báo cáo trả về đúng từng đồng như ví dụ ở tài liệu 01.
+> Lược đồ đầy đủ: [`db/migrations/0001_khoi_tao.sql`](../db/migrations/0001_khoi_tao.sql) — **đã chạy thử trên PostgreSQL 16**, kèm dữ liệu ví dụ [`db/seed-vi-du.sql`](../db/seed-vi-du.sql). Các view báo cáo trả về đúng từng đồng như ví dụ ở tài liệu 01.
 
 ## 1. Sơ đồ quan hệ (ERD)
 
@@ -26,6 +26,24 @@ erDiagram
     SALES ||--o{ SALE_EXPENSES : "chi phí bán"
     ACCOUNTS ||--o{ CASH_TRANSACTIONS : "ghi sổ"
     CASH_CATEGORIES ||--o{ CASH_TRANSACTIONS : "phân loại"
+    PRODUCT_VARIANTS ||--o{ VARIANT_CODES : "mã Part No. / UPC"
+    ITEMS ||--o{ SCAN_CAPTURES : "ảnh quét"
+
+    VARIANT_CODES {
+        text code_type PK "PART_NUMBER / UPC / EAN"
+        text code PK "vd: MDEM1LL/A"
+        uuid variant_id FK
+        text region "LL/A, VN/A…"
+    }
+    SCAN_CAPTURES {
+        uuid id PK
+        enum source "camera / ảnh / màn hình / USB / dán"
+        text file_key "ảnh gốc"
+        jsonb barcodes
+        jsonb extracted "giá trị + nguồn từng trường"
+        enum status "chờ duyệt / xác nhận / bỏ"
+        uuid item_id FK
+    }
 
     BATCHES {
         uuid id PK
@@ -49,7 +67,8 @@ erDiagram
         uuid purchase_order_id FK
         uuid variant_id FK
         text serial_number UK
-        text imei1 UK
+        text imei1 UK "kiểm Luhn"
+        text part_number "mã máy trên hộp"
         numeric unit_price
         enum status "cache"
     }
@@ -115,7 +134,8 @@ erDiagram
 | Bảng | Mục đích | Ghi chú |
 |---|---|---|
 | `product_models` | Dòng máy: iPhone 17 Pro Max, MacBook Air 13 M4… | Phân loại `category` để báo cáo theo dòng |
-| `product_variants` | Cấu hình cụ thể: dung lượng, màu, chip, RAM, mã part Apple | `default_weight_kg` dùng phân bổ cước |
+| `product_variants` | Cấu hình cụ thể: dung lượng, màu, chip, RAM | `default_weight_kg` dùng phân bổ cước |
+| `variant_codes` | **Mã máy → cấu hình**: Part No. (mỗi thị trường một mã), UPC/EAN | Quét hộp là tự điền dòng máy, dung lượng, màu; mã mới được "học" sau lần gán đầu tiên |
 | `suppliers` | Nơi mua tại Mỹ | Bang (`us_state`) và số ngày đổi trả mặc định |
 | `carriers` | Đơn vị vận chuyển / forwarder | Mẫu URL tracking, thời gian giao mặc định để tự gợi ý ETA |
 | `accounts` | Tài khoản tiền | Mỗi tài khoản một tiền tệ |
@@ -129,7 +149,7 @@ erDiagram
 |---|---|---|
 | `batches` | Chuyến hàng | Mã chuyến duy nhất; trạng thái vòng đời; mốc chốt chi phí |
 | `purchase_orders` | Đơn mua tại Mỹ | `total_vnd` là **cột tự tính** từ subtotal + thuế + ship − giảm giá, × tỷ giá, + phí ngoại tệ |
-| `items` | Từng máy | **Serial và IMEI duy nhất** (khi khác rỗng, chưa xoá) |
+| `items` | Từng máy | **Serial, IMEI1, IMEI2 duy nhất** (khi khác rỗng, chưa xoá); **IMEI phải đúng số kiểm tra Luhn**; serial in hoa; lưu Part No. thực tế của hộp |
 | `shipments` | Kiện / chặng | `arrived_at ≥ shipped_at` |
 | `shipment_items` | Máy trong kiện | **Mỗi máy chỉ thuộc 1 kiện trên mỗi chặng** (khoá ngoại tổ hợp `(shipment_id, leg_type)`) |
 | `shipment_tracking_events` | Nhật ký tracking | Nhập tay hoặc đồng bộ API |
@@ -147,6 +167,7 @@ erDiagram
 | Bảng | Mục đích |
 |---|---|
 | `attachments` | Chứng từ, ảnh gắn với bất kỳ đối tượng nào (hoá đơn, AWB, tờ khai, ảnh máy) |
+| `scan_captures` | Mỗi lần quét / mỗi ảnh tải lên: ảnh gốc, mã vạch đọc được, chữ OCR, kết quả AI (nếu bật), giá trị trích xuất kèm **nguồn của từng trường**; là "Hộp chờ duyệt" — xem [tài liệu 07](07-quet-ma-va-nhap-lieu.md) |
 | `audit_logs` | Nhật ký thay đổi (trước/sau) |
 | `app_settings` | Cấu hình: ngưỡng cảnh báo, phương pháp phân bổ mặc định, ngưỡng doanh thu thuế |
 | *(bảng của Better Auth)* | `user`, `session`, `account`, `verification`, `two_factor` — do thư viện tạo |
@@ -179,6 +200,9 @@ Phân bổ theo phần dư lớn nhất qua nhiều tầng (đơn mua → kiện
 | Gán một máy vào hai kiện cùng chặng | `UNIQUE (item_id, leg_type)` |
 | Một khoản chi phí gắn vào hai đối tượng | `CHECK num_nonnulls(...) = 1` |
 | Nhập trùng Serial / IMEI | Unique index có điều kiện |
+| IMEI gõ nhầm hoặc OCR đọc sai (sai số kiểm tra) | `CHECK is_valid_imei(imei1)` — thuật toán Luhn |
+| Serial có chữ thường | `CHECK (serial_number = upper(serial_number))` |
+| Bản ghi quét "đã xác nhận" nhưng không gắn máy nào | `CHECK (status <> 'CONFIRMED' OR item_id IS NOT NULL)` |
 | Bán một máy hai lần | Unique index `sale_items(item_id) WHERE voided_at IS NULL` |
 | Chi phí VND nhưng tỷ giá ≠ 1 | `CHECK (currency <> 'VND' OR fx_rate = 1)` |
 | Ngày nhận kiện trước ngày gửi | `CHECK (arrived_at >= shipped_at)` |

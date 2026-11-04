@@ -15,6 +15,12 @@ INSERT INTO product_variants (id, model_id, sku, storage, color, default_weight_
   ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002', 'IPADAIR11-128-BLU', '128GB', 'Blue', 0.9),
   ('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000003', 'APP-STD', NULL, 'White', 0.3);
 
+-- Mã máy (Part No.) minh hoạ — quét hộp sẽ tự nhận ra cấu hình
+INSERT INTO variant_codes (code_type, code, variant_id, region) VALUES
+  ('PART_NUMBER', 'MDEM1LL/A', '20000000-0000-0000-0000-000000000001', 'LL/A'),
+  ('PART_NUMBER', 'MDEM2LL/A', '20000000-0000-0000-0000-000000000002', 'LL/A'),
+  ('PART_NUMBER', 'MDEM3AM/A', '20000000-0000-0000-0000-000000000003', 'AM/A');
+
 INSERT INTO suppliers (id, name, kind, us_state, return_days) VALUES
   ('30000000-0000-0000-0000-000000000001', 'Apple Store', 'RETAILER', 'OR', 14);
 
@@ -36,13 +42,20 @@ INSERT INTO purchase_orders (id, batch_id, supplier_id, order_number, ordered_at
    '30000000-0000-0000-0000-000000000001', 'W123456789', '2026-10-01T09:00:00-07', 2047.00, 26400,
    '50000000-0000-0000-0000-000000000001', '2026-10-01T09:05:00-07');
 
-INSERT INTO items (id, batch_id, purchase_order_id, variant_id, serial_number, imei1, unit_price, status) VALUES
+INSERT INTO items (id, batch_id, purchase_order_id, variant_id, serial_number, imei1, part_number, unit_price, status) VALUES
   ('80000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001',
-   '20000000-0000-0000-0000-000000000001', 'SERIALIPHONE01', '350000000000001', 1199.00, 'SOLD'),
+   '20000000-0000-0000-0000-000000000001', 'SERIALIPHONE01', '350000000000006', 'MDEM1LL/A', 1199.00, 'SOLD'),
   ('80000000-0000-0000-0000-000000000002', '60000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001',
-   '20000000-0000-0000-0000-000000000002', 'SERIALIPAD0001', NULL, 599.00, 'SOLD'),
+   '20000000-0000-0000-0000-000000000002', 'SERIALIPAD0001', NULL, 'MDEM2LL/A', 599.00, 'SOLD'),
   ('80000000-0000-0000-0000-000000000003', '60000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001',
-   '20000000-0000-0000-0000-000000000003', 'SERIALAIRPODS1', NULL, 249.00, 'IN_STOCK');
+   '20000000-0000-0000-0000-000000000003', 'SERIALAIRPODS1', NULL, 'MDEM3AM/A', 249.00, 'IN_STOCK');
+
+-- Ảnh hộp iPhone đã quét lúc nhận hàng tại SG và đã xác nhận
+INSERT INTO scan_captures (source, context_type, file_key, barcodes, extracted, status, item_id, reviewed_at) VALUES
+  ('PHOTO', 'SHIPMENT_RECEIVING', 'scans/2026/10/20/hop-iphone-01.jpg',
+   '[{"format":"Code128","text":"SSERIALIPHONE01"},{"format":"Code128","text":"350000000000006"},{"format":"Code128","text":"1PMDEM1LL/A"}]',
+   '{"serial":"SERIALIPHONE01","imei1":"350000000000006","part_number":"MDEM1LL/A","sources":{"serial":"BARCODE","imei1":"BARCODE","part_number":"BARCODE"},"warnings":[]}',
+   'CONFIRMED', '80000000-0000-0000-0000-000000000001', '2026-10-20T16:10:00+07');
 
 -- Ba chặng vận chuyển
 INSERT INTO shipments (id, batch_id, leg_type, carrier_id, tracking_number, status, shipped_at, eta, arrived_at) VALUES

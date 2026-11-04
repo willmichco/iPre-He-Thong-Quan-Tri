@@ -4,10 +4,10 @@
 
 | Giai đoạn | Thời lượng | Phạm vi | Tiêu chí nghiệm thu |
 |---|---|---|---|
-| **GĐ0 — Chốt nghiệp vụ & nền móng** | 1 tuần | Chốt tài liệu 01 và các câu hỏi ở mục 5 · Khởi tạo Next.js, CI, PostgreSQL, migration từ `db/schema-draft.sql` · Đăng nhập + 2FA · Bố cục, thanh bên, chế độ tối | Đăng nhập 2FA được; CI xanh; CSDL tạo hoàn toàn từ migration; trang trống chạy trên môi trường thật |
-| **GĐ1 — MVP lõi** | 3 tuần | Danh mục · Chuyến / Đơn mua / Máy (thêm hàng loạt) · Kiện 3 chặng + Gửi đi/Đã nhận + mốc tự động · Chi phí + **costing engine** (kèm kiểm thử thuộc tính) · Bán nhanh, cọc · Hồ sơ máy · Tổng quan cơ bản (KPI, vốn theo chặng, cảnh báo trong ứng dụng) | **Nhập lại một chuyến thật đã có trên Excel từ đầu đến cuối: giá vốn và lãi từng máy khớp 0 đồng** (hoặc giải thích được từng chênh lệch) |
-| **GĐ2 — Vận hành đầy đủ** | 2–3 tuần | Sổ thu chi, tài khoản, chuyển tiền, công nợ · Báo cáo + xuất Excel · Chứng từ (R2) · PWA + quét mã, nhận hàng bằng quét · Chốt / mở lại chuyến · Giao diện nhật ký kiểm toán · Nhập dữ liệu cũ từ Excel · Sao lưu tự động · Báo cáo doanh thu thuế + cảnh báo ngưỡng | **Vận hành thật 2 chuyến liên tiếp mà không cần Excel song song** |
-| **GĐ3 — Tự động hoá & thông minh** | Liên tục | Cảnh báo Telegram · Tỷ giá tự động · Đồng bộ tracking qua API · Giá thị trường tham khảo & gợi ý giá bán · Dự báo dòng tiền · Xuất PDF · Tích hợp hoá đơn điện tử (nếu cần) | Theo từng tính năng |
+| **GĐ0 — Chốt nghiệp vụ & nền móng** | 1 tuần | Chốt tài liệu 01 và các câu hỏi ở mục 5 · Khởi tạo Next.js, CI, PostgreSQL, migration từ `db/migrations/0001_khoi_tao.sql` · Đăng nhập + 2FA · Bố cục, thanh bên, chế độ tối | Đăng nhập 2FA được; CI xanh; CSDL tạo hoàn toàn từ migration; trang trống chạy trên môi trường thật |
+| **GĐ1 — MVP lõi** | 3–4 tuần | Danh mục · Chuyến / Đơn mua / Máy · **Toàn bộ form nhập tay + lưới nhập máy kiểu bảng tính** · **Quét mã vạch bằng camera và từ ảnh** (IMEI/Serial/Part No.), máy quét USB, dán văn bản, `variant_codes` · Kiện 3 chặng + Gửi đi/Đã nhận + mốc tự động · Chi phí + **costing engine** (kèm kiểm thử thuộc tính) · Bán nhanh, cọc · Hồ sơ máy · Tổng quan cơ bản (KPI, vốn theo chặng, cảnh báo trong ứng dụng) | **Nhập lại một chuyến thật đã có trên Excel từ đầu đến cuối: giá vốn và lãi từng máy khớp 0 đồng** (hoặc giải thích được từng chênh lệch) |
+| **GĐ2 — Vận hành đầy đủ** | 2–3 tuần | Sổ thu chi, tài khoản, chuyển tiền, công nợ · Báo cáo + xuất Excel · Chứng từ (R2) · PWA · **OCR ảnh chụp màn hình, Hộp chờ duyệt, nhận kiện bằng quét đối chiếu, bộ ảnh mẫu trong CI** · Chốt / mở lại chuyến · Giao diện nhật ký kiểm toán · Nhập dữ liệu cũ từ Excel · Sao lưu tự động · Báo cáo doanh thu thuế + cảnh báo ngưỡng | **Vận hành thật 2 chuyến liên tiếp mà không cần Excel song song** |
+| **GĐ3 — Tự động hoá & thông minh** | Liên tục | **AI đọc ảnh khó + hoá đơn → đơn mua** (tuỳ chọn) · Cảnh báo Telegram · Tỷ giá tự động · Đồng bộ tracking qua API · Giá thị trường tham khảo & gợi ý giá bán · Dự báo dòng tiền · Xuất PDF · Tích hợp hoá đơn điện tử (nếu cần) | Theo từng tính năng |
 
 ```mermaid
 gantt
@@ -19,20 +19,84 @@ gantt
     Nền móng (repo, CI, DB, auth)  :g0b, 2026-11-09, 7d
     section GĐ1 — MVP
     Danh mục, chuyến, đơn mua, máy :g1a, after g0b, 5d
+    Form nhập tay + lưới nhập máy  :g1f, after g1a, 4d
+    Quét mã vạch (camera, ảnh)     :g1g, after g1f, 4d
     Vận chuyển 3 chặng + mốc       :g1b, after g1a, 4d
     Costing engine + kiểm thử      :crit, g1c, after g1a, 6d
     Bán hàng + hồ sơ máy           :g1d, after g1b, 4d
-    Tổng quan cơ bản               :g1e, after g1d, 3d
+    Tổng quan cơ bản               :g1e, after g1g, 3d
     Đối chiếu chuyến thật          :milestone, m1, after g1e, 0d
     section GĐ2
     Thu chi + công nợ              :g2a, after g1e, 5d
     Báo cáo + xuất Excel           :g2b, after g2a, 4d
-    PWA, quét mã, chứng từ         :g2c, after g1e, 6d
+    PWA, OCR, hộp chờ duyệt, chứng từ :g2c, after g1e, 6d
     Nhập dữ liệu cũ, sao lưu, thuế :g2d, after g2b, 4d
     Vận hành thật 2 chuyến         :milestone, m2, after g2d, 0d
     section GĐ3
     Telegram, tỷ giá, tracking     :g3a, after g2d, 10d
+    AI đọc ảnh + hoá đơn (tuỳ chọn) :g3b, after g2d, 7d
 ```
+
+### Tiến độ GĐ0 (cập nhật 04/11/2026)
+
+- [x] Khung Next.js 16 + TypeScript + Tailwind; bố cục thanh bên (máy tính) và thanh điều hướng dưới (điện thoại), chế độ tối theo hệ thống
+- [x] Đăng nhập một tài khoản chủ: email + mật khẩu + mã 2 lớp TOTP, chống dò mật khẩu, phiên cookie HttpOnly
+- [x] CSDL tạo hoàn toàn từ migration (`db/migrations/0001_khoi_tao.sql`), công cụ migrate có kiểm tra mã băm, Docker Compose cho máy phát triển
+- [x] CI (GitHub Actions): kiểm tra kiểu, lint, kiểm thử đơn vị, migration + đối chiếu số liệu ví dụ, build, kiểm thử đầu-cuối
+- [x] **Bộ quét mã dùng thử được** (đưa sớm từ GĐ1): camera, ảnh, máy quét USB, dán, nhập tay; xuất CSV / sao chép sang Excel
+- [ ] Triển khai lên môi trường thật — chờ bạn chọn nơi triển khai (câu hỏi số 8, mục 5)
+- [ ] Chốt nghiệp vụ tài liệu 01 và các câu hỏi ở mục 5
+
+### Tiến độ GĐ1 (cập nhật 04/11/2026)
+
+- [x] **Bộ máy tính giá vốn** (`src/domain/costing/`) — hàm thuần, tiền bằng số nguyên tuyệt đối (bigint), làm tròn như PostgreSQL:
+  phân bổ phần dư lớn nhất; thành phần đơn mua làm tròn luỹ kế (khớp cột `total_vnd`); 4 phương pháp phân bổ; chi phí gắn chuyến / đơn mua / kiện / máy;
+  hoàn phí (số âm); máy trả người bán; chi phí dự toán → "Tạm tính"; phân bổ giảm giá & chi phí bán theo giá bán; lãi máy, lãi chuyến, ROI, vốn đọng.
+  Kiểm thử: thuộc tính (fast-check, hàng nghìn bộ ngẫu nhiên), đối chiếu ví dụ mục 6.1 tài liệu 01 **khớp 0 đồng**, độ phủ ≥ 95% (CI chặn nếu tụt)
+- [x] **Lớp dịch vụ giá vốn** (`src/server/costing/service.ts`):
+  - `recalculateBatch(es)` đọc CSDL → bộ máy → ghi `item_cost_allocations` theo kiểu so sánh (chỉ thêm/sửa/xoá dòng thay đổi) trong cùng transaction với thao tác sửa dữ liệu; khoá tư vấn chống tính chồng
+  - kiện gom máy của nhiều chuyến / đơn mua dính nhiều chuyến → tự gom "cụm" chuyến và tính cùng lúc
+  - chuyến đã chốt: kết quả làm đổi bất kỳ dòng giá vốn nào → lỗi `BATCH_FINALIZED`, huỷ cả thao tác sửa
+  - `finalizeBatchCosts` (kiểm tra máy đã về SG, hết chi phí dự toán) · `reopenBatchCosts` (bắt buộc lý do) — đều ghi `audit_logs`
+  - `recalculateSale`: chia giảm giá & chi phí bán hàng cho từng dòng bán; dòng huỷ không gánh nữa
+  - máy trả người bán: cài đặt `costing.returned_item_policy` = `REALLOCATE` (mặc định) / `WRITE_OFF`
+  - `npm run costing:check` (CI chạy sau khi nạp dữ liệu ví dụ: bộ máy đọc CSDL phải ra đúng 15 dòng giá vốn đã ghi) · `npm run costing:recalc -- <mã chuyến>`
+  - 12 kiểm thử tích hợp với PostgreSQL thật (`npm run test:db`, mỗi ca chạy trong transaction rồi huỷ)
+- [x] **Danh mục** (`/danh-muc`, `src/server/catalog/service.ts`, `src/domain/catalog.ts`):
+  - mẫu máy → cấu hình (SKU tự gợi ý, cân nặng mặc định) → mã Part No./UPC/EAN; nơi mua; đơn vị vận chuyển (chặng, mẫu link tra vận đơn, số ngày giao); tài khoản tiền
+  - tra mã: mã chưa có → hỏi **một lần** để gán cấu hình; bộ quét hiện ngay cấu hình + cân nặng của Part No. vừa đọc, mã lạ có link gán
+  - ô số kiểu Việt Nam (`0,6` · `1.199,00` · `$1,199`); lỗi hiện dưới từng ô, không mất dữ liệu đã gõ
+  - xoá bị chặn khi đang dùng (máy, đơn mua, kiện, giao dịch); mọi thay đổi ghi `audit_logs`
+  - đổi cân nặng mặc định → tự tính lại giá vốn các chuyến liên quan; chuyến đã chốt → chặn
+  - còn lại cho GĐ2: danh mục thu chi; khách hàng làm cùng màn hình Bán hàng
+- [x] **Chuyến · Đơn mua · Máy** (`/chuyen-hang`, `src/server/purchasing/service.ts`, `src/domain/purchasing.ts`):
+  - chuyến: mã tự cấp `CH-năm-số`, tổng hợp vốn / doanh thu / lãi (Tạm tính–Chốt) / ROI / vốn đọng; chốt chi phí & mở lại (bắt buộc lý do); xoá mềm (migration 0002)
+  - đơn mua: tỷ giá thực tế gõ kiểu Việt Nam (`26.350`), hạn đổi trả tự tính theo nơi mua, sửa đơn → giá vốn tự tính lại; chuyến đã chốt → chặn
+  - **lưới nhập máy kiểu bảng tính**: dán từ Excel/Sheets (nhận cột theo tiêu đề, hoặc tự nhận IMEI/Serial/Part No./giá), gõ tắt cấu hình (`pm 256 sil`), Part No. tự điền cấu hình, Enter xuống dòng (máy quét USB), Ctrl+D điền xuống, mã quét nhầm cột tự chuyển, kiểm Luhn & trùng ngay khi gõ, Σ đơn giá so với Subtotal, cảnh báo khi rời trang chưa lưu
+  - lưu cả lưới trong 1 transaction: thêm (kèm mốc "Đã đặt"), sửa, xoá mềm; chống trùng Serial/IMEI toàn hệ thống; máy đã vào kiện / đã bán không xoá được; tính lại giá vốn
+- [x] **Kiện 3 chặng** (`/van-chuyen`, `src/server/shipping/service.ts`, `src/domain/shipping.ts`):
+  - bảng tiến độ Kanban (Chờ gửi · ① Nội địa Mỹ · ② Mỹ → VN · ③ HN → SG · Đã nhận), thẻ trễ ETA tô đỏ, đếm kiện quá hạn
+  - quét máy vào kiện (máy quét USB + Enter, hoặc dán danh sách): mã lạ / đã ở kiện khác cùng chặng / máy đã bán được báo riêng, mã đúng vẫn thêm
+  - "Gửi đi" / "Đã nhận" (chọn ngày giờ, nhập bù được) → mốc M2–M7 + trạng thái cho mọi máy; chỉ đi tới không lùi; khách cọc giữ "Khách cọc"; ETA tự tính theo đơn vị vận chuyển
+  - giữ hải quan / hết giữ (ghi nhật ký tracking); chuyến tự chuyển "Đang vận chuyển" → "Đã về"
+  - đổi máy trong kiện → cước kiện chia lại → giá vốn tính lại (chuyến đã chốt → chặn); kiện đã gửi không bỏ máy / xoá được
+- [x] **Chi phí theo chặng** (`src/server/costs/service.ts`, `src/domain/costs.ts`, khối Chi phí ở trang chuyến & trang kiện):
+  - gắn vào chuyến / đơn mua / kiện / một máy; cách chia mặc định theo tài liệu 01 mục 5.1 (nội địa: số lượng · Mỹ→VN: cân nặng · bảo hiểm, thuế: giá trị), đổi được
+  - USD theo tỷ giá riêng của khoản; số âm = hoàn phí; dự toán / có chứng từ / chưa trả (công nợ); chia tay từng máy theo Serial/IMEI (tổng phải khớp)
+  - thêm / sửa / xoá (mềm) → giá vốn tự tính lại; chuyến đã chốt → chặn; còn dự toán → không chốt được
+  - cấu trúc giá vốn chuyến theo nhóm A–E + đối soát nhóm A = Σ đơn mua; mỗi khoản hiện "đã phân bổ ✓ n máy"
+- [x] **Bán nhanh + cọc + hồ sơ máy** (`/ban-hang`, `/kho`, `src/server/sales/service.ts`, `src/domain/sales.ts`):
+  - bán nhanh tối ưu điện thoại: quét IMEI/Serial → giá vốn → gõ giá `34,5tr` / `30k` → **lãi & biên lãi hiện ngay khi gõ**; nhiều máy một đơn (giảm giá, phí chia theo giá bán)
+  - kiểm tra: máy đã bán / đã cọc / thất lạc… không bán được (nêu lý do); máy chưa về SG chỉ nhận cọc hoặc tích "bán giao thẳng"; dưới giá vốn phải xác nhận
+  - hoàn tất: máy "Đã bán", mốc M8, chụp giá vốn lúc bán, bảo hành shop; tiền vào sổ thu chi (chuyển khoản / tiền mặt / cọc / ghi nợ); khách theo SĐT (tự tạo / tìm lại)
+  - đơn cọc: hoàn tất khi máy về; thu thêm; huỷ cọc (máy về đúng trạng thái theo mốc, hoàn một phần / giữ cọc); khách trả lại (máy về tồn kho, hoàn tiền, giữ lịch sử)
+  - kho máy: tìm theo Serial / IMEI / Part No. / tên, tồn kho SG kèm tuổi tồn; hồ sơ máy: thành phần giá vốn, dòng thời gian M1–M8, lịch sử bán & bảo hành, nút "Bán máy này"
+- [x] **Tổng quan cơ bản** (`/`, `src/server/overview/service.ts`, `src/domain/overview.ts`):
+  - kỳ: tháng này / tháng trước / năm nay, so với kỳ trước; thẻ KPI: vốn trong hàng (và phần còn trên đường), doanh thu, lãi máy (đếm máy "tạm tính"), biên lãi, tuổi tồn TB; lãi ròng sau chi phí vận hành khi có
+  - "Vốn đang nằm ở đâu" theo 7 chặng — máy khách đã cọc tính ở chỗ máy đang thật sự nằm; bấm chặng → Kho máy lọc `?chang=`
+  - "Cần xử lý": kiện giữ hải quan (số ngày), kiện trễ ETA quá số ngày ân hạn, đơn mua sắp hết hạn đổi trả mà còn máy chưa kiểm, máy tồn quá N ngày, đơn cọc đã về SG cần giao, khách còn nợ, doanh thu năm chạm ngưỡng — ngưỡng đọc từ `app_settings`
+  - biểu đồ doanh thu & lãi 12 tháng (kèm bảng số), lãi theo dòng máy, tuổi tồn kho, chuyến đang chạy (số máy theo chặng)
+- [ ] Nghiệm thu: nhập lại một chuyến thật từ Excel, giá vốn và lãi từng máy khớp 0 đồng
 
 **Ưu tiên khi phải cắt giảm:** costing engine và mốc vận chuyển là **không thể cắt**. Có thể dời: biểu đồ nâng cao, Kanban kéo thả (dùng nút bấm thay thế), PWA ngoại tuyến, tracking API.
 
@@ -43,7 +107,8 @@ gantt
 | # | Rủi ro | Mức | Biện pháp |
 |---|---|---|---|
 | 1 | Nhập sai/thiếu tỷ giá, cân nặng → giá vốn sai mà không biết | Cao | Bắt buộc tỷ giá thực tế; cân nặng mặc định theo mẫu máy; nhãn "dự toán"; **đối soát tự động** Σ giá vốn = Σ đơn mua + Σ chi phí |
-| 2 | Nhập liệu mất công → bỏ dùng, quay về Excel | Cao | Thao tác theo kiện; dán danh sách serial; quét mã vạch; gợi ý từ lần nhập trước; bán nhanh trên điện thoại |
+| 2 | Nhập liệu mất công → bỏ dùng, quay về Excel | Cao | Thao tác theo kiện; lưới nhập kiểu bảng tính, dán từ Excel; quét mã vạch bằng camera/ảnh; gợi ý từ lần nhập trước; bán nhanh trên điện thoại |
+| 2b | Quét/OCR đọc sai IMEI, Serial → sai định danh máy | Trung bình | Ưu tiên mã vạch (có số kiểm tra); IMEI kiểm Luhn ở cả trình duyệt, máy chủ và CSDL; trường OCR/AI luôn phải xác nhận; bộ ảnh mẫu kiểm thử tự động |
 | 3 | Cách tính mới khác cách tính quen thuộc → mất niềm tin vào số liệu | Trung bình | Nghiệm thu GĐ1 bằng chuyến thật; mọi con số đều "bấm vào xem nguồn" |
 | 4 | Mất dữ liệu | Thấp | PITR + `pg_dump` hằng ngày sang nơi khác + xuất toàn bộ; diễn tập khôi phục mỗi quý |
 | 5 | Lộ dữ liệu tài chính / khách hàng | Thấp–Trung bình | 2FA, cookie an toàn, bucket riêng tư, cảnh báo đăng nhập lạ, không lưu bí mật trong repo |
@@ -96,7 +161,9 @@ gantt
 
 ## 4. Định nghĩa "xong" cho bản MVP
 
-- [ ] Tạo chuyến, đơn mua, thêm máy hàng loạt (dán danh sách serial/IMEI).
+- [ ] Tạo chuyến, đơn mua, thêm máy hàng loạt bằng lưới nhập tay (dán danh sách serial/IMEI từ Excel).
+- [ ] Quét IMEI/Serial/Part No. bằng camera và từ ảnh hộp máy; Part No. tự điền cấu hình; IMEI sai số kiểm tra bị chặn.
+- [ ] Có form nhập tay cho mọi đối tượng (chuyến, đơn mua, máy, kiện, chi phí, đơn bán, thu chi, khách).
 - [ ] Tạo kiện cho 3 chặng, gán máy, "Gửi đi"/"Đã nhận" sinh mốc tự động cho mọi máy.
 - [ ] Ghi chi phí theo chặng với 4 phương pháp phân bổ; tổng phân bổ khớp tuyệt đối.
 - [ ] Hồ sơ máy hiển thị giá vốn chi tiết và dòng thời gian M1–M8.
@@ -123,6 +190,9 @@ Mỗi câu hỏi đã có **giả định mặc định** — nếu không có �
 | 7 | Đã đăng ký hộ kinh doanh chưa? Doanh thu năm dự kiến? | Ưu tiên module thuế & hoá đơn ở GĐ2 |
 | 8 | Ưu tiên vận hành "không phải trông" hay "chi phí thấp nhất"? | Dịch vụ quản lý (Vercel + Neon/Supabase + R2) |
 | 9 | Tính giá vốn **đích danh từng máy** hay **bình quân**? | **Đích danh** — mỗi máy có serial, chính xác nhất cho hàng giá trị cao |
+| 10 | Bạn quét chủ yếu bằng điện thoại, hay sẽ mua thêm máy quét mã vạch cầm tay? | Điện thoại; hệ thống vẫn hỗ trợ máy quét USB/Bluetooth nếu có |
+| 11 | Có muốn bật **AI đọc ảnh** (tốn phí theo lượt, ảnh gửi ra dịch vụ ngoài) không? | **Tắt**; chỉ cân nhắc ở GĐ3 sau khi đo hiệu quả mã vạch + OCR |
+| 12 | Gửi giúp 10–20 ảnh nhãn hộp thật (iPhone, iPad, Mac, AirPods) và vài ảnh chụp màn hình *Cài đặt › Giới thiệu* | Dùng làm bộ ảnh mẫu để tinh chỉnh bộ nhận dạng |
 
 ---
 

@@ -1,6 +1,7 @@
 -- =============================================================================
 -- iPre — Hệ thống quản trị nhập hàng Apple (Mỹ → Việt Nam)
--- LƯỢC ĐỒ CƠ SỞ DỮ LIỆU — BẢN NHÁP THIẾT KẾ (PostgreSQL 16+)
+-- MIGRATION 0001 — KHỞI TẠO LƯỢC ĐỒ (PostgreSQL 16+)
+-- Chạy bằng: npm run db:migrate (mỗi migration chạy trong một transaction)
 --
 -- Quy ước:
 --   * Tiền VND lưu bằng BIGINT (đơn vị: đồng) — không bao giờ dùng số thực (float).
@@ -11,7 +12,6 @@
 --     tính và ghi vào item_cost_allocations — báo cáo chỉ việc cộng.
 -- =============================================================================
 
-BEGIN;
 
 -- -----------------------------------------------------------------------------
 -- 0. KIỂU LIỆT KÊ (ENUM)
@@ -65,6 +65,34 @@ CREATE TYPE cost_kind AS ENUM (
 CREATE TYPE txn_direction AS ENUM ('IN', 'OUT');
 CREATE TYPE sale_status   AS ENUM ('DEPOSITED', 'COMPLETED', 'CANCELLED');
 
+-- Quét mã (xem docs/07-quet-ma-va-nhap-lieu.md)
+CREATE TYPE scan_source AS ENUM (
+  'CAMERA_LIVE',   -- quét trực tiếp bằng camera
+  'PHOTO',         -- chụp / tải ảnh hộp máy, nhãn
+  'SCREENSHOT',    -- ảnh chụp màn hình Cài đặt > Giới thiệu, *#06#, hoá đơn
+  'HW_SCANNER',    -- máy quét mã vạch USB/Bluetooth (giả lập bàn phím)
+  'PASTE'          -- dán văn bản (email, hoá đơn, danh sách serial)
+);
+CREATE TYPE scan_status AS ENUM ('PENDING_REVIEW', 'CONFIRMED', 'DISCARDED');
+
+-- -----------------------------------------------------------------------------
+-- 0.1 HÀM KIỂM TRA
+-- -----------------------------------------------------------------------------
+-- IMEI hợp lệ: đúng 15 chữ số và chữ số cuối khớp thuật toán Luhn.
+-- Chặn ngay ở CSDL các IMEI gõ nhầm / OCR đọc sai.
+CREATE FUNCTION is_valid_imei(p text) RETURNS boolean
+LANGUAGE sql IMMUTABLE STRICT AS $$
+  SELECT CASE
+    WHEN p !~ '^[0-9]{15}$' THEN false
+    ELSE (
+      SELECT SUM(CASE WHEN i % 2 = 0
+                      THEN (CASE WHEN d * 2 > 9 THEN d * 2 - 9 ELSE d * 2 END)
+                      ELSE d END) % 10 = 0
+      FROM (SELECT i, substr(p, i, 1)::int AS d FROM generate_series(1, 15) AS i) s
+    )
+  END
+$$;
+
 -- -----------------------------------------------------------------------------
 -- 1. DANH MỤC
 -- -----------------------------------------------------------------------------
@@ -81,7 +109,6 @@ CREATE TABLE product_variants (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   model_id          uuid NOT NULL REFERENCES product_models(id),
   sku               text NOT NULL UNIQUE,          -- mã nội bộ, vd: IP17PM-256-SLV
-  apple_part_number text,                          -- vd: MXXX3LL/A
   storage           text,                          -- '256GB', '1TB'
   color             text,
   chip              text,                          -- Mac: 'M4 Pro'
@@ -91,6 +118,19 @@ CREATE TABLE product_variants (
   is_active         boolean NOT NULL DEFAULT true,
   created_at        timestamptz NOT NULL DEFAULT now()
 );
+
+-- Ánh xạ "mã máy" in trên hộp → cấu hình máy. Một cấu hình có nhiều mã
+-- (mỗi thị trường một Part No.: LL/A = Mỹ, VN/A = Việt Nam, ZA/A = Singapore…).
+-- Lần đầu quét một mã chưa có, hệ thống hỏi để gán vào cấu hình rồi ghi nhớ.
+CREATE TABLE variant_codes (
+  code_type  text NOT NULL CHECK (code_type IN ('PART_NUMBER', 'UPC', 'EAN')),
+  code       text NOT NULL,                        -- vd: 'MDEM1LL/A', '012345678905'
+  variant_id uuid NOT NULL REFERENCES product_variants(id),
+  region     text,                                 -- hậu tố thị trường: 'LL/A', 'VN/A'…
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (code_type, code)
+);
+CREATE INDEX variant_codes_variant_idx ON variant_codes (variant_id);
 
 CREATE TABLE suppliers (                           -- Nơi mua hàng tại Mỹ
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -203,9 +243,11 @@ CREATE TABLE items (                               -- Từng máy (đơn vị h�
   batch_id          uuid NOT NULL REFERENCES batches(id),
   purchase_order_id uuid NOT NULL REFERENCES purchase_orders(id),
   variant_id        uuid NOT NULL REFERENCES product_variants(id),
-  serial_number     text,                          -- có thể chưa biết lúc đặt, cập nhật khi nhận máy
-  imei1             text,
-  imei2             text,
+  serial_number     text CHECK (serial_number = upper(serial_number)),  -- có thể chưa biết lúc đặt
+  imei1             text CHECK (imei1 IS NULL OR is_valid_imei(imei1)),
+  imei2             text CHECK (imei2 IS NULL OR is_valid_imei(imei2)),
+  part_number       text,                          -- "mã máy" in trên hộp, vd: MDEM1LL/A
+  model_number      text,                          -- số hiệu kiểu máy, vd: A3xxx
   condition         item_condition NOT NULL DEFAULT 'NEW_SEALED',
   unit_price        numeric(14,2) NOT NULL CHECK (unit_price >= 0),     -- theo tiền tệ của đơn mua
   weight_kg         numeric(6,3) CHECK (weight_kg > 0),                 -- trống = lấy default của variant
@@ -220,6 +262,7 @@ CREATE TABLE items (                               -- Từng máy (đơn vị h�
 );
 CREATE UNIQUE INDEX items_serial_uq ON items (serial_number) WHERE serial_number IS NOT NULL AND deleted_at IS NULL;
 CREATE UNIQUE INDEX items_imei1_uq  ON items (imei1)         WHERE imei1 IS NOT NULL AND deleted_at IS NULL;
+CREATE UNIQUE INDEX items_imei2_uq  ON items (imei2)         WHERE imei2 IS NOT NULL AND deleted_at IS NULL;
 CREATE INDEX items_batch_idx  ON items (batch_id);
 CREATE INDEX items_status_idx ON items (status) WHERE deleted_at IS NULL;
 
@@ -424,6 +467,28 @@ CREATE TABLE attachments (
   deleted_at  timestamptz
 );
 CREATE INDEX attachments_entity_idx ON attachments (entity_type, entity_id);
+
+-- Mỗi lần quét / mỗi ảnh tải lên = một bản ghi. Ảnh chờ duyệt nằm trong
+-- "Hộp chờ duyệt" cho tới khi người dùng xác nhận (tạo/cập nhật máy) hoặc bỏ qua.
+CREATE TABLE scan_captures (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  source       scan_source NOT NULL,
+  context_type text NOT NULL DEFAULT 'INBOX' CHECK (context_type IN
+                 ('INBOX', 'PURCHASE_ORDER', 'SHIPMENT_RECEIVING', 'SALE', 'LOOKUP')),
+  context_id   uuid,                               -- đơn mua / kiện / đơn bán đang thao tác
+  file_key     text,                               -- ảnh gốc trên R2 (NULL nếu quét trực tiếp/USB/dán)
+  barcodes     jsonb NOT NULL DEFAULT '[]',        -- [{format, text, box}] đọc được từ mã vạch
+  ocr_text     text,                               -- văn bản nhận dạng (nếu chạy OCR)
+  ai_result    jsonb,                              -- kết quả AI (tuỳ chọn, nếu bật)
+  extracted    jsonb NOT NULL DEFAULT '{}',        -- {serial, imei1, imei2, part_number, …,
+                                                   --  sources:{serial:'BARCODE'|'OCR'|'AI'|'MANUAL'}, warnings:[…]}
+  status       scan_status NOT NULL DEFAULT 'PENDING_REVIEW',
+  item_id      uuid REFERENCES items(id),          -- máy được tạo/cập nhật sau khi xác nhận
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  reviewed_at  timestamptz,
+  CHECK (status <> 'CONFIRMED' OR item_id IS NOT NULL)
+);
+CREATE INDEX scan_captures_status_idx ON scan_captures (status, created_at);
 
 CREATE TABLE audit_logs (
   id          bigserial PRIMARY KEY,
@@ -663,6 +728,8 @@ INSERT INTO app_settings (key, value) VALUES
   ('tax.threshold_warning_ratio', '0.8'),
   ('allocation.default.US_DOMESTIC', '"BY_QUANTITY"'),
   ('allocation.default.US_TO_VN',    '"BY_WEIGHT"'),
-  ('allocation.default.HN_TO_SG',    '"BY_QUANTITY"');
-
-COMMIT;
+  ('allocation.default.HN_TO_SG',    '"BY_QUANTITY"'),
+  ('scan.expected_region',           '"LL/A"'),      -- cảnh báo khi hộp không phải hàng thị trường Mỹ
+  ('scan.ocr_enabled',               'true'),
+  ('scan.ai_enabled',                'false'),       -- AI đọc ảnh: tắt mặc định, chủ hàng tự bật
+  ('scan.ai_model',                  '"claude-opus-5-5"');

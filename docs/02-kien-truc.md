@@ -48,7 +48,9 @@
 | Tác vụ định kỳ | **Cron** của nền tảng → gọi route `/api/cron/*` có khoá bí mật | Tỷ giá, cảnh báo trễ, tồn lâu, hạn đổi trả, sao lưu. |
 | Thông báo | **Telegram Bot API** | Miễn phí, tức thì, xem trên điện thoại. |
 | Xuất file | **ExcelJS** (xlsx); PDF ở giai đoạn sau | Báo cáo gửi kế toán, lưu trữ. |
-| Quét mã vạch | **@zxing/browser** (dự phòng) + **BarcodeDetector API** (nếu trình duyệt hỗ trợ) | Safari trên iPhone chưa hỗ trợ BarcodeDetector → cần ZXing. |
+| Quét mã vạch từ camera & ảnh | **zxing-wasm** (WebAssembly, chạy trong Web Worker) + **BarcodeDetector API** khi trình duyệt có | Đọc nhiều mã trên một ảnh; chạy được trên Safari iPhone (vốn chưa có BarcodeDetector). Chi tiết: [tài liệu 07](07-quet-ma-va-nhap-lieu.md). |
+| Nhận dạng chữ (OCR) | **Tesseract.js** | Đọc IMEI/Serial từ ảnh chụp màn hình *Cài đặt › Giới thiệu*; chạy trên thiết bị, miễn phí. |
+| AI đọc ảnh *(tuỳ chọn, tắt mặc định)* | **Claude API** qua SDK `@anthropic-ai/sdk`, gọi từ máy chủ | Chỉ cho ảnh khó và hoá đơn → đơn mua; kết quả vẫn qua kiểm tra và bước duyệt. |
 | Kiểm thử | **Vitest** + **fast-check** (kiểm thử thuộc tính cho phân bổ) + **Playwright** (E2E) | Bộ máy tính giá vốn phải được kiểm thử kỹ nhất. |
 | Chất lượng mã | ESLint + Prettier + TypeScript strict | |
 | CI/CD | **GitHub Actions** → triển khai tự động khi merge `main` | |
@@ -62,7 +64,7 @@
 flowchart TB
     subgraph Client["Thiết bị của chủ hàng"]
         PC["Máy tính<br/>(trình duyệt)"]
-        Phone["Điện thoại<br/>(PWA + camera quét IMEI)"]
+        Phone["Điện thoại<br/>(PWA + camera quét IMEI/Serial,<br/>giải mã vạch & OCR ngay trên máy)"]
         TG["Telegram<br/>(nhận cảnh báo)"]
     end
 
@@ -87,6 +89,7 @@ flowchart TB
     subgraph Ext["Dịch vụ ngoài (giai đoạn sau)"]
         FX["Nguồn tỷ giá"]
         TRK["API tracking<br/>USPS/UPS/FedEx/forwarder"]
+        AI["AI đọc ảnh<br/>(tuỳ chọn, tắt mặc định)"]
     end
 
     PC --> UI
@@ -97,6 +100,7 @@ flowchart TB
     SVC --> DOM
     SVC --> REPO --> PG
     SVC --> R2
+    SVC -.-> AI
     CRON --> FX
     CRON --> TRK
     CRON --> TG
@@ -155,13 +159,14 @@ iPre-He-Thong-Quan-Tri/
 │   │   │   ├── allocation.ts         # Phân bổ phần dư lớn nhất
 │   │   │   ├── costing.ts            # Tính giá vốn từng máy
 │   │   │   ├── item-status.ts        # Máy trạng thái: sự kiện → trạng thái
+│   │   │   ├── identifiers.ts        # Phân loại & kiểm tra IMEI/Serial/Part No. (dùng chung với trình duyệt)
 │   │   │   └── profit.ts             # Lãi máy, lãi chuyến, ROI
 │   │   ├── services/                 # Use case, transaction, audit
 │   │   ├── db/
-│   │   │   ├── schema/               # Drizzle schema (từ db/schema-draft.sql)
+│   │   │   ├── schema/               # Drizzle schema (từ db/migrations/0001_khoi_tao.sql)
 │   │   │   ├── views.sql
 │   │   │   └── migrations/
-│   │   ├── integrations/             # fx, tracking, telegram, storage
+│   │   ├── integrations/             # fx, tracking, telegram, storage, ai-label-reader (tuỳ chọn)
 │   │   └── auth/
 │   ├── components/
 │   │   ├── ui/                       # shadcn/ui
@@ -169,7 +174,8 @@ iPre-He-Thong-Quan-Tri/
 │   │   ├── charts/
 │   │   ├── timeline/                 # Dòng thời gian máy/chuyến, Gantt chặng
 │   │   ├── money-input/              # Nhập "34,5tr" → 34.500.000
-│   │   └── barcode-scanner/
+│   │   ├── entry-grid/               # Lưới nhập liệu kiểu bảng tính (dán từ Excel)
+│   │   └── scanner/                  # Camera, ảnh, máy quét USB · zxing-wasm · Tesseract.js (Web Worker)
 │   └── lib/
 │       ├── format.ts                 # Định dạng VND/USD/ngày giờ vi-VN
 │       └── validators/               # Lược đồ Zod dùng chung
@@ -232,3 +238,18 @@ Dù chỉ một người dùng, dữ liệu tài chính và thông tin khách h�
 | Ngôn ngữ | Tiếng Việt (giao diện), mã nguồn và tên bảng tiếng Anh |
 | Thiết bị | Máy tính ≥ 1280px (đầy đủ), điện thoại ≥ 375px (nhập nhanh, quét mã, bán hàng) |
 | Khả dụng | 99,5% (phụ thuộc nền tảng); dữ liệu không mất quá 24 giờ trong trường hợp xấu nhất (thực tế ~0 với PITR) |
+
+---
+
+## 9. Điều chỉnh khi triển khai GĐ0 (11/2026)
+
+Khi bắt tay viết mã, một số lựa chọn ở trên được điều chỉnh cho đơn giản và chắc chắn hơn:
+
+| Hạng mục | Kế hoạch ban đầu | Đã làm ở GĐ0 | Lý do |
+|---|---|---|---|
+| Xác thực | Better Auth | **Tự viết tối giản**: một tài khoản chủ cấu hình qua biến môi trường; mật khẩu băm scrypt (có sẵn trong Node); TOTP qua `otpauth`; phiên JWT ký HS256 (`jose`) trong cookie HttpOnly; khoá 15 phút sau 5 lần sai | Chỉ một người dùng → không cần bảng người dùng, đăng ký, phân quyền; ít phụ thuộc, dễ kiểm thử (đã có kiểm thử đơn vị + đầu-cuối). Passkey để GĐ2. |
+| Bảo vệ trang | — | `src/proxy.ts` chặn ở cửa ngõ **và** mỗi trang/action gọi `requireOwner()` | Theo khuyến nghị của Next.js 16: không chỉ dựa vào proxy. |
+| Migration | drizzle-kit | **File SQL thuần** `db/migrations/NNNN_*.sql` + `scripts/migrate.ts` (mỗi file một transaction, lưu mã băm SHA-256, chặn sửa file đã chạy) | Lược đồ dùng nhiều view, hàm, ràng buộc CHECK mà drizzle-kit không biểu diễn tốt. Drizzle vẫn dùng cho truy vấn ở GĐ1. |
+| Cache Components (Next 16) | — | **Tắt** | Mọi trang là dữ liệu động theo phiên của một người dùng; tắt để tránh bẫy dựng tĩnh. Đã kiểm tra bảng route: mọi trang trong khu vực đăng nhập là `ƒ (Dynamic)`. |
+| Giải mã vạch | @zxing/browser | **zxing-wasm** (WebAssembly), file `.wasm` tự phục vụ tại `/wasm/` | Đọc nhiều mã trên một ảnh, chạy trên Safari iPhone, không phụ thuộc CDN. |
+| Thư mục | `src/server/domain` | `src/domain` | Hàm nhận dạng mã dùng chung cho trình duyệt (quét) và máy chủ (kiểm tra lại). |
