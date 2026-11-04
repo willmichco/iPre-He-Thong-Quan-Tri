@@ -255,3 +255,57 @@ export function findTextRegion(g: Gray, opts: { cell?: number } = {}): TextRegio
     lineCount: best.lines.length,
   };
 }
+
+/**
+ * Chiều cao NÉT CHỮ trung vị (px của ảnh đầu vào) — đo trên ảnh cắt ở độ phân giải gốc, để thu/phóng ảnh
+ * về đúng cỡ bộ đọc chữ cần (camera 4K cho chữ cao 50–80 px: đọc chậm gấp nhiều lần mà không chính xác hơn).
+ * Cách đo: chia ảnh thành các dải dọc hẹp (chịu được ảnh nghiêng); trong mỗi dải, điểm "chữ" là điểm lệch
+ * hẳn khỏi màu nền (trung vị của dải) — không dựa vào cạnh sắc nên ảnh hơi nhòe vẫn đo được; các đoạn hàng
+ * liên tiếp có điểm chữ là một dòng; lấy trung vị độ cao các đoạn. Trả về 0 nếu không đo được.
+ */
+export function inkLineHeight(g: Gray, strips = 6): number {
+  const { data, width, height } = g;
+  if (width < 20 || height < 10) return 0;
+  const sw = Math.floor(width / strips);
+  const runs: number[] = [];
+  const hist = new Uint32Array(256);
+  for (let k = 0; k < strips; k++) {
+    const x0 = k * sw;
+    const x1 = x0 + sw;
+    hist.fill(0);
+    for (let y = 0; y < height; y += 2) for (let x = x0; x < x1; x += 2) hist[data[y * width + x]]++;
+    const total = hist.reduce((a, b) => a + b, 0);
+    const pct = (q: number) => {
+      let acc = 0;
+      for (let v = 0; v < 256; v++) if ((acc += hist[v]) >= q * total) return v;
+      return 255;
+    };
+    const bg = pct(0.5);
+    const lo = pct(0.02);
+    const hi = pct(0.98);
+    // chữ nằm về phía xa nền hơn (nền tối → chữ sáng và ngược lại)
+    const far = hi - bg >= bg - lo ? hi : lo;
+    const t = Math.abs(far - bg) * 0.45;
+    if (t < 12) continue; // dải không có chữ
+    const minPix = Math.max(2, Math.round(sw * 0.015));
+    let run = 0;
+    for (let y = 0; y <= height; y++) {
+      let n = 0;
+      if (y < height) {
+        const row = y * width;
+        for (let x = x0; x < x1; x++) {
+          const d = data[row + x] - bg;
+          if ((far > bg ? d : -d) > t) n++;
+        }
+      }
+      if (y < height && n >= minPix) run++;
+      else {
+        if (run >= 3) runs.push(run);
+        run = 0;
+      }
+    }
+  }
+  if (!runs.length) return 0;
+  runs.sort((a, b) => a - b);
+  return runs[Math.floor(runs.length / 2)];
+}

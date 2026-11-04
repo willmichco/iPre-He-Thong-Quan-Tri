@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findTextRegion, motion, sharpness, shiftEstimate, type Gray } from "@/features/scanner/frame-analysis";
+import { findTextRegion, inkLineHeight, motion, sharpness, shiftEstimate, type Gray } from "@/features/scanner/frame-analysis";
 
 /** Ảnh tổng hợp: nền tối, khối "màn hình" có 4 dòng chữ (nét dọc ngắn sáng), thêm 1 đường viền dọc gây nhiễu. */
 function synthetic(opts: { offsetX?: number; blur?: boolean } = {}): Gray {
@@ -101,5 +101,34 @@ describe("shiftEstimate — rung tính theo độ dịch (px), không theo độ
   });
   it("khung giống hệt → 0", () => {
     expect(shiftEstimate(texture(80), texture(80), box)).toBe(0);
+  });
+});
+
+describe("inkLineHeight — đo chiều cao nét chữ để thu/phóng ảnh trước khi đọc", () => {
+  /** các dòng "chữ" (nét dọc) cao h px, cách nhau 3h, nghiêng `tilt` px trên toàn bề ngang */
+  function lines(h: number, tilt = 0): Gray {
+    const width = 900;
+    const height = 12 * h;
+    const data = new Uint8Array(width * height).fill(235);
+    for (let line = 0; line < 3; line++) {
+      for (let x = 20; x < width - 20; x++) {
+        if (x % 9 > 2 || (x > 300 && x < 520)) continue; // nét chữ, khoảng trống giữa nhãn và giá trị
+        const y0 = h + line * 3 * h + Math.round((tilt * x) / width);
+        for (let y = y0; y < y0 + h; y++) data[y * width + x] = 25;
+      }
+    }
+    return { data, width, height };
+  }
+  it("đo đúng chữ nhỏ (14 px) và chữ lớn của camera 4K (60 px)", () => {
+    expect(inkLineHeight(lines(14))).toBeGreaterThanOrEqual(13);
+    expect(inkLineHeight(lines(14))).toBeLessThanOrEqual(16);
+    expect(inkLineHeight(lines(60))).toBeGreaterThanOrEqual(58);
+    expect(inkLineHeight(lines(60))).toBeLessThanOrEqual(64);
+  });
+  it("ảnh nghiêng (lệch 30 px trên bề ngang) không làm phồng chiều cao quá 25%", () => {
+    expect(inkLineHeight(lines(40, 30))).toBeLessThanOrEqual(50);
+  });
+  it("ảnh trơn, không có chữ → 0", () => {
+    expect(inkLineHeight({ data: new Uint8Array(400 * 200).fill(128), width: 400, height: 200 })).toBe(0);
   });
 });

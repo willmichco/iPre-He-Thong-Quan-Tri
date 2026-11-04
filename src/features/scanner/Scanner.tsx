@@ -26,7 +26,7 @@ import { extractFromText, hasIdentity, isComplete, mergeExtractions } from "@/do
 import { acceptedAsExtraction, addReading, emptyVotes, hasNew, type Accepted, type ScreenVotes } from "@/domain/screen-votes";
 import { captureVideoFrame, decodePhoto, decodeVideoFrame, initDecoder, rasterizeImageUrl, type WasmSource } from "./decoder";
 import { recognizeCanvas, recognizeText, warmOcr } from "./ocr";
-import { findTextRegion, motion, sharpness, shiftEstimate, toGray, type Gray, type TextRegion } from "./frame-analysis";
+import { findTextRegion, inkLineHeight, motion, sharpness, shiftEstimate, toGray, type Gray, type TextRegion } from "./frame-analysis";
 import { haptic, unlockFeedback } from "./haptics";
 import "./scanner.css";
 
@@ -807,9 +807,11 @@ function CameraPanel({
 
   const grab = useCallback(() => captureVideoFrame(videoRef.current!), []);
 
-  // Vòng quét: đọc liên tục, tự động — không cần bấm nút
+  // Vòng quét mã vạch: đọc liên tục, tự động — không cần bấm nút.
+  // TẮT ở chế độ "Màn hình máy": màn hình Cài đặt không có mã vạch, mà mỗi lần giải mã khung 4K (tryHarder)
+  // chiếm luồng chính và CPU — làm chậm hẳn việc tìm vùng chữ và đọc chữ trên điện thoại.
   useEffect(() => {
-    if (state !== "running" || !ready) return;
+    if (state !== "running" || !ready || target === "screen") return;
     let stopped = false;
     let timer = 0;
     const tick = async () => {
@@ -835,7 +837,7 @@ function CameraPanel({
       stopped = true;
       window.clearTimeout(timer);
     };
-  }, [state, ready, onCodes, grab]);
+  }, [state, ready, target, onCodes, grab]);
 
   // Chế độ "Màn hình máy" — luồng kiểu app quét tài liệu:
   // tìm vùng chữ → chờ đứng yên & đủ nét → tự chụp vùng đó ở độ phân giải gốc → đọc chữ → bỏ phiếu
@@ -895,6 +897,7 @@ function CameraPanel({
           const crop = cropForOcr(video, region, f);
           onScreenCapture(crop)
             .then((r) => {
+              const lastMs = Date.now() - t;
               const gotNew = hasNew(r.newly);
               quietReads = gotNew || r.pending.length ? 0 : quietReads + 1;
               if (quietReads >= 2) idle = true;
@@ -903,6 +906,7 @@ function CameraPanel({
                 phase: r.accepted.serial || r.accepted.imeis.length ? (gotNew ? "done" : sc.phase === "done" ? "done" : "searching") : "searching",
                 pending: r.pending,
                 accepted: r.accepted,
+                lastMs,
               }));
               if (gotNew) setLastReadAt(Date.now());
             })
@@ -980,6 +984,7 @@ function CameraPanel({
           <span className="sc-live-pill" data-testid="scan-status">
             ● {target === "screen" ? PHASE_LABEL[scan.phase] : "Đang tự quét mã vạch"}
             {resolution ? ` · ${resolution}` : ""}
+            {target === "screen" && scan.lastMs ? ` · đọc ${(scan.lastMs / 1000).toFixed(1).replace(".", ",")} s` : ""}
           </span>
         )}
         {state !== "running" && (
@@ -1269,6 +1274,8 @@ interface ScreenScanState {
   pending: string[];
   accepted: Accepted;
   flash: number;
+  /** thời gian (ms) của lần cắt + đọc chữ gần nhất — hiện trên khung để biết máy đọc nhanh hay chậm */
+  lastMs?: number;
 }
 
 const PHASE_LABEL: Record<ScanPhase, string> = {
@@ -1300,19 +1307,29 @@ function cropForOcr(video: HTMLVideoElement, r: TextRegion, f: number): HTMLCanv
   const sy = Math.max(0, (r.y - margin) * f);
   const sw = Math.min(video.videoWidth - sx, (r.w + 2 * margin) * f);
   const sh = Math.min(video.videoHeight - sy, (r.h + 2 * margin) * f);
-  const lineH = Math.max(4, r.lineHeight * f);
-  // Không thu nhỏ dưới độ phân giải gốc (chiều cao dòng ước lượng theo ô lưới, thô — đã thử: thu nhỏ theo nó
-  // làm đọc sai IMEI); chỉ chặn cạnh dài 2000 px để camera 4K không làm chậm bộ đọc chữ
-  let scale = Math.min(3, Math.max(1, 56 / lineH));
+  // 1) cắt ở độ phân giải gốc
+  const native = document.createElement("canvas");
+  native.width = Math.max(1, Math.round(sw));
+  native.height = Math.max(1, Math.round(sh));
+  const nctx = native.getContext("2d", { willReadFrequently: true })!;
+  nctx.drawImage(video, sx, sy, sw, sh, 0, 0, native.width, native.height);
+  // 2) đo chiều cao nét chữ thật rồi đưa về ~18 px — cỡ bộ đọc chữ đọc đúng mà nhanh nhất (đã đo:
+  //    chữ 13–26 px đọc đúng, 7 px đọc sai; camera 4K cho chữ 50–80 px → thu nhỏ, đọc nhanh gấp nhiều lần)
+  const ink = inkLineHeight(toGray(nctx.getImageData(0, 0, native.width, native.height).data, native.width, native.height));
+  let scale = ink > 0 ? Math.min(2.5, Math.max(0.3, INK_TARGET_PX / ink)) : Math.min(3, Math.max(1, 56 / Math.max(4, r.lineHeight * f)));
   scale = Math.min(scale, 2000 / Math.max(sw, sh));
+  if (Math.abs(scale - 1) < 0.05) return native;
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(sw * scale));
   canvas.height = Math.max(1, Math.round(sh * scale));
   const ctx = canvas.getContext("2d")!;
   ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(native, 0, 0, canvas.width, canvas.height);
   return canvas;
 }
+
+/** Chiều cao nét chữ mục tiêu khi đưa vào bộ đọc chữ (px). */
+const INK_TARGET_PX = 18;
 
 /** Ảnh tĩnh: tìm vùng chữ trên bản thu nhỏ rồi cắt ở độ phân giải gốc, phóng to (null nếu không thấy vùng chữ rõ). */
 async function cropTextRegion(image: Blob): Promise<HTMLCanvasElement | null> {
