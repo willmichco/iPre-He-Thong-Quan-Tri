@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findTextRegion, motion, sharpness, type Gray } from "@/features/scanner/frame-analysis";
+import { findTextRegion, motion, sharpness, shiftEstimate, type Gray } from "@/features/scanner/frame-analysis";
 
 /** Ảnh tổng hợp: nền tối, khối "màn hình" có 4 dòng chữ (nét dọc ngắn sáng), thêm 1 đường viền dọc gây nhiễu. */
 function synthetic(opts: { offsetX?: number; blur?: boolean } = {}): Gray {
@@ -75,5 +75,31 @@ describe("findTextRegion — màn hình Giới thiệu: nhãn bên trái, giá t
     const box = findTextRegion({ data, width, height })!;
     expect(box.x).toBeLessThan(45);
     expect(box.x + box.w).toBeGreaterThan(435);
+  });
+});
+
+describe("shiftEstimate — rung tính theo độ dịch (px), không theo độ tương phản", () => {
+  /** "chữ" mềm: sóng sin 2 chiều, biên độ tuỳ chọn; dịch theo phân số pixel */
+  function texture(amp: number, dx = 0): Gray {
+    const width = 200;
+    const height = 120;
+    const data = new Uint8Array(width * height);
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) data[y * width + x] = Math.round(128 + amp * Math.sin((x + dx) / 2.2) * Math.cos(y / 3.1));
+    return { data, width, height };
+  }
+  const box = { x: 10, y: 10, w: 180, h: 100 };
+  it("tay rung nhẹ (0,3 px) trên chữ tương phản cao vẫn là đứng yên, dù chênh lệch độ sáng vượt ngưỡng cũ 3,5", () => {
+    const a = texture(120);
+    const b = texture(120, 0.3);
+    expect(motion(a, b, box)).toBeGreaterThan(3.5);
+    expect(shiftEstimate(a, b, box)).toBeLessThan(0.6);
+  });
+  it("dịch 2 px → vượt ngưỡng, bất kể chữ đậm hay nhạt", () => {
+    expect(shiftEstimate(texture(120), texture(120, 2), box)).toBeGreaterThan(0.6);
+    expect(shiftEstimate(texture(25), texture(25, 2), box)).toBeGreaterThan(0.6);
+  });
+  it("khung giống hệt → 0", () => {
+    expect(shiftEstimate(texture(80), texture(80), box)).toBe(0);
   });
 });

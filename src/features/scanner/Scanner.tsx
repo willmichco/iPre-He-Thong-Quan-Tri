@@ -26,7 +26,7 @@ import { extractFromText, hasIdentity, isComplete, mergeExtractions } from "@/do
 import { acceptedAsExtraction, addReading, emptyVotes, hasNew, type Accepted, type ScreenVotes } from "@/domain/screen-votes";
 import { captureVideoFrame, decodePhoto, decodeVideoFrame, initDecoder, rasterizeImageUrl, type WasmSource } from "./decoder";
 import { recognizeCanvas, recognizeText } from "./ocr";
-import { findTextRegion, motion, sharpness, toGray, type Gray, type TextRegion } from "./frame-analysis";
+import { findTextRegion, motion, sharpness, shiftEstimate, toGray, type Gray, type TextRegion } from "./frame-analysis";
 import { haptic, unlockFeedback } from "./haptics";
 import "./scanner.css";
 
@@ -838,6 +838,8 @@ function CameraPanel({
     let reading = false;
     let idle = false; // đã đọc xong, chờ khung hình thay đổi (đổi máy / cuộn màn hình) mới đọc tiếp
     let quietReads = 0;
+    let regionSince = 0;
+    let lastShot = 0;
     let anchor: Gray | null = null;
     const sharpWin: number[] = [];
     const small = document.createElement("canvas");
@@ -855,19 +857,27 @@ function CameraPanel({
         ctx.drawImage(video, 0, 0, small.width, small.height);
         const gray = toGray(ctx.getImageData(0, 0, small.width, small.height).data, small.width, small.height);
         const region = findTextRegion(gray);
-        const m = prev && region ? motion(prev, gray, region) : 99;
+        // rung = độ dịch ước lượng (≈ px khung phân tích), không phải chênh lệch độ sáng tuyệt đối
+        const m = prev && region ? shiftEstimate(prev, gray, region) : 99;
         prev = gray;
+        const t = Date.now();
+        if (!region) regionSince = 0;
+        else if (!regionSince) regionSince = t;
         const sh = region ? sharpness(gray, region) : 0;
         sharpWin.push(sh);
         if (sharpWin.length > 10) sharpWin.shift();
-        steady = region && m < 3.5 ? steady + 1 : 0;
+        steady = region && m < 0.6 ? steady + 1 : 0;
         if (idle && anchor && region && motion(anchor, gray, region) > 10) {
           idle = false; // màn hình đã đổi → đọc tiếp
           quietReads = 0;
         }
         const display = region ? toDisplayBox(region, f, video, wrap) : null;
         const sharpEnough = sh > 0 && sh >= 0.8 * Math.max(...sharpWin);
-        if (!reading && !idle && region && steady >= 3 && sharpEnough) {
+        // Đứng yên đủ 2 khung & nét → chụp. Tay không giữ được yên (hoặc màn hình nhấp nháy khi chụp trực tiếp):
+        // vùng chữ đã thấy ≥ 1,2 giây thì vẫn chụp khung nét nhất gần đây — không bao giờ treo ở "Giữ yên máy".
+        const waitedLong = regionSince > 0 && t - Math.max(regionSince, lastShot) > 1200;
+        if (!reading && !idle && region && sharpEnough && (steady >= 2 || waitedLong)) {
+          lastShot = t;
           reading = true;
           anchor = gray;
           setScan((sc) => ({ ...sc, phase: "reading", box: display, flash: Date.now() }));

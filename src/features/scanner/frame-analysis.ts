@@ -50,6 +50,33 @@ export function motion(a: Gray, b: Gray, box?: Box): number {
   return n ? sum / n : 0;
 }
 
+/**
+ * Độ dịch ước lượng (đơn vị ≈ pixel) giữa hai khung trong vùng chữ: motion() chia cho độ tương phản cạnh trung bình.
+ * Dịch d px làm |a−b| ≈ d·|∇I| → tỉ số ≈ d, KHÔNG phụ thuộc chữ đậm/nhạt, ảnh sáng/tối. Tay cầm rung nhẹ
+ * (dưới nửa pixel ở khung phân tích) vẫn tính là đứng yên — motion() tuyệt đối thì vượt ngưỡng ngay khi chữ
+ * có tương phản cao (màn hình chụp trực tiếp).
+ */
+export function shiftEstimate(a: Gray, b: Gray, box?: Box): number {
+  const m = motion(a, b, box);
+  if (m >= 255) return 99;
+  const { data, width } = b;
+  const x0 = Math.max(1, box ? Math.floor(box.x) : 1);
+  const y0 = Math.max(1, box ? Math.floor(box.y) : 1);
+  const x1 = Math.min(b.width - 2, box ? Math.ceil(box.x + box.w) : b.width - 2);
+  const y1 = Math.min(b.height - 2, box ? Math.ceil(box.y + box.h) : b.height - 2);
+  let sum = 0;
+  let n = 0;
+  for (let y = y0; y <= y1; y += 2) {
+    for (let x = x0; x <= x1; x += 2) {
+      const i = y * width + x;
+      sum += Math.max(Math.abs(data[i + 1] - data[i]), Math.abs(data[i + width] - data[i]));
+      n++;
+    }
+  }
+  const contrast = n ? sum / n : 0;
+  return contrast < 1 ? (m < 1 ? 0 : 99) : m / contrast;
+}
+
 /** Độ nét: phương sai của Laplacian trong vùng (mặc định cả ảnh). Ảnh nhòe → giá trị thấp. */
 export function sharpness(g: Gray, box?: Box): number {
   const { data, width } = g;
