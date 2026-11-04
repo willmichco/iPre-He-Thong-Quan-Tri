@@ -2,7 +2,7 @@ import { LEG_LABEL, LEG_TYPES } from "@/domain/catalog";
 import { listCarriers, type CarrierRow } from "@/server/catalog/service";
 import { deleteCarrierAction, saveCarrierAction } from "../actions";
 import { catalogDb, Empty, NoDatabase } from "../shared";
-import { ActionForm, CheckboxGroup, Input, Submit } from "../ui";
+import { ActionForm, CheckboxGroup, Input, Submit } from "../../_components/form";
 
 export const metadata = { title: "Danh mục — Đơn vị vận chuyển" };
 

@@ -69,7 +69,11 @@ gantt
   - xoá bị chặn khi đang dùng (máy, đơn mua, kiện, giao dịch); mọi thay đổi ghi `audit_logs`
   - đổi cân nặng mặc định → tự tính lại giá vốn các chuyến liên quan; chuyến đã chốt → chặn
   - còn lại cho GĐ2: danh mục thu chi; khách hàng làm cùng màn hình Bán hàng
-- [ ] Chuyến · Đơn mua · Máy: form nhập tay + lưới nhập máy kiểu bảng tính (dán từ Excel, nối với bộ quét mã)
+- [x] **Chuyến · Đơn mua · Máy** (`/chuyen-hang`, `src/server/purchasing/service.ts`, `src/domain/purchasing.ts`):
+  - chuyến: mã tự cấp `CH-năm-số`, tổng hợp vốn / doanh thu / lãi (Tạm tính–Chốt) / ROI / vốn đọng; chốt chi phí & mở lại (bắt buộc lý do); xoá mềm (migration 0002)
+  - đơn mua: tỷ giá thực tế gõ kiểu Việt Nam (`26.350`), hạn đổi trả tự tính theo nơi mua, sửa đơn → giá vốn tự tính lại; chuyến đã chốt → chặn
+  - **lưới nhập máy kiểu bảng tính**: dán từ Excel/Sheets (nhận cột theo tiêu đề, hoặc tự nhận IMEI/Serial/Part No./giá), gõ tắt cấu hình (`pm 256 sil`), Part No. tự điền cấu hình, Enter xuống dòng (máy quét USB), Ctrl+D điền xuống, mã quét nhầm cột tự chuyển, kiểm Luhn & trùng ngay khi gõ, Σ đơn giá so với Subtotal, cảnh báo khi rời trang chưa lưu
+  - lưu cả lưới trong 1 transaction: thêm (kèm mốc "Đã đặt"), sửa, xoá mềm; chống trùng Serial/IMEI toàn hệ thống; máy đã vào kiện / đã bán không xoá được; tính lại giá vốn
 - [ ] Kiện 3 chặng: tạo kiện, gán máy (quét), "Gửi đi" / "Đã nhận" sinh mốc M1–M8 cho mọi máy
 - [ ] Chi phí theo chặng (form) → tự tính lại giá vốn
 - [ ] Bán nhanh + cọc; hồ sơ máy (giá vốn chi tiết, dòng thời gian)

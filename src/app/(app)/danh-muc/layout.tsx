@@ -1,4 +1,4 @@
-import { Tabs } from "./ui";
+import { Tabs } from "../_components/form";
 
 const TABS = [
   { href: "/danh-muc", label: "Mẫu máy & cấu hình" },

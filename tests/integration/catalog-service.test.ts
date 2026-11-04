@@ -123,7 +123,7 @@ describe("dịch vụ danh mục ↔ PostgreSQL", () => {
 
   it("cấu hình đã có máy: không xoá được; mã đổi được, bỏ mã được", async () => {
     await inTx(async (tx) => {
-      await expect(catalog.deleteVariant(tx, VARIANT_IPHONE)).rejects.toMatchObject({ code: "IN_USE", message: expect.stringContaining("1 máy") });
+      await expect(catalog.deleteVariant(tx, VARIANT_IPHONE)).rejects.toMatchObject({ code: "IN_USE", message: expect.stringMatching(/đã dùng cho \d+ máy/) });
       await catalog.deleteVariantCode(tx, "PART_NUMBER", "MDEM1LL/A");
       expect(await catalog.lookupCodes(tx, ["MDEM1LL/A"])).toEqual([]);
       await expect(catalog.deleteVariantCode(tx, "PART_NUMBER", "MDEM1LL/A")).rejects.toMatchObject({ code: "NOT_FOUND" });

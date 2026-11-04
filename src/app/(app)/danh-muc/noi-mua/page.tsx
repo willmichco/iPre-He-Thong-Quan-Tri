@@ -2,7 +2,7 @@ import { SUPPLIER_KIND_LABEL, SUPPLIER_KINDS } from "@/domain/catalog";
 import { listSuppliers, type SupplierRow } from "@/server/catalog/service";
 import { deleteSupplierAction, saveSupplierAction } from "../actions";
 import { catalogDb, Empty, NoDatabase } from "../shared";
-import { ActionForm, Input, Select, Submit } from "../ui";
+import { ActionForm, Input, Select, Submit } from "../../_components/form";
 
 export const metadata = { title: "Danh mục — Nơi mua" };
 

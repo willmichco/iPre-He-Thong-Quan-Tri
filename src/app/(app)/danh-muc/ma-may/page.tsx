@@ -2,7 +2,7 @@ import { checkVariantCode, classifyCodeType, CODE_TYPES } from "@/domain/catalog
 import { listModels, lookupCodes } from "@/server/catalog/service";
 import { addCodeAction, deleteCodeAction } from "../actions";
 import { catalogDb, Empty, NoDatabase } from "../shared";
-import { ActionForm, Input, Select, Submit } from "../ui";
+import { ActionForm, Input, Select, Submit } from "../../_components/form";
 
 export const metadata = { title: "Danh mục — Mã Part No. / UPC" };
 

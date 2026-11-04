@@ -14,7 +14,7 @@ import {
   type ReactNode,
   type SelectHTMLAttributes,
 } from "react";
-import { INITIAL_STATE, type FormState } from "./state";
+import { INITIAL_STATE, type FormState } from "./form-state";
 
 type Action = (prev: FormState, fd: FormData) => Promise<FormState>;
 

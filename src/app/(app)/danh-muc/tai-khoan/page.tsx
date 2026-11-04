@@ -2,7 +2,7 @@ import { ACCOUNT_KIND_LABEL, ACCOUNT_KINDS } from "@/domain/catalog";
 import { listAccounts, type AccountRow } from "@/server/catalog/service";
 import { deleteAccountAction, saveAccountAction } from "../actions";
 import { catalogDb, Empty, NoDatabase } from "../shared";
-import { ActionForm, Checkbox, Input, Select, Submit } from "../ui";
+import { ActionForm, Checkbox, Input, Select, Submit } from "../../_components/form";
 
 export const metadata = { title: "Danh mục — Tài khoản tiền" };
 

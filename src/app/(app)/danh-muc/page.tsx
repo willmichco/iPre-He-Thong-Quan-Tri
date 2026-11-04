@@ -3,7 +3,7 @@ import { CATEGORIES, CATEGORY_LABEL, CODE_TYPES, type Category } from "@/domain/
 import { listModels, type ModelRow, type VariantRow } from "@/server/catalog/service";
 import { addCodeAction, deleteCodeAction, deleteModelAction, deleteVariantAction, saveModelAction, saveVariantAction } from "./actions";
 import { catalogDb, Empty, NoDatabase } from "./shared";
-import { ActionForm, Checkbox, Input, Select, Submit } from "./ui";
+import { ActionForm, Checkbox, Input, Select, Submit } from "../_components/form";
 
 export const metadata = { title: "Danh mục — Mẫu máy & cấu hình" };
 

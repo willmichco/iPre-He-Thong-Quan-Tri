@@ -82,7 +82,10 @@ describe("dịch vụ giá vốn ↔ PostgreSQL", () => {
       // tính lại thật trên chuyến ĐÃ CHỐT: không đổi gì nên được phép, số liệu báo cáo giữ nguyên
       await recalculateBatch(tx, CH011);
       expect(await summary(tx)).toBe("55943208|2706128|5.53");
-      expect(await checkAllBatches(tx)).toEqual([expect.objectContaining({ batches: [expect.objectContaining({ inserted: 0, updated: 0, deleted: 0 })] })]);
+      // mọi chuyến trong CSDL (kể cả dữ liệu do lần chạy khác để lại) đều phải khớp bộ máy
+      const all = await checkAllBatches(tx);
+      expect(all.length).toBeGreaterThanOrEqual(1);
+      expect(all.flatMap((r) => r.batches).every((b) => b.inserted + b.updated + b.deleted === 0)).toBe(true);
     });
   });
 
