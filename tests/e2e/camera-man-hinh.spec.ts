@@ -13,7 +13,9 @@ test("dạng 1 — camera tự đọc IMEI/Serial trên màn hình máy, không 
   await expect(page.getByText("Sẵn sàng", { exact: true })).toBeVisible();
   await page.getByRole("radio", { name: /Màn hình máy/ }).click();
   await page.getByRole("button", { name: "Bật camera quét" }).click();
-  await expect(page.getByText(/tự đọc màn hình|Đang đọc chữ/)).toBeVisible();
+  // Camera đang chạy ở chế độ màn hình. Không chờ riêng chữ "Đang đọc chữ…": mỗi lần đọc chỉ ~0,3 s và đọc xong
+  // thì tự dừng, nên trạng thái đó có thể đã qua trước khi kiểm thử kịp thấy (máy CI nhanh).
+  await expect(page.getByTestId("scan-status")).toContainText(/Đang tìm vùng chữ|Giữ yên|Đang đọc chữ|Đã đọc|Xong máy này/);
 
   const card = page.locator("article.sc-card").first();
   await expect(card.getByLabel(/^IMEI 1/)).toHaveValue(SAMPLE.imei1, { timeout: 120_000 });
