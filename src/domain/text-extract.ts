@@ -22,7 +22,9 @@ const SERIAL_ANCHOR = /(SERIAL(\s*(NO\.?|NUMBER|#))?|S[ỐÔO6B8]\s*S[ÊEÉ](?:[
 const IMEI_LIKE = /(?<![A-Z0-9])[0-9OISBDZ](?:[0-9OISBDZ ]{10,40})[0-9OISBDZ](?![A-Z0-9])/g;
 const PART_IN_TEXT = /\b([A-Z0-9]{5}[A-Z]{1,2})\s?[/|]\s?A\b/g;
 // OCR hay đọc dấu "/" thành J, I, l, 1 (vd "MXVX3ZP/A" → "MXVX3ZPJA") — chỉ dùng cho văn bản từ OCR
-const PART_IN_OCR = /\b([A-Z0-9]{5}[A-Z]{1,2})\s?[/|JIL1]\s?A\b/g;
+const PART_IN_OCR = /\b([A-Z0-9]{5,6}[A-Z]{1,2})\s?[/|JIL1]\s?A\b/g;
+// OCR hay đọc một ký tự thành hai ("1" → "I1", "0" → "O0"): gộp lại khi phần gốc dư đúng 1 ký tự
+const OCR_DOUBLES = /I1|1I|O0|0O|L1|1L/;
 const SERIAL_TOKEN = /^(?:[A-Z0-9]{10}|[A-Z0-9]{12})$/;
 
 function serialCandidate(token: string): string | null {
@@ -57,8 +59,18 @@ export function extractFromText(text: string, opts: ExtractOptions = {}): TextEx
     for (const m of line.matchAll(opts.ocr ? PART_IN_OCR : PART_IN_TEXT)) {
       let stem = m[1];
       if (opts.ocr) {
-        const region = stem.slice(5);
-        stem = stem.slice(0, 5).replace(/I/g, "1").replace(/O/g, "0") + region;
+        // tách mã thị trường (1–2 chữ cuối) khỏi phần gốc; phần gốc phải còn đúng 5 ký tự
+        const region = /[A-Z]{1,2}$/.exec(stem.slice(5))?.[0] ?? "";
+        let base = stem.slice(0, stem.length - region.length);
+        if (base.length === 6) {
+          const d = OCR_DOUBLES.exec(base);
+          if (!d) continue;
+          base = base.slice(0, d.index) + (/\d/.test(d[0][0]) ? d[0][0] : d[0][1]) + base.slice(d.index + 2);
+        }
+        if (base.length !== 5) continue;
+        stem = base.replace(/I/g, "1").replace(/O/g, "0") + region;
+      } else if (stem.length !== 6 && stem.length !== 7) {
+        continue;
       }
       const pn = `${stem}/A`;
       if (isPartNumber(pn)) {

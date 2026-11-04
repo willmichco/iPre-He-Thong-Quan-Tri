@@ -59,3 +59,21 @@ describe("motion / sharpness — phát hiện rung và nhòe", () => {
     expect(sharpness(synthetic())).toBeGreaterThan(3 * sharpness(synthetic({ blur: true })));
   });
 });
+
+describe("findTextRegion — màn hình Giới thiệu: nhãn bên trái, giá trị căn phải cách xa", () => {
+  it("vùng chữ bao cả cột nhãn lẫn cột giá trị", () => {
+    const width = 480;
+    const height = 360;
+    const data = new Uint8Array(width * height).fill(245); // nền sáng
+    for (let line = 0; line < 5; line++) {
+      const y0 = 80 + line * 40;
+      for (let y = y0; y < y0 + 12; y++) {
+        for (let x = 40; x < 130; x++) if (x % 5 < 2) data[y * width + x] = 20; // nhãn (đen)
+        for (let x = 330; x < 440; x++) if (x % 5 < 2) data[y * width + x] = 120; // giá trị (xám nhạt, căn phải)
+      }
+    }
+    const box = findTextRegion({ data, width, height })!;
+    expect(box.x).toBeLessThan(45);
+    expect(box.x + box.w).toBeGreaterThan(435);
+  });
+});

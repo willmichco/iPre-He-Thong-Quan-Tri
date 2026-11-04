@@ -202,6 +202,19 @@ export function findTextRegion(g: Gray, opts: { cell?: number } = {}): TextRegio
   }
   const best = blocks.reduce<Block | null>((a, b) => (!a || b.lines.length > a.lines.length || (b.lines.length === a.lines.length && b.x1 - b.x0 > a.x1 - a.x0) ? b : a), null);
   if (!best || best.lines.length < 2) return null;
+  // Gộp các cột nằm CẠNH NHAU cùng hàng (màn hình Giới thiệu: nhãn bên trái, giá trị căn phải cách xa):
+  // khối nào có ≥ 2 dòng và chồng lấn theo chiều dọc ≥ 50% với khối chính thì thuộc cùng vùng chữ.
+  for (const b of blocks) {
+    if (b === best || b.lines.length < 2) continue;
+    const vOverlap = Math.min(best.y1, b.y1) - Math.max(best.y0, b.y0);
+    if (vOverlap >= 0.5 * Math.min(best.y1 - best.y0, b.y1 - b.y0)) {
+      best.x0 = Math.min(best.x0, b.x0);
+      best.x1 = Math.max(best.x1, b.x1);
+      best.y0 = Math.min(best.y0, b.y0);
+      best.y1 = Math.max(best.y1, b.y1);
+      best.lines.push(...b.lines);
+    }
+  }
   const pad = cell;
   const x = Math.max(0, best.x0 - pad);
   const y = Math.max(0, best.y0 - pad);

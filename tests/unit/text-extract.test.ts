@@ -155,3 +155,15 @@ describe("mergeExtractions — gộp hai lần đọc (vùng cắt + cả ảnh)
     expect(isComplete(m)).toBe(true);
   });
 });
+
+describe("extractFromText — OCR đọc một ký tự thành hai trong Part No.", () => {
+  it.each([
+    ["S6 may   MDEMI1LL/A", "MDEM1LL/A"],
+    ["S6 may   MDEM1ILL/A", "MDEM1LL/A"],
+    ["Model Number  MXVO0X3ZP/A", undefined], // phần gốc dư 2 ký tự sau khi gộp → không đoán
+    ["Model Number  MXV1I3ZP/A", "MXV13ZP/A"],
+    ["Số máy  MXVX3ZP/A", "MXVX3ZP/A"], // không dư ký tự → giữ nguyên
+  ])("%s → %s", (text, part) => {
+    expect(extractFromText(text, { ocr: true }).partNumber).toBe(part);
+  });
+});

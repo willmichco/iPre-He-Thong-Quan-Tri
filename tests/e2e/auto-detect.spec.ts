@@ -29,7 +29,13 @@ for (const variant of [
     await expect(c.getByLabel(/^IMEI 2/)).toHaveValue(SAMPLE.imei2);
     await expect(c.getByLabel(/^Serial/)).toHaveValue(SAMPLE.serial);
     // Part No. đọc bằng chữ có thể sai 1 ký tự (nhãn "Đọc chữ" nhắc soát lại); IMEI có Luhn, Serial có nhãn neo → phải đúng tuyệt đối
-    await expect(c.getByLabel(/^Part No/)).toHaveValue(/^MDEM.?LL\/A$/);
+    try {
+      await expect(c.getByLabel(/^Part No/)).toHaveValue(/^MDEM.?LL\/A$/);
+    } catch (e) {
+      // chẩn đoán: in ra chữ OCR đã đọc (khác phông chữ giữa các máy chạy kiểm thử)
+      console.log("OCR đọc được:\n" + JSON.stringify(await page.evaluate(() => window.__ipreOcrLog), null, 2));
+      throw e;
+    }
     // Giá trị đọc bằng chữ được đánh dấu để soát lại
     await expect(c.getByText("Aa Đọc chữ").first()).toBeVisible();
     await expect(c).toContainText("soát lại");

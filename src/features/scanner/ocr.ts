@@ -6,6 +6,20 @@
 import type { Worker } from "tesseract.js";
 
 let workerPromise: Promise<Worker> | null = null;
+
+declare global {
+  interface Window {
+    /** 5 lần đọc chữ gần nhất — để chẩn đoán khi đọc sai (xem trong công cụ nhà phát triển / kiểm thử). */
+    __ipreOcrLog?: string[];
+  }
+}
+
+function logOcr(text: string) {
+  if (typeof window === "undefined") return;
+  const log = (window.__ipreOcrLog ??= []);
+  log.push(text);
+  if (log.length > 5) log.shift();
+}
 let queue: Promise<unknown> = Promise.resolve();
 
 function absolute(base: string) {
@@ -85,6 +99,7 @@ export function recognizeCanvas(base: string, canvas: HTMLCanvasElement, onProgr
     const worker = await getOcrWorker(base, onProgress);
     toOcrGray(canvas);
     const { data } = await worker.recognize(canvas);
+    logOcr(data.text);
     return data.text;
   });
   queue = job.catch(() => undefined);
@@ -97,6 +112,7 @@ export function recognizeText(base: string, image: Blob, onProgress?: (p: number
     const worker = await getOcrWorker(base, onProgress);
     const canvas = await prepare(image);
     const { data } = await worker.recognize(canvas);
+    logOcr(data.text);
     return data.text;
   });
   queue = job.catch(() => undefined);

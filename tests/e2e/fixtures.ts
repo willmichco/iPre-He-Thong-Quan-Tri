@@ -11,6 +11,9 @@ export const SAMPLE = {
   imei2: "350000000000014",
 };
 
+/** Phông của ảnh mẫu — đổi bằng E2E_FONT để thử độ bền OCR với phông khác (máy chạy CI không có phông Apple). */
+const FONT = process.env.E2E_FONT ? `'${process.env.E2E_FONT}'` : "-apple-system,Helvetica,Arial,sans-serif";
+
 function spaced(imei: string) {
   // iOS hiển thị IMEI dạng "35 000000 000000 6"
   return `${imei.slice(0, 2)} ${imei.slice(2, 8)} ${imei.slice(8, 14)} ${imei.slice(14)}`;
@@ -36,7 +39,7 @@ export async function aboutScreenshot(browser: Browser, opts: { lang: "en" | "vi
   const fg = opts.dark ? "#fff" : "#000";
   const sub = opts.dark ? "#8e8e93" : "#8a8a8e";
   const page = await browser.newPage({ viewport: { width: 430, height: 932 }, deviceScaleFactor: 3, isMobile: false });
-  await page.setContent(`<meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0;background:${bg};font-family:-apple-system,Helvetica,Arial,sans-serif;color:${fg}">
+  await page.setContent(`<meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0;background:${bg};font-family:${FONT};color:${fg}">
     <div style="padding:60px 16px 0;font-size:17px;font-weight:600;text-align:center">${L.title}</div>
     <div style="margin:24px 16px;background:${card};border-radius:10px">
       ${rows
