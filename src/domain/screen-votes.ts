@@ -84,3 +84,18 @@ export function hasNew(a: Accepted): boolean {
 export function acceptedAsExtraction(a: Accepted): TextExtraction {
   return { serial: a.serial, serialAnchored: true, imeis: a.imeis, partNumber: a.partNumber, eid: a.eid };
 }
+
+/**
+ * Đã đủ thông tin một máy → camera TỰ DỪNG đọc (không quét lại, tránh ghi đè/lẫn thông tin).
+ * `quietAfter`: số lần đọc liên tiếp, kể từ khi có serial, không chốt thêm được gì mới.
+ *  - Serial + Part No. + 2 IMEI → xong ngay.
+ *  - Serial + Part No. + 1 IMEI → đọc thêm 1 lần (bắt IMEI 2 nếu có), không thấy gì mới → xong.
+ *  - Còn lại (iPad Wi-Fi không có IMEI, Part No. đọc chưa khớp…) → sau 2 lần không có gì mới
+ *    (3 lần nếu còn giá trị đang chờ xác nhận) → xong.
+ */
+export function isDeviceComplete(a: Accepted, quietAfter: number, pendingCount = 0): boolean {
+  if (!a.serial) return false;
+  if (a.partNumber && a.imeis.length >= 2) return true;
+  if (a.partNumber && a.imeis.length === 1 && quietAfter >= 1) return true;
+  return quietAfter >= (pendingCount > 0 ? 3 : 2);
+}

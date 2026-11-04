@@ -602,7 +602,7 @@
   border-color: #5b8cff;
 }
 .sc-docbox.is-done,
-.sc-docbox.is-idle {
+.sc-docbox.is-complete {
   border-color: #4cc38a;
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.25), 0 0 0 4px rgba(76, 195, 138, 0.5);
 }
@@ -636,4 +636,28 @@
   background: var(--sc-ok-bg);
   color: var(--sc-ok);
   font-weight: 600;
+}
+
+/* Đã đọc đủ một máy — camera dừng đọc, chờ người dùng chọn máy tiếp theo */
+.sc-complete {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(20, 110, 70, 0.92);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.sc-complete strong {
+  font-size: 16px;
+}
+.sc-complete .sc-btn {
+  align-self: flex-start;
+  margin-top: 4px;
 }

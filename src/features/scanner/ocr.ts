@@ -180,6 +180,48 @@ export function recognizeCanvas(base: string, canvas: HTMLCanvasElement, onProgr
   });
 }
 
+/**
+ * Camera: chia vùng chữ làm HAI NỬA tại hàng trống gần giữa nhất (khe giữa hai dòng — không cắt ngang chữ)
+ * rồi đọc song song trên 2 bộ đọc → mỗi lần đọc chỉ mất ~một nửa thời gian. Vùng thấp (ít dòng) thì đọc nguyên.
+ */
+export async function recognizeSplit(base: string, canvas: HTMLCanvasElement, onProgress?: (p: number) => void): Promise<string> {
+  const cut = splitRow(canvas);
+  if (!cut) return recognizeCanvas(base, canvas, onProgress);
+  const part = (y0: number, y1: number) => {
+    const c = document.createElement("canvas");
+    c.width = canvas.width;
+    c.height = y1 - y0;
+    c.getContext("2d")!.drawImage(canvas, 0, y0, canvas.width, y1 - y0, 0, 0, canvas.width, y1 - y0);
+    return c;
+  };
+  const [top, bottom] = await Promise.all([
+    recognizeCanvas(base, part(0, cut), onProgress),
+    recognizeCanvas(base, part(cut, canvas.height), onProgress),
+  ]);
+  return `${top}\n${bottom}`;
+}
+
+/** Hàng có ít cạnh ngang nhất trong khoảng 35–65% chiều cao (ưu tiên gần giữa); null nếu ảnh quá thấp hoặc không có hàng trống. */
+function splitRow(canvas: HTMLCanvasElement): number | null {
+  const { width: w, height: h } = canvas;
+  if (h < 120 || w < 40) return null;
+  const d = canvas.getContext("2d", { willReadFrequently: true })!.getImageData(0, 0, w, h).data;
+  let best = -1;
+  let bestScore = Infinity;
+  for (let y = Math.round(h * 0.35); y <= Math.round(h * 0.65); y++) {
+    let e = 0;
+    const row = y * w * 4;
+    for (let x = 0; x < w - 2; x += 2) e += Math.abs(d[row + x * 4 + 4] - d[row + x * 4]) > 24 ? 1 : 0;
+    const score = e + Math.abs(y - h / 2) / h; // hoà thì lấy hàng gần giữa
+    if (score < bestScore) {
+      bestScore = score;
+      best = y;
+    }
+  }
+  // hàng "trống" = chỉ còn vài cạnh của viền khung/mép màn hình (dòng chữ có hàng chục cạnh)
+  return best > 0 && bestScore < Math.max(6, w * 0.01) ? best : null;
+}
+
 /** Đọc toàn bộ chữ trên ảnh. Các lần gọi được xếp hàng (một bộ đọc). */
 export function recognizeText(base: string, image: Blob, onProgress?: (p: number) => void): Promise<string> {
   return withWorker(base, "photo", onProgress, async (worker) => {

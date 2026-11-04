@@ -24,8 +24,16 @@ test("dạng 1 — camera tự đọc IMEI/Serial trên màn hình máy, không 
   await expect(page.getByText(/✓ Serial F2LXQ7Y9KD/)).toBeVisible();
   // Đọc xong → có phát tín hiệu rung "thành công"
   expect(await page.evaluate(() => window.__ipreHaptics?.success ?? 0)).toBeGreaterThanOrEqual(1);
-  // Tay rung + đọc lại liên tục cùng một màn hình: không sinh máy trùng, không ghi đè giá trị sai
-  await page.waitForTimeout(5000);
+  // Đủ thông tin → camera TỰ DỪNG đọc: không đọc thêm lần nào, không sinh máy trùng, không ghi đè
+  await expect(page.getByText("Đã đọc xong máy này")).toBeVisible({ timeout: 10_000 });
+  const reads = await page.evaluate(() => window.__ipreOcrTimes?.length ?? 0);
+  await page.waitForTimeout(4000);
+  expect(await page.evaluate(() => window.__ipreOcrTimes?.length ?? 0)).toBe(reads);
   await expect(page.locator("article.sc-card")).toHaveCount(1);
   await expect(card.getByLabel(/^Serial/)).toHaveValue(SAMPLE.serial);
+  // "Quét máy tiếp theo" → đọc lại từ đầu (cùng màn hình → vẫn là máy đó, không sinh máy mới)
+  await page.getByRole("button", { name: "Quét máy tiếp theo" }).click();
+  await expect(page.getByText("Đã đọc xong máy này")).toBeHidden();
+  await expect(page.getByText("Đã đọc xong máy này")).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator("article.sc-card")).toHaveCount(1);
 });

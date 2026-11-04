@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addReading, emptyVotes } from "@/domain/screen-votes";
+import { addReading, emptyVotes, isDeviceComplete } from "@/domain/screen-votes";
 import type { TextExtraction } from "@/domain/text-extract";
 
 const read = (p: Partial<TextExtraction>): TextExtraction => ({ serialAnchored: true, imeis: [], ...p });
@@ -47,5 +47,27 @@ describe("bỏ phiếu giữa các lần chụp", () => {
     expect(addReading(v, read({ imeis: ["490154203237518"] })).otherDevice).toBe(true);
     v = addReading(v, read({ imeis: ["350000000000006"] })).votes;
     expect(v.accepted.imeis).toHaveLength(2);
+  });
+});
+
+describe("isDeviceComplete — đủ thông tin thì camera tự dừng", () => {
+  const full = { serial: "F2LXQ7Y9KD", partNumber: "MDEM1LL/A", imeis: ["350000000000006", "350000000000014"] };
+  it("Serial + Part No. + 2 IMEI → xong ngay", () => {
+    expect(isDeviceComplete(full, 0)).toBe(true);
+  });
+  it("chưa có Serial → chưa xong, dù đọc mãi", () => {
+    expect(isDeviceComplete({ imeis: full.imeis, partNumber: full.partNumber }, 9)).toBe(false);
+  });
+  it("1 IMEI: đọc thêm 1 lần không thấy IMEI 2 → xong", () => {
+    const one = { ...full, imeis: [full.imeis[0]] };
+    expect(isDeviceComplete(one, 0)).toBe(false);
+    expect(isDeviceComplete(one, 1)).toBe(true);
+  });
+  it("iPad Wi-Fi (không IMEI) / Part No. chưa khớp → sau 2 lần không có gì mới (3 nếu còn giá trị chờ)", () => {
+    const s = { serial: full.serial, imeis: [] };
+    expect(isDeviceComplete(s, 1)).toBe(false);
+    expect(isDeviceComplete(s, 2)).toBe(true);
+    expect(isDeviceComplete(s, 2, 1)).toBe(false);
+    expect(isDeviceComplete(s, 3, 1)).toBe(true);
   });
 });

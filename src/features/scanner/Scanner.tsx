@@ -23,10 +23,10 @@ import {
 } from "@/domain/scan-session";
 import { classifyCode, splitPastedText } from "@/domain/identifiers";
 import { extractFromText, hasIdentity, isComplete, mergeExtractions } from "@/domain/text-extract";
-import { acceptedAsExtraction, addReading, emptyVotes, hasNew, type Accepted, type ScreenVotes } from "@/domain/screen-votes";
+import { acceptedAsExtraction, addReading, emptyVotes, hasNew, isDeviceComplete, type Accepted, type ScreenVotes } from "@/domain/screen-votes";
 import { captureVideoFrame, decodePhoto, decodeVideoFrame, initDecoder, rasterizeImageUrl, type WasmSource } from "./decoder";
-import { recognizeCanvas, recognizeText, warmOcr } from "./ocr";
-import { findTextRegion, inkLineHeight, motion, sharpness, shiftEstimate, toGray, type Gray, type TextRegion } from "./frame-analysis";
+import { recognizeCanvas, recognizeSplit, recognizeText, warmOcr } from "./ocr";
+import { findTextRegion, inkLineHeight, sharpness, shiftEstimate, toGray, type Gray, type TextRegion } from "./frame-analysis";
 import { haptic, unlockFeedback } from "./haptics";
 import "./scanner.css";
 
@@ -240,7 +240,11 @@ export function Scanner({
         }
         return { records, currentId: null };
       });
-      if (thumbnail && addedIds.length) setThumbs((t) => ({ ...t, ...Object.fromEntries(addedIds.map((id) => [id, thumbnail])) }));
+      if (thumbnail && addedIds.length)
+        setThumbs((t) => ({
+          ...t,
+          ...Object.fromEntries(addedIds.map((id) => [id, thumbnail])),
+        }));
       if (added || updated) feedback();
       return { added, updated };
     },
@@ -265,7 +269,13 @@ export function Scanner({
           if (x) {
             usedOcr = true;
             if (recs.length === 1) recs = [applyExtraction(recs[0], x).record];
-            else if (hasIdentity(x)) recs = [{ ...applyExtraction(emptyRecord(newId(), "PHOTO"), x).record, photoName: name }];
+            else if (hasIdentity(x))
+              recs = [
+                {
+                  ...applyExtraction(emptyRecord(newId(), "PHOTO"), x).record,
+                  photoName: name,
+                },
+              ];
           }
         }
         const r = addRecords(recs, result.thumbnail);
@@ -377,7 +387,10 @@ export function Scanner({
         .then((x) => {
           setBusy(null);
           if (!x) return;
-          update((s) => ({ ...s, records: s.records.map((r) => (r.id === rec.id ? applyExtraction(r, x).record : r)) }));
+          update((s) => ({
+            ...s,
+            records: s.records.map((r) => (r.id === rec.id ? applyExtraction(r, x).record : r)),
+          }));
         })
         .catch(() => setBusy(null));
     },
@@ -390,12 +403,23 @@ export function Scanner({
    */
   const onScreenCapture = useCallback(
     async (canvas: HTMLCanvasElement): Promise<ScreenReadResult> => {
-      if (!ocrBase) return { ok: false, pending: [], accepted: { imeis: [] }, newly: { imeis: [] } };
+      if (!ocrBase)
+        return {
+          ok: false,
+          pending: [],
+          accepted: { imeis: [] },
+          newly: { imeis: [] },
+        };
       let text = "";
       try {
-        text = await recognizeCanvas(ocrBase, canvas, (p) => setBusy(`Đang tải bộ đọc chữ (lần đầu)… ${Math.round(p * 100)}%`));
+        text = await recognizeSplit(ocrBase, canvas, (p) => setBusy(`Đang tải bộ đọc chữ (lần đầu)… ${Math.round(p * 100)}%`));
       } catch {
-        return { ok: false, pending: [], accepted: votesRef.current.accepted, newly: { imeis: [] } };
+        return {
+          ok: false,
+          pending: [],
+          accepted: votesRef.current.accepted,
+          newly: { imeis: [] },
+        };
       } finally {
         setBusy(null);
       }
@@ -414,7 +438,10 @@ export function Scanner({
           const base = s.records.find((rec) => rec.id === s.currentId) ?? findMatch(s.records, probe) ?? emptyRecord(newId(), "CAMERA");
           const res = applyExtraction(base, acceptedAsExtraction(acc));
           const exists = s.records.some((rec) => rec.id === base.id);
-          return { records: exists ? s.records.map((rec) => (rec.id === base.id ? res.record : rec)) : [...s.records, res.record], currentId: base.id };
+          return {
+            records: exists ? s.records.map((rec) => (rec.id === base.id ? res.record : rec)) : [...s.records, res.record],
+            currentId: base.id,
+          };
         });
         if (r.newly.serial || r.newly.imeis.length) haptic("success");
         else if (hasNew(r.newly)) haptic("tick");
@@ -431,17 +458,20 @@ export function Scanner({
   const onWarmOcr = useMemo(() => (ocrBase ? () => void warmOcr(ocrBase) : undefined), [ocrBase]);
 
   const records = session.records;
-  const issuesById = useMemo(
-    () => Object.fromEntries(records.map((r) => [r.id, validateRecord(r, records, expectedRegion)])),
-    [records, expectedRegion],
-  );
+  const issuesById = useMemo(() => Object.fromEntries(records.map((r) => [r.id, validateRecord(r, records, expectedRegion)])), [records, expectedRegion]);
   const errorCount = Object.values(issuesById).reduce((n, list) => n + list.filter((i) => i.severity === "error").length, 0);
 
   const updateRecord = (id: string, fn: (r: DeviceRecord) => DeviceRecord) =>
-    update((s) => ({ ...s, records: s.records.map((r) => (r.id === id ? fn(r) : r)) }));
+    update((s) => ({
+      ...s,
+      records: s.records.map((r) => (r.id === id ? fn(r) : r)),
+    }));
 
   const removeRecord = (id: string) =>
-    update((s) => ({ records: s.records.filter((r) => r.id !== id), currentId: s.currentId === id ? null : s.currentId }));
+    update((s) => ({
+      records: s.records.filter((r) => r.id !== id),
+      currentId: s.currentId === id ? null : s.currentId,
+    }));
 
   const clearAll = () => {
     update(() => ({ records: [], currentId: null }));
@@ -533,9 +563,7 @@ export function Scanner({
           onSwitchToPhoto={() => setMode("photo")}
         />
       )}
-      {mode === "photo" && (
-        <PhotoPanel ready={ready} busy={busy !== null} hasOcr={Boolean(ocrBase)} sampleLabelUrl={sampleLabelUrl} onImage={processImage} />
-      )}
+      {mode === "photo" && <PhotoPanel ready={ready} busy={busy !== null} hasOcr={Boolean(ocrBase)} sampleLabelUrl={sampleLabelUrl} onImage={processImage} />}
       {mode === "manual" && (
         <ManualPanel
           onText={ingestText}
@@ -596,7 +624,12 @@ export function Scanner({
                         className="sc-input sc-input-note"
                         value={r.note ?? ""}
                         placeholder="Tình trạng, pin, ngoại hình…"
-                        onChange={(e) => updateRecord(r.id, (rec) => ({ ...rec, note: e.target.value }))}
+                        onChange={(e) =>
+                          updateRecord(r.id, (rec) => ({
+                            ...rec,
+                            note: e.target.value,
+                          }))
+                        }
                       />
                     </label>
                   </div>
@@ -642,14 +675,7 @@ export function Scanner({
       {copyFallback !== null && (
         <section className="sc-panel" aria-label="Sao chép thủ công">
           <p>Chọn toàn bộ nội dung dưới đây, sao chép rồi dán vào Excel:</p>
-          <textarea
-            className="sc-input sc-textarea"
-            rows={6}
-            readOnly
-            data-paste-ignore="1"
-            value={copyFallback}
-            onFocus={(e) => e.currentTarget.select()}
-          />
+          <textarea className="sc-input sc-textarea" rows={6} readOnly data-paste-ignore="1" value={copyFallback} onFocus={(e) => e.currentTarget.select()} />
           <div className="sc-row">
             <button className="sc-btn" onClick={() => setCopyFallback(null)}>
               Đóng
@@ -748,8 +774,27 @@ function CameraPanel({
   const [now, setNow] = useState(0);
   const [resolution, setResolution] = useState("");
   const [target, setTarget] = useState<CameraTarget>("box");
+  /** tăng mỗi lần bấm "Máy tiếp theo" → khởi động lại vòng đọc màn hình (sau khi đã tự dừng) */
+  const [round, setRound] = useState(0);
+  const nextDevice = () => {
+    onNextDevice();
+    setScan({
+      phase: "searching",
+      box: null,
+      pending: [],
+      accepted: { imeis: [] },
+      flash: 0,
+    });
+    setRound((r) => r + 1);
+  };
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [scan, setScan] = useState<ScreenScanState>({ phase: "searching", box: null, pending: [], accepted: { imeis: [] }, flash: 0 });
+  const [scan, setScan] = useState<ScreenScanState>({
+    phase: "searching",
+    box: null,
+    pending: [],
+    accepted: { imeis: [] },
+    flash: 0,
+  });
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -778,16 +823,28 @@ function CameraPanel({
       // Độ phân giải càng cao càng đọc được mã mảnh trên nhãn Apple; trình duyệt tự hạ nếu không hỗ trợ
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } },
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 3840 },
+          height: { ideal: 2160 },
+        },
       });
       streamRef.current = stream;
       const video = videoRef.current!;
       video.srcObject = stream;
       await video.play();
       const track = stream.getVideoTracks()[0];
-      const caps = (track.getCapabilities?.() ?? {}) as { torch?: boolean; zoom?: ZoomCaps; focusMode?: string[] };
+      const caps = (track.getCapabilities?.() ?? {}) as {
+        torch?: boolean;
+        zoom?: ZoomCaps;
+        focusMode?: string[];
+      };
       if (caps.focusMode?.includes("continuous")) {
-        track.applyConstraints({ advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet] }).catch(() => undefined);
+        track
+          .applyConstraints({
+            advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
+          })
+          .catch(() => undefined);
       }
       setTorch(caps.torch ? false : null);
       setZoom(caps.zoom && caps.zoom.max >= 1.5 ? { caps: caps.zoom, value: 1 } : null);
@@ -847,13 +904,11 @@ function CameraPanel({
     let timer = 0;
     let prev: Gray | null = null;
     let steady = 0;
-    let reading = 0; // số lần đọc đang chạy song song (tối đa 2 — xem ocr.ts)
-    let idle = false; // đã đọc xong, chờ khung hình thay đổi (đổi máy / cuộn màn hình) mới đọc tiếp
-    let quietReads = 0;
+    let reading = false; // mỗi lần chỉ đọc MỘT khung (khung đó được chia đôi, đọc song song — xem recognizeSplit)
+    let quietAfter = 0; // số lần đọc liên tiếp (sau khi có serial) không thêm được gì mới
     let regionSince = 0;
     let lastShot = 0;
     let blurSkips = 0;
-    let anchor: Gray | null = null;
     const sharpWin: number[] = [];
     const small = document.createElement("canvas");
 
@@ -880,68 +935,75 @@ function CameraPanel({
         sharpWin.push(sh);
         if (sharpWin.length > 10) sharpWin.shift();
         steady = region && m < 0.6 ? steady + 1 : 0;
-        if (idle && anchor && region && motion(anchor, gray, region) > 10) {
-          idle = false; // màn hình đã đổi → đọc tiếp
-          quietReads = 0;
-        }
         const display = region ? toDisplayBox(region, f, video, wrap) : null;
         const sharpEnough = sh > 0 && sh >= 0.8 * Math.max(...sharpWin);
         // Đứng yên đủ 2 khung & nét → chụp. Tay không giữ được yên (hoặc màn hình nhấp nháy khi chụp trực tiếp):
         // vùng chữ đã thấy ≥ 0,5 giây thì vẫn chụp khung nét nhất gần đây — không bao giờ treo ở "Giữ yên máy".
         const waitedLong = regionSince > 0 && t - Math.max(regionSince, lastShot) > 500;
-        const canShoot = reading === 0 || (reading < 2 && t - lastShot > 250);
-        const crop = canShoot && !idle && region && sharpEnough && (steady >= 2 || waitedLong) ? cropForOcr(video, region, f) : null;
+        const crop = !reading && region && sharpEnough && (steady >= 2 || waitedLong) ? cropForOcr(video, region, f) : null;
         // Khung nhòe (không đo được nét chữ) → bỏ, không tốn một lượt đọc chữ (tối đa 4 khung liền, phòng đo sai)
         const blurred = crop !== null && crop.ink === 0 && blurSkips < 4;
         if (blurred) blurSkips++;
         if (crop && !blurred) {
           blurSkips = 0;
           lastShot = t;
-          reading++;
-          anchor = gray;
-          setScan((sc) => ({ ...sc, phase: "reading", box: display, flash: Date.now() }));
+          reading = true;
+          setScan((sc) => ({
+            ...sc,
+            phase: "reading",
+            box: display,
+            flash: Date.now(),
+          }));
           onScreenCapture(crop.canvas)
             .then((r) => {
               const lastMs = Date.now() - t;
               const gotNew = hasNew(r.newly);
-              quietReads = gotNew || r.pending.length ? 0 : quietReads + 1;
-              if (quietReads >= 2) idle = true;
+              if (r.accepted.serial) quietAfter = gotNew ? 0 : quietAfter + 1;
+              const complete = r.ok && isDeviceComplete(r.accepted, quietAfter, r.pending.length);
+              if (complete) {
+                // ĐỦ THÔNG TIN → DỪNG HẲN: không đọc lại nữa cho tới khi bấm "Máy tiếp theo"
+                stopped = true;
+                haptic("success");
+              }
               setScan((sc) => ({
                 ...sc,
-                phase: r.accepted.serial || r.accepted.imeis.length ? (gotNew ? "done" : sc.phase === "done" ? "done" : "searching") : "searching",
+                phase: complete ? "complete" : r.accepted.serial || r.accepted.imeis.length ? (gotNew ? "done" : "searching") : "searching",
                 pending: r.pending,
                 accepted: r.accepted,
                 lastMs,
               }));
-              if (gotNew) setLastReadAt(Date.now());
+              if (gotNew || complete) setLastReadAt(Date.now());
             })
             .catch(() => undefined)
             .finally(() => {
-              reading--;
+              reading = false;
+              steady = 0;
             });
-        } else if (reading === 0 && !blurred) {
+        } else if (!reading && !blurred) {
           setScan((sc) => ({
             ...sc,
             box: display,
-            phase: sc.phase === "done" && Date.now() - sc.flash < 1500 ? "done" : !region ? "searching" : idle ? "idle" : steady >= 1 ? "steady" : "moving",
+            phase: sc.phase === "done" && Date.now() - sc.flash < 1500 ? "done" : !region ? "searching" : steady >= 1 ? "steady" : "moving",
           }));
         }
       }
       setNow(Date.now());
-      timer = window.setTimeout(tick, 80);
+      if (!stopped) timer = window.setTimeout(tick, 80);
     };
     tick();
     return () => {
       stopped = true;
       window.clearTimeout(timer);
     };
-  }, [state, target, onScreenCapture]);
+  }, [state, target, onScreenCapture, round]);
 
   const toggleTorch = async () => {
     const track = streamRef.current?.getVideoTracks()[0];
     if (!track || torch === null) return;
     try {
-      await track.applyConstraints({ advanced: [{ torch: !torch } as MediaTrackConstraintSet] });
+      await track.applyConstraints({
+        advanced: [{ torch: !torch } as MediaTrackConstraintSet],
+      });
       setTorch(!torch);
     } catch {
       setTorch(null);
@@ -953,7 +1015,9 @@ function CameraPanel({
     if (!track || !zoom) return;
     const next = zoom.value > 1 ? 1 : Math.min(2, zoom.caps.max);
     try {
-      await track.applyConstraints({ advanced: [{ zoom: next } as MediaTrackConstraintSet] });
+      await track.applyConstraints({
+        advanced: [{ zoom: next } as MediaTrackConstraintSet],
+      });
       setZoom({ ...zoom, value: next });
     } catch {
       setZoom(null);
@@ -969,7 +1033,21 @@ function CameraPanel({
           <button role="radio" aria-checked={target === "box"} className={target === "box" ? "is-active" : ""} onClick={() => setTarget("box")}>
             Sau hộp <span>mã vạch</span>
           </button>
-          <button role="radio" aria-checked={target === "screen"} className={target === "screen" ? "is-active" : ""} onClick={() => setTarget("screen")}>
+          <button
+            role="radio"
+            aria-checked={target === "screen"}
+            className={target === "screen" ? "is-active" : ""}
+            onClick={() => {
+              setTarget("screen");
+              setScan({
+                phase: "searching",
+                box: null,
+                pending: [],
+                accepted: { imeis: [] },
+                flash: 0,
+              });
+            }}
+          >
             Màn hình máy <span>IMEI, Serial</span>
           </button>
         </div>
@@ -980,11 +1058,25 @@ function CameraPanel({
         {state === "running" && target === "screen" && scan.box && (
           <div
             className={`sc-docbox is-${scan.phase}`}
-            style={{ left: scan.box.x, top: scan.box.y, width: scan.box.w, height: scan.box.h }}
+            style={{
+              left: scan.box.x,
+              top: scan.box.y,
+              width: scan.box.w,
+              height: scan.box.h,
+            }}
             aria-hidden
           />
         )}
         {state === "running" && target === "screen" && now - scan.flash < 180 && <div className="sc-shutter" aria-hidden />}
+        {state === "running" && target === "screen" && scan.phase === "complete" && (
+          <div className="sc-complete" role="status">
+            <strong>✓ Đã đọc xong máy này</strong>
+            <span>Camera đã dừng đọc — không ghi thêm gì cho tới khi anh chọn máy tiếp theo.</span>
+            <button className="sc-btn sc-btn-primary" onClick={nextDevice}>
+              Quét máy tiếp theo
+            </button>
+          </div>
+        )}
         {state === "running" && (
           <span className="sc-live-pill" data-testid="scan-status">
             ● {target === "screen" ? PHASE_LABEL[scan.phase] : "Đang tự quét mã vạch"}
@@ -1015,7 +1107,7 @@ function CameraPanel({
       {state === "running" && (
         <>
           <div className="sc-row">
-            <button className="sc-btn sc-btn-primary" onClick={onNextDevice}>
+            <button className="sc-btn sc-btn-primary" onClick={nextDevice}>
               Máy tiếp theo
             </button>
             <button className="sc-btn" disabled={busy} onClick={async () => onCapture(await grab())}>
@@ -1062,7 +1154,8 @@ function CameraPanel({
         <p className={`sc-hint ${stuck ? "sc-hint-warn" : ""}`}>
           {stuck ? (
             <>
-              Chưa đọc được. Mở <b>Cài đặt › Cài đặt chung › Giới thiệu</b> trên máy cần quét, để màn hình đủ sáng, giữ thẳng và tránh loá; lùi ra 20–30 cm để thấy cả dòng IMEI / Số sê-ri.
+              Chưa đọc được. Mở <b>Cài đặt › Cài đặt chung › Giới thiệu</b> trên máy cần quét, để màn hình đủ sáng, giữ thẳng và tránh loá; lùi ra 20–30 cm để
+              thấy cả dòng IMEI / Số sê-ri.
             </>
           ) : (
             <>
@@ -1073,8 +1166,13 @@ function CameraPanel({
         </p>
       ) : stuck ? (
         <p className="sc-hint sc-hint-warn">
-          Chưa đọc được mã nào. Lùi máy ra <b>20–30 cm</b> (camera iPhone Pro không lấy nét quá gần){zoom ? <>, bấm <b>Phóng to 2×</b></> : null}, bật đèn nếu tối, hoặc bấm{" "}
-          <b>📸 Chụp &amp; đọc kỹ</b> để đọc cả chữ trên nhãn.
+          Chưa đọc được mã nào. Lùi máy ra <b>20–30 cm</b> (camera iPhone Pro không lấy nét quá gần)
+          {zoom ? (
+            <>
+              , bấm <b>Phóng to 2×</b>
+            </>
+          ) : null}
+          , bật đèn nếu tối, hoặc bấm <b>📸 Chụp &amp; đọc kỹ</b> để đọc cả chữ trên nhãn.
         </p>
       ) : (
         <p className="sc-hint">
@@ -1169,8 +1267,13 @@ function PhotoPanel({
         Chạm vào đây → <b>Dán</b> ảnh chụp màn hình hoặc mã đã sao chép — tự nhận diện ngay.
       </div>
       <p className="sc-hint">
-        Chọn ảnh là <b>tự đọc ngay</b>: mã vạch trên nhãn hộp{hasOcr ? <>, và chữ trên ảnh chụp màn hình <b>Cài đặt › Cài đặt chung › Giới thiệu</b> (IMEI, Số sê-ri, Số kiểu máy)</> : null}. Ảnh không rời
-        khỏi máy của bạn.
+        Chọn ảnh là <b>tự đọc ngay</b>: mã vạch trên nhãn hộp
+        {hasOcr ? (
+          <>
+            , và chữ trên ảnh chụp màn hình <b>Cài đặt › Cài đặt chung › Giới thiệu</b> (IMEI, Số sê-ri, Số kiểu máy)
+          </>
+        ) : null}
+        . Ảnh không rời khỏi máy của bạn.
       </p>
       {sampleLabelUrl && (
         <div className="sc-sample">
@@ -1264,14 +1367,12 @@ function ManualPanel({ onText, onAddBlank }: { onText: (text: string) => number;
           + Thêm máy trống, nhập từng ô
         </button>
       </div>
-      <p className="sc-hint">
-        Có máy quét mã vạch USB/Bluetooth? Cứ quét khi đang ở trang này (không cần bấm vào ô nào) — mã sẽ tự vào đúng ô.
-      </p>
+      <p className="sc-hint">Có máy quét mã vạch USB/Bluetooth? Cứ quét khi đang ở trang này (không cần bấm vào ô nào) — mã sẽ tự vào đúng ô.</p>
     </section>
   );
 }
 
-type ScanPhase = "searching" | "moving" | "steady" | "reading" | "done" | "idle";
+type ScanPhase = "searching" | "moving" | "steady" | "reading" | "done" | "complete";
 
 interface ScreenScanState {
   phase: ScanPhase;
@@ -1289,7 +1390,7 @@ const PHASE_LABEL: Record<ScanPhase, string> = {
   steady: "Giữ yên… sắp chụp",
   reading: "Đang đọc chữ…",
   done: "✓ Đã đọc",
-  idle: "✓ Đã đọc xong — đổi máy hoặc cuộn màn hình",
+  complete: "✓ Xong máy này — đã dừng đọc",
 };
 
 /** Hộp trên khung hình nhỏ (phân tích) → toạ độ hiển thị trên thẻ video (object-fit: cover). */
@@ -1299,7 +1400,12 @@ function toDisplayBox(r: TextRegion, f: number, video: HTMLVideoElement, wrap: H
   const scale = Math.max(cw / video.videoWidth, ch / video.videoHeight);
   const ox = (cw - video.videoWidth * scale) / 2;
   const oy = (ch - video.videoHeight * scale) / 2;
-  return { x: ox + r.x * f * scale, y: oy + r.y * f * scale, w: r.w * f * scale, h: r.h * f * scale };
+  return {
+    x: ox + r.x * f * scale,
+    y: oy + r.y * f * scale,
+    w: r.w * f * scale,
+    h: r.h * f * scale,
+  };
 }
 
 /**
@@ -1338,7 +1444,9 @@ const INK_TARGET_PX = 14;
 
 /** Ảnh tĩnh: tìm vùng chữ trên bản thu nhỏ rồi cắt ở độ phân giải gốc, phóng to (null nếu không thấy vùng chữ rõ). */
 async function cropTextRegion(image: Blob): Promise<HTMLCanvasElement | null> {
-  const bitmap = await createImageBitmap(image, { imageOrientation: "from-image" });
+  const bitmap = await createImageBitmap(image, {
+    imageOrientation: "from-image",
+  });
   try {
     const W = 480;
     const f = bitmap.width / W;
