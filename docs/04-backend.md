@@ -46,7 +46,8 @@
 ### 3.1. Thuật toán phân bổ (phần dư lớn nhất)
 
 ```ts
-// src/server/domain/allocation.ts — hàm thuần, kiểm thử thuộc tính bằng fast-check
+// Bản đã triển khai: src/domain/costing/allocation.ts — bigint thuần (không cần thư viện số thập phân)
+// Dưới đây là phác thảo ban đầu, giữ để đối chiếu thuật toán.
 export function allocate(totalVnd: bigint, weights: Decimal[]): bigint[] {
   if (weights.length === 0) throw new DomainError('Không có máy để phân bổ');
   const sumW = Decimal.sum(...weights);
@@ -76,7 +77,7 @@ export function allocate(totalVnd: bigint, weights: Decimal[]): bigint[] {
 ### 3.2. Tính giá vốn một chuyến
 
 ```ts
-// src/server/domain/costing.ts
+// Bản đã triển khai: src/domain/costing/costing.ts (thêm làm tròn luỹ kế cho thành phần đơn mua)
 export function computeAllocations(input: BatchCostingInput): Allocation[] {
   const out: Allocation[] = [];
 

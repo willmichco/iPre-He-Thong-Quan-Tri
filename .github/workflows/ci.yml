@@ -41,7 +41,7 @@ jobs:
       - name: Lint
         run: npm run lint
       - name: Kiểm thử đơn vị
-        run: npm test
+        run: npm run test:coverage   # kèm ngưỡng độ phủ ≥ 95% cho bộ máy tính giá vốn
 
       - name: Migration + dữ liệu ví dụ
         run: |
