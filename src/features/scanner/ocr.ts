@@ -5,13 +5,21 @@
  */
 import type { Worker } from "tesseract.js";
 
-let workerPromise: Promise<Worker> | null = null;
 
 declare global {
   interface Window {
     /** 5 lần đọc chữ gần nhất — để chẩn đoán khi đọc sai (xem trong công cụ nhà phát triển / kiểm thử). */
     __ipreOcrLog?: string[];
+    /** thời gian (ms) và kích thước ảnh của các lần đọc chữ gần nhất — đo tốc độ */
+    __ipreOcrTimes?: string[];
   }
+}
+
+function logTime(t0: number, c: { width: number; height: number }) {
+  if (typeof window === "undefined") return;
+  const log = (window.__ipreOcrTimes ??= []);
+  log.push(`${Math.round(performance.now() - t0)}ms ${c.width}x${c.height}`);
+  if (log.length > 20) log.shift();
 }
 
 function logOcr(text: string) {
@@ -20,16 +28,22 @@ function logOcr(text: string) {
   log.push(text);
   if (log.length > 5) log.shift();
 }
-let queue: Promise<unknown> = Promise.resolve();
-
 function absolute(base: string) {
   return new URL(base.endsWith("/") ? base : `${base}/`, window.location.href).href.replace(/\/$/, "");
 }
 
-export function getOcrWorker(base: string, onProgress?: (p: number) => void): Promise<Worker> {
-  if (workerPromise) return workerPromise;
+/**
+ * Nhóm 2 bộ đọc chữ chạy SONG SONG: camera chụp 2 khung liên tiếp → đọc cùng lúc → Serial đủ 2 phiếu
+ * sau MỘT lượt đọc thay vì hai lượt nối tiếp. Bộ thứ 2 chỉ khởi tạo khi cần (ảnh tải lên dùng 1 bộ).
+ */
+const POOL_SIZE = 2;
+const pool: (Promise<Worker> | null)[] = Array(POOL_SIZE).fill(null);
+const busy: boolean[] = Array(POOL_SIZE).fill(false);
+const waiters: (() => void)[] = [];
+
+function createOcrWorker(base: string, onProgress?: (p: number) => void): Promise<Worker> {
   const root = absolute(base);
-  workerPromise = import("tesseract.js")
+  return import("tesseract.js")
     .then(({ createWorker }) =>
       createWorker("eng", 1, {
         workerPath: `${root}/worker.min.js`,
@@ -49,12 +63,43 @@ export function getOcrWorker(base: string, onProgress?: (p: number) => void): Pr
         preserve_interword_spaces: "1",
       });
       return w;
-    })
-    .catch((e) => {
-      workerPromise = null;
-      throw e;
     });
-  return workerPromise;
+}
+
+function slot(i: number, base: string, onProgress?: (p: number) => void): Promise<Worker> {
+  const existing = pool[i];
+  if (existing) return existing;
+  const created = createOcrWorker(base, onProgress).catch((e) => {
+    pool[i] = null;
+    throw e;
+  });
+  pool[i] = created;
+  return created;
+}
+
+export function getOcrWorker(base: string, onProgress?: (p: number) => void): Promise<Worker> {
+  return slot(0, base, onProgress);
+}
+
+/** Khởi tạo sẵn bộ đọc chữ (tải ~7 MB lần đầu) ngay khi bật camera — lần chụp đầu khỏi phải chờ. */
+export function warmOcr(base: string, workers = POOL_SIZE, onProgress?: (p: number) => void): Promise<unknown> {
+  return Promise.all(Array.from({ length: Math.min(workers, POOL_SIZE) }, (_, i) => slot(i, base, i === 0 ? onProgress : undefined))).catch(() => undefined);
+}
+
+async function withWorker<T>(base: string, maxWorkers: number, onProgress: ((p: number) => void) | undefined, fn: (w: Worker) => Promise<T>): Promise<T> {
+  for (;;) {
+    const i = busy.findIndex((b, k) => !b && k < maxWorkers);
+    if (i >= 0) {
+      busy[i] = true;
+      try {
+        return await fn(await slot(i, base, onProgress));
+      } finally {
+        busy[i] = false;
+        waiters.splice(0).forEach((wake) => wake());
+      }
+    }
+    await new Promise<void>((resolve) => waiters.push(resolve));
+  }
 }
 
 /** Ảnh xám + đảo màu nếu nền tối (chế độ tối của iOS) — xử lý tại chỗ trên canvas. */
@@ -95,26 +140,22 @@ async function prepare(image: Blob): Promise<HTMLCanvasElement> {
 
 /** Đọc chữ trên một canvas đã cắt sẵn vùng văn bản (camera, chế độ "Màn hình máy"). */
 export function recognizeCanvas(base: string, canvas: HTMLCanvasElement, onProgress?: (p: number) => void): Promise<string> {
-  const job = queue.then(async () => {
-    const worker = await getOcrWorker(base, onProgress);
+  return withWorker(base, POOL_SIZE, onProgress, async (worker) => {
+    const t0 = performance.now();
     toOcrGray(canvas);
     const { data } = await worker.recognize(canvas);
+    logTime(t0, canvas);
     logOcr(data.text);
     return data.text;
   });
-  queue = job.catch(() => undefined);
-  return job;
 }
 
-/** Đọc toàn bộ chữ trên ảnh. Các lần gọi được xếp hàng (một worker). */
+/** Đọc toàn bộ chữ trên ảnh. Các lần gọi được xếp hàng (một bộ đọc). */
 export function recognizeText(base: string, image: Blob, onProgress?: (p: number) => void): Promise<string> {
-  const job = queue.then(async () => {
-    const worker = await getOcrWorker(base, onProgress);
+  return withWorker(base, 1, onProgress, async (worker) => {
     const canvas = await prepare(image);
     const { data } = await worker.recognize(canvas);
     logOcr(data.text);
     return data.text;
   });
-  queue = job.catch(() => undefined);
-  return job;
 }

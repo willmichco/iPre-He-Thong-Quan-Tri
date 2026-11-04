@@ -25,7 +25,7 @@ import { classifyCode, splitPastedText } from "@/domain/identifiers";
 import { extractFromText, hasIdentity, isComplete, mergeExtractions } from "@/domain/text-extract";
 import { acceptedAsExtraction, addReading, emptyVotes, hasNew, type Accepted, type ScreenVotes } from "@/domain/screen-votes";
 import { captureVideoFrame, decodePhoto, decodeVideoFrame, initDecoder, rasterizeImageUrl, type WasmSource } from "./decoder";
-import { recognizeCanvas, recognizeText } from "./ocr";
+import { recognizeCanvas, recognizeText, warmOcr } from "./ocr";
 import { findTextRegion, motion, sharpness, shiftEstimate, toGray, type Gray, type TextRegion } from "./frame-analysis";
 import { haptic, unlockFeedback } from "./haptics";
 import "./scanner.css";
@@ -428,6 +428,8 @@ export function Scanner({
     [ocrBase, update],
   );
 
+  const onWarmOcr = useMemo(() => (ocrBase ? () => void warmOcr(ocrBase) : undefined), [ocrBase]);
+
   const records = session.records;
   const issuesById = useMemo(
     () => Object.fromEntries(records.map((r) => [r.id, validateRecord(r, records, expectedRegion)])),
@@ -517,6 +519,7 @@ export function Scanner({
           busy={busy !== null}
           onCodes={onLiveCodes}
           onScreenCapture={ocrBase ? onScreenCapture : undefined}
+          onWarmOcr={onWarmOcr}
           onCapture={async (blob) => {
             const r = await processImage(blob, `camera-${new Date().toLocaleTimeString("vi-VN")}.jpg`);
             notify(
@@ -716,6 +719,7 @@ function CameraPanel({
   busy,
   onCodes,
   onScreenCapture,
+  onWarmOcr,
   onCapture,
   onNextDevice,
   onManual,
@@ -726,6 +730,8 @@ function CameraPanel({
   onCodes: (codes: PositionedCode[], grab: () => Promise<Blob>) => void;
   /** Có = hỗ trợ đọc chữ trên màn hình máy (dạng 1): nhận vùng chữ đã cắt, phóng to. */
   onScreenCapture?: (canvas: HTMLCanvasElement) => Promise<ScreenReadResult>;
+  /** Khởi tạo sẵn bộ đọc chữ khi chọn "Màn hình máy" — lần chụp đầu khỏi chờ tải. */
+  onWarmOcr?: () => void;
   onCapture: (blob: Blob) => Promise<void>;
   onNextDevice: () => void;
   onManual: () => void;
@@ -754,6 +760,10 @@ function CameraPanel({
   }, []);
 
   useEffect(() => stop, [stop]);
+
+  useEffect(() => {
+    if (target === "screen") onWarmOcr?.(); // gọi lại nhiều lần cũng không sao: bộ đọc chỉ tạo một lần
+  }, [target, onWarmOcr]);
 
   const start = async () => {
     setError(null);
@@ -835,7 +845,7 @@ function CameraPanel({
     let timer = 0;
     let prev: Gray | null = null;
     let steady = 0;
-    let reading = false;
+    let reading = 0; // số lần đọc đang chạy song song (tối đa 2 — xem ocr.ts)
     let idle = false; // đã đọc xong, chờ khung hình thay đổi (đổi máy / cuộn màn hình) mới đọc tiếp
     let quietReads = 0;
     let regionSince = 0;
@@ -874,11 +884,12 @@ function CameraPanel({
         const display = region ? toDisplayBox(region, f, video, wrap) : null;
         const sharpEnough = sh > 0 && sh >= 0.8 * Math.max(...sharpWin);
         // Đứng yên đủ 2 khung & nét → chụp. Tay không giữ được yên (hoặc màn hình nhấp nháy khi chụp trực tiếp):
-        // vùng chữ đã thấy ≥ 1,2 giây thì vẫn chụp khung nét nhất gần đây — không bao giờ treo ở "Giữ yên máy".
-        const waitedLong = regionSince > 0 && t - Math.max(regionSince, lastShot) > 1200;
-        if (!reading && !idle && region && sharpEnough && (steady >= 2 || waitedLong)) {
+        // vùng chữ đã thấy ≥ 0,7 giây thì vẫn chụp khung nét nhất gần đây — không bao giờ treo ở "Giữ yên máy".
+        const waitedLong = regionSince > 0 && t - Math.max(regionSince, lastShot) > 700;
+        const canShoot = reading === 0 || (reading < 2 && t - lastShot > 350);
+        if (canShoot && !idle && region && sharpEnough && (steady >= 2 || waitedLong)) {
           lastShot = t;
-          reading = true;
+          reading++;
           anchor = gray;
           setScan((sc) => ({ ...sc, phase: "reading", box: display, flash: Date.now() }));
           const crop = cropForOcr(video, region, f);
@@ -897,10 +908,9 @@ function CameraPanel({
             })
             .catch(() => undefined)
             .finally(() => {
-              reading = false;
-              steady = 0;
+              reading--;
             });
-        } else if (!reading) {
+        } else if (reading === 0) {
           setScan((sc) => ({
             ...sc,
             box: display,
@@ -1291,8 +1301,10 @@ function cropForOcr(video: HTMLVideoElement, r: TextRegion, f: number): HTMLCanv
   const sw = Math.min(video.videoWidth - sx, (r.w + 2 * margin) * f);
   const sh = Math.min(video.videoHeight - sy, (r.h + 2 * margin) * f);
   const lineH = Math.max(4, r.lineHeight * f);
+  // Không thu nhỏ dưới độ phân giải gốc (chiều cao dòng ước lượng theo ô lưới, thô — đã thử: thu nhỏ theo nó
+  // làm đọc sai IMEI); chỉ chặn cạnh dài 2000 px để camera 4K không làm chậm bộ đọc chữ
   let scale = Math.min(3, Math.max(1, 56 / lineH));
-  scale = Math.min(scale, 2600 / Math.max(sw, sh));
+  scale = Math.min(scale, 2000 / Math.max(sw, sh));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(sw * scale));
   canvas.height = Math.max(1, Math.round(sh * scale));
