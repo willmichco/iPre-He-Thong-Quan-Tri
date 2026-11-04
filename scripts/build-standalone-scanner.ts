@@ -6,7 +6,7 @@
  *   npm run build:standalone   → dist/quet-ma-thu.html
  */
 import { build, type Plugin } from "esbuild";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
@@ -103,6 +103,29 @@ ${css}
   const out = join(root, "dist", "quet-ma-thu.html");
   writeFileSync(out, html);
   console.log(`✓ dist/quet-ma-thu.html (${(html.length / 1024 / 1024).toFixed(2)} MB)`);
+
+  // Bản trang web đầy đủ cho GitHub Pages (https thật → camera quét liên tục dùng được)
+  const pagesDir = join(root, "dist", "pages");
+  mkdirSync(pagesDir, { recursive: true });
+  const page = `<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="description" content="Bản xem thử bộ quét IMEI, Serial, mã máy Apple của hệ thống iPre. Xử lý ngay trên thiết bị.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d5bd8'/%3E%3Cpath d='M8 9v14M11 9v14M15 9v14M17 9v14M21 9v14M24 9v14' stroke='white' stroke-width='2'/%3E%3C/svg%3E">
+<style>:root{color-scheme:light dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+${html}</body>
+</html>
+`;
+  writeFileSync(join(pagesDir, "index.html"), page);
+  writeFileSync(join(pagesDir, ".nojekyll"), "");
+  copyFileSync(join(root, "public", "nhan-mau.svg"), join(pagesDir, "nhan-mau.svg"));
+  console.log("✓ dist/pages/ (index.html, nhan-mau.svg, .nojekyll) — cho GitHub Pages");
 }
 
 main().catch((e) => {

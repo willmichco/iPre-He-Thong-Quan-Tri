@@ -18,6 +18,10 @@ với mốc thời gian rõ ràng cho từng chặng và giá vốn chính xác 
 | 06 | [Lộ trình, Rủi ro & Pháp lý](docs/06-lo-trinh-rui-ro-phap-ly.md) | Các giai đoạn & tiêu chí nghiệm thu, rủi ro, thuế hộ kinh doanh 2026, nguồn gốc hàng hoá, câu hỏi cần xác nhận |
 | 07 | [Quét mã & Nhập liệu tay](docs/07-quet-ma-va-nhap-lieu.md) | **Quét IMEI/Serial/mã máy bằng camera và hình ảnh** (mã vạch, OCR, AI tuỳ chọn), Hộp chờ duyệt, form nhập tay, lưới nhập kiểu bảng tính |
 
+## Bản xem thử trực tuyến
+
+Bộ quét mã chạy thử: https://willmichco.github.io/iPre-He-Thong-Quan-Tri/ (nhánh `gh-pages`, chỉ chứa file đã build; số liệu trên nhãn mẫu là minh hoạ).
+
 ## Chạy trên máy
 
 Yêu cầu: Node.js 22+, Docker (cho PostgreSQL).
@@ -64,7 +68,7 @@ Lệnh hỏi mật khẩu (tối thiểu 12 ký tự), in mã QR để quét b�
 | `npm run test:e2e` | Kiểm thử đầu-cuối bằng trình duyệt (máy tính + giả lập iPhone) |
 | `npm run db:migrate` | Áp dụng migration còn thiếu (`db/migrations/*.sql`) |
 | `npm run db:seed` | Migration + nạp dữ liệu ví dụ |
-| `npm run build:standalone` | Đóng gói bộ quét thành một file HTML chạy thử (`dist/quet-ma-thu.html`) |
+| `npm run build:standalone` | Đóng gói bộ quét thành bản chạy thử: `dist/quet-ma-thu.html` (một file) và `dist/pages/` (trang web cho GitHub Pages, nhánh `gh-pages`) |
 | `npm run sample:label` | Tạo lại nhãn hộp mẫu `public/nhan-mau.svg` |
 
 ## Cấu trúc mã nguồn
