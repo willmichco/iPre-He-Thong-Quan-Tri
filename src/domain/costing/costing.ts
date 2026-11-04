@@ -48,8 +48,8 @@ export interface ItemInput {
   /** cân nặng (kg) — đã lấy mặc định của cấu hình máy nếu máy chưa có; chỉ bắt buộc khi có chi phí theo cân nặng */
   weightKg?: string | number | null;
   /**
-   * Máy KHÔNG nhận chi phí vận chuyển/khác (B–E) — vd. đã trả người bán trước khi gửi đi. Vẫn giữ các thành
-   * phần của đơn mua; khoản hoàn tiền được ghi bằng chi phí âm hoặc giảm giá của đơn.
+   * Máy KHÔNG nhận chi phí chung (B–E) gắn vào chuyến/đơn mua/kiện — vd. đã trả người bán. Vẫn giữ các thành
+   * phần của đơn mua và chi phí gắn thẳng vào chính máy đó; khoản hoàn tiền ghi bằng chi phí âm hoặc giảm giá.
    */
   excludedFromCosts?: boolean;
 }
@@ -175,7 +175,9 @@ export function computeAllocations(input: CostingInput): CostingResult {
   // ---- 2. Chi phí (bảng costs) → phân bổ cho các máy thuộc đối tượng được gắn ------------------------
   const shipments = new Map((input.shipments ?? []).map((s) => [s.id, s]));
   for (const cost of input.costs ?? []) {
-    const targets = resolveTargets(cost, input.items, itemsById, shipments).filter((i) => !i.excludedFromCosts);
+    // máy bị loại (trả người bán…) không gánh chi phí chung; chi phí gắn THẲNG vào máy đó thì vẫn tính cho nó
+    const resolved = resolveTargets(cost, input.items, itemsById, shipments);
+    const targets = cost.target.type === "ITEM" ? resolved : resolved.filter((i) => !i.excludedFromCosts);
     if (!targets.length)
       throw new CostingError("NO_TARGET_ITEMS", `Chi phí ${cost.id} gắn vào đối tượng chưa có máy nào để phân bổ`, [cost.id]);
     const shares = cost.method === "MANUAL" ? manualShares(cost, targets) : allocate(cost.amountVnd, weightsFor(cost, targets, purchaseVnd));

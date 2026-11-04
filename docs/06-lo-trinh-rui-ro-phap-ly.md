@@ -53,7 +53,15 @@ gantt
   phân bổ phần dư lớn nhất; thành phần đơn mua làm tròn luỹ kế (khớp cột `total_vnd`); 4 phương pháp phân bổ; chi phí gắn chuyến / đơn mua / kiện / máy;
   hoàn phí (số âm); máy trả người bán; chi phí dự toán → "Tạm tính"; phân bổ giảm giá & chi phí bán theo giá bán; lãi máy, lãi chuyến, ROI, vốn đọng.
   Kiểm thử: thuộc tính (fast-check, hàng nghìn bộ ngẫu nhiên), đối chiếu ví dụ mục 6.1 tài liệu 01 **khớp 0 đồng**, độ phủ ≥ 95% (CI chặn nếu tụt)
-- [ ] Lớp dịch vụ: `recalculateBatch` đọc CSDL → engine → ghi `item_cost_allocations` trong cùng transaction; chặn khi chuyến đã chốt
+- [x] **Lớp dịch vụ giá vốn** (`src/server/costing/service.ts`):
+  - `recalculateBatch(es)` đọc CSDL → bộ máy → ghi `item_cost_allocations` theo kiểu so sánh (chỉ thêm/sửa/xoá dòng thay đổi) trong cùng transaction với thao tác sửa dữ liệu; khoá tư vấn chống tính chồng
+  - kiện gom máy của nhiều chuyến / đơn mua dính nhiều chuyến → tự gom "cụm" chuyến và tính cùng lúc
+  - chuyến đã chốt: kết quả làm đổi bất kỳ dòng giá vốn nào → lỗi `BATCH_FINALIZED`, huỷ cả thao tác sửa
+  - `finalizeBatchCosts` (kiểm tra máy đã về SG, hết chi phí dự toán) · `reopenBatchCosts` (bắt buộc lý do) — đều ghi `audit_logs`
+  - `recalculateSale`: chia giảm giá & chi phí bán hàng cho từng dòng bán; dòng huỷ không gánh nữa
+  - máy trả người bán: cài đặt `costing.returned_item_policy` = `REALLOCATE` (mặc định) / `WRITE_OFF`
+  - `npm run costing:check` (CI chạy sau khi nạp dữ liệu ví dụ: bộ máy đọc CSDL phải ra đúng 15 dòng giá vốn đã ghi) · `npm run costing:recalc -- <mã chuyến>`
+  - 12 kiểm thử tích hợp với PostgreSQL thật (`npm run test:db`, mỗi ca chạy trong transaction rồi huỷ)
 - [ ] Danh mục (mẫu máy, cấu hình, mã Part No.), nhà bán, đơn vị vận chuyển
 - [ ] Chuyến · Đơn mua · Máy: form nhập tay + lưới nhập máy kiểu bảng tính (dán từ Excel, nối với bộ quét mã)
 - [ ] Kiện 3 chặng: tạo kiện, gán máy (quét), "Gửi đi" / "Đã nhận" sinh mốc M1–M8 cho mọi máy

@@ -9,8 +9,13 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     environment: "node",
+    projects: [
+      // kiểm thử logic thuần — không cần CSDL
+      { extends: true, test: { name: "unit", include: ["tests/unit/**/*.test.ts"] } },
+      // kiểm thử tích hợp với PostgreSQL thật (DATABASE_URL, đã migrate + seed) — mỗi ca chạy trong transaction rồi huỷ
+      { extends: true, test: { name: "db", include: ["tests/integration/**/*.test.ts"], fileParallelism: false } },
+    ],
     coverage: {
       provider: "v8",
       // Bộ máy tính giá vốn phải đạt ≥ 95% độ phủ (tài liệu 04, mục 9) — CI chặn nếu tụt

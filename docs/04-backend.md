@@ -110,6 +110,8 @@ export function computeAllocations(input: BatchCostingInput): Allocation[] {
 
 ### 3.3. Khi nào tính lại?
 
+> Bản đã triển khai: `src/server/costing/service.ts` (`recalculateBatch(es)`, `finalizeBatchCosts`, `reopenBatchCosts`, `recalculateSale`); kiểm thử tích hợp `tests/integration/costing-service.test.ts`.
+
 Service gọi `recalculateBatch(batchId)` **trong cùng transaction** sau bất kỳ thao tác nào sau đây: tạo/sửa/xoá đơn mua, máy, chi phí; gán/bỏ máy khỏi kiện; sửa tỷ giá. Nếu kiện gom nhiều chuyến → tính lại tất cả chuyến liên quan. Thao tác nhanh (vài mili-giây cho vài trăm máy) nên không cần hàng đợi.
 
 **Chặn khi đã chốt:** nếu chuyến ở trạng thái `COSTS_FINALIZED`/`CLOSED`, mọi thao tác làm thay đổi giá vốn trả lỗi `BATCH_FINALIZED` — phải gọi "Mở lại chuyến" (kèm lý do, ghi audit).

@@ -52,6 +52,10 @@ jobs:
           result=$(psql "$DATABASE_URL" -At -c "select total_landed_cost_vnd||'|'||realized_profit_vnd||'|'||roi_on_sold_pct from v_batch_summary where code='CH-2026-011'")
           echo "$result"
           test "$result" = "55943208|2706128|5.53"
+      - name: Bộ máy tính giá vốn đọc CSDL phải ra đúng giá vốn đang lưu
+        run: npm run costing:check
+      - name: Kiểm thử tích hợp với PostgreSQL (tính lại, chặn chuyến đã chốt, mở lại, kiện gom nhiều chuyến)
+        run: npm run test:db
 
       - name: Build
         run: npm run build

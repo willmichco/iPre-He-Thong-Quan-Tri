@@ -207,6 +207,9 @@ describe("chi phí: 4 phương pháp phân bổ, mọi loại đối tượng g�
     // máy trả lại vẫn giữ giá mua (khoản hoàn ghi riêng)
     expect(computeAllocations(input).allocations.some((a) => a.itemId === "a" && a.component === "PRICE")).toBe(true);
     expect(() => run(cost({ target: { type: "BATCH", id: "khong-co" } }))).toThrow(expect.objectContaining({ code: "NO_TARGET_ITEMS" }));
+    // chi phí gắn THẲNG vào máy đã trả (vd. phí gửi trả) vẫn tính cho chính máy đó
+    input.costs = [cost({ target: { type: "ITEM", id: "a" }, amountVnd: 40_000n })];
+    expect(ofCost(computeAllocations(input).allocations)).toEqual([["a", 40_000n]]);
   });
 
   it("kiện/máy không có trong dữ liệu tính → lỗi; kiện gom máy của chuyến khác chưa nạp → lỗi rõ ràng", () => {
