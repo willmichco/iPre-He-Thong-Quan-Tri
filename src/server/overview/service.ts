@@ -122,13 +122,23 @@ export async function getOverview(db: Db, period: Period, today: string) {
          WHERE po.deleted_at IS NULL AND b.deleted_at IS NULL AND po.return_deadline IS NOT NULL
            AND po.return_deadline >= ${today}::date AND po.return_deadline <= ${today}::date + 31
          ORDER BY po.return_deadline`,
+      // chỉ đơn còn nợ: gom tổng đơn & tiền đã nhận một lượt (hash), lọc ngay trong CSDL
       db<{ id: string; code: string; status: string; customer: string | null; total: string; paid: string }[]>`
+        WITH tot AS (
+          SELECT si.sale_id, SUM(si.price_vnd - si.discount_alloc_vnd) AS total
+            FROM sale_items si JOIN sales s ON s.id = si.sale_id AND s.status IN ('COMPLETED', 'DEPOSITED')
+           WHERE si.voided_at IS NULL GROUP BY si.sale_id
+        ), paid AS (
+          SELECT t.sale_id, SUM(CASE WHEN t.direction = 'IN' THEN t.amount_vnd ELSE -t.amount_vnd END) AS paid
+            FROM cash_transactions t JOIN sales s ON s.id = t.sale_id AND s.status IN ('COMPLETED', 'DEPOSITED')
+           WHERE t.deleted_at IS NULL GROUP BY t.sale_id
+        )
         SELECT s.id::text, s.code, s.status::text, c.full_name AS customer,
-               (SELECT COALESCE(SUM(si.price_vnd - si.discount_alloc_vnd), 0)::text FROM sale_items si WHERE si.sale_id = s.id AND si.voided_at IS NULL) AS total,
-               (SELECT COALESCE(SUM(CASE WHEN t.direction = 'IN' THEN t.amount_vnd ELSE -t.amount_vnd END), 0)::text
-                  FROM cash_transactions t WHERE t.sale_id = s.id AND t.deleted_at IS NULL) AS paid
+               COALESCE(tot.total, 0)::text AS total, COALESCE(paid.paid, 0)::text AS paid
           FROM sales s LEFT JOIN customers c ON c.id = s.customer_id
-         WHERE s.status IN ('COMPLETED', 'DEPOSITED')`,
+          LEFT JOIN tot ON tot.sale_id = s.id LEFT JOIN paid ON paid.sale_id = s.id
+         WHERE s.status IN ('COMPLETED', 'DEPOSITED') AND COALESCE(tot.total, 0) - COALESCE(paid.paid, 0) > 0
+         ORDER BY s.sold_at`,
       db<{ id: string; code: string; customer: string | null }[]>`
         SELECT s.id::text, s.code, c.full_name AS customer
           FROM sales s LEFT JOIN customers c ON c.id = s.customer_id
@@ -236,7 +246,8 @@ export async function listItemsAtStatuses(db: Db, statuses: readonly string[], l
         FROM items i JOIN product_variants v ON v.id = i.variant_id JOIN product_models m ON m.id = v.model_id
         JOIN batches b ON b.id = i.batch_id JOIN v_item_landed_cost lc ON lc.item_id = i.id
         LEFT JOIN v_item_milestones ms ON ms.item_id = i.id
-       WHERE i.deleted_at IS NULL) x
+       -- trạng thái vật lý ∈ statuses ⇒ trạng thái lưu ∈ statuses hoặc là RESERVED: lọc trước bằng chỉ mục
+       WHERE i.deleted_at IS NULL AND (i.status::text = ANY(${statuses as string[]}) OR i.status = 'RESERVED')) x
      WHERE x.physical = ANY(${statuses as string[]})
      ORDER BY x.sg_received_at NULLS LAST, x.ordered_at NULLS LAST, x.created_at
      LIMIT ${limit}`;

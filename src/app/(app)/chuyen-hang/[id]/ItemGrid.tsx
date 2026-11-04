@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition, type ClipboardEvent, type KeyboardEvent } from "react";
-import { parseDecimalInput } from "@/domain/catalog";
+import { parseDecimalInput } from "@/domain/decimal-input";
 import { classifyCode } from "@/domain/identifiers";
 import {
   CONDITION_LABEL,
@@ -17,7 +17,7 @@ import {
   type GridRow,
   type RowIssue,
   type VariantRef,
-} from "@/domain/purchasing";
+} from "@/domain/purchasing-core";
 import { saveItemsAction } from "../actions";
 
 /** Thông tin chỉ-đọc của máy đã lưu (trạng thái, giá vốn). */
@@ -256,7 +256,7 @@ export function ItemGrid({
     <div className="mt-3" data-testid={`grid-${purchaseOrderId}`}>
       <div className="overflow-x-auto rounded-lg border border-border">
         <table ref={tableRef} className="text-sm border-collapse w-max min-w-full" aria-label="Lưới nhập máy">
-          <thead className="bg-[var(--bg)] text-left text-muted">
+          <thead className="bg-[var(--fill)] text-left text-muted">
             <tr>
               <th className="p-2 font-medium w-8">#</th>
               {COLS.map((c) => (

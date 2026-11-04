@@ -40,7 +40,7 @@ export default async function SalesPage() {
                   <li key={s.id}>
                     <Link
                       href={`/ban-hang/${s.id}`}
-                      className="card flex flex-wrap items-center gap-x-4 gap-y-1 p-3 hover:border-primary"
+                      className="card flex flex-wrap items-center gap-x-4 gap-y-1 p-4 transition-transform hover:-translate-y-0.5"
                       aria-label={`Đơn ${s.code}`}
                     >
                       <b>{s.code}</b>
