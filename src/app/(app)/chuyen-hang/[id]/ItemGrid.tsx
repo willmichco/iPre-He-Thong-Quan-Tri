@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition, type ClipboardEvent, type KeyboardEvent } from "react";
-import { parseDecimalInput } from "@/domain/catalog";
+import { parseDecimalInput } from "@/domain/decimal-input";
 import { classifyCode } from "@/domain/identifiers";
 import {
   CONDITION_LABEL,
@@ -17,7 +17,7 @@ import {
   type GridRow,
   type RowIssue,
   type VariantRef,
-} from "@/domain/purchasing";
+} from "@/domain/purchasing-core";
 import { saveItemsAction } from "../actions";
 
 /** Thông tin chỉ-đọc của máy đã lưu (trạng thái, giá vốn). */

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { formatBp, formatVnd } from "@/domain/costing";
-import { CHANNEL_LABEL, CHANNELS, parseVndInput, previewSale, type Channel } from "@/domain/sales";
+import { CHANNEL_LABEL, CHANNELS, parseVndInput, previewSale, type Channel } from "@/domain/sales-core";
 import { createSaleAction, lookupForSaleAction, type SellableDto } from "../actions";
 
 interface Line {

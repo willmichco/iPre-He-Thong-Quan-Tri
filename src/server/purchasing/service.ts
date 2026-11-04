@@ -64,7 +64,10 @@ export interface BatchListRow {
   roiOnSoldPct: string | null;
 }
 
-export async function listBatches(db: Db): Promise<BatchListRow[]> {
+export async function listBatches(db: Db, onlyId?: string): Promise<BatchListRow[]> {
+  // Cùng số liệu với v_batch_summary nhưng gom một lượt (hash) cho các máy cần thiết — nhanh hơn nhiều khi có
+  // hàng nghìn máy; onlyId: chỉ một chuyến (trang chi tiết). Kiểm thử tích hợp đối chiếu với v_batch_summary.
+  const one = onlyId ?? null;
   const rows = await db<
     {
       id: string;
@@ -82,14 +85,34 @@ export async function listBatches(db: Db): Promise<BatchListRow[]> {
       roi: string | null;
     }[]
   >`
-    SELECT b.id::text, b.code, b.name, b.status::text, b.created_at::text,
-           s.item_count::int, s.sold_count::int,
-           (SELECT COUNT(*)::int FROM purchase_orders po WHERE po.batch_id = b.id AND po.deleted_at IS NULL) AS po_count,
-           s.total_landed_cost_vnd::text AS total, s.revenue_vnd::text AS revenue, s.realized_profit_vnd::text AS profit,
-           s.unsold_cost_vnd::text AS unsold, s.roi_on_sold_pct::text AS roi
-      FROM batches b JOIN v_batch_summary s ON s.batch_id = b.id
-     WHERE b.deleted_at IS NULL
-     ORDER BY b.created_at DESC, b.code DESC`;
+    WITH bs AS MATERIALIZED (
+      SELECT b.id, b.code, b.name, b.status, b.created_at FROM batches b
+       WHERE b.deleted_at IS NULL AND (${one}::uuid IS NULL OR b.id = ${one}::uuid)
+    ), it AS MATERIALIZED (
+      SELECT i.id, i.batch_id FROM items i JOIN bs ON bs.id = i.batch_id WHERE i.deleted_at IS NULL
+    ), lc AS MATERIALIZED (
+      SELECT a.item_id, SUM(a.amount_vnd) AS landed FROM item_cost_allocations a JOIN it ON it.id = a.item_id GROUP BY a.item_id
+    ), sold AS MATERIALIZED (
+      SELECT si.item_id, si.price_vnd - si.discount_alloc_vnd AS net, si.expense_alloc_vnd AS expense
+        FROM sale_items si JOIN it ON it.id = si.item_id JOIN sales s ON s.id = si.sale_id AND s.status = 'COMPLETED'
+       WHERE si.voided_at IS NULL
+    ), per AS (
+      SELECT it.batch_id, COUNT(*) AS item_count, COUNT(sold.item_id) AS sold_count,
+             SUM(COALESCE(lc.landed, 0)) AS total, SUM(sold.net) AS revenue,
+             SUM(COALESCE(lc.landed, 0)) FILTER (WHERE sold.item_id IS NOT NULL) AS cogs,
+             SUM(sold.net - COALESCE(lc.landed, 0) - sold.expense) AS profit,
+             SUM(COALESCE(lc.landed, 0)) FILTER (WHERE sold.item_id IS NULL) AS unsold
+        FROM it LEFT JOIN lc ON lc.item_id = it.id LEFT JOIN sold ON sold.item_id = it.id
+       GROUP BY it.batch_id
+    )
+    SELECT bs.id::text, bs.code, bs.name, bs.status::text, bs.created_at::text,
+           COALESCE(per.item_count, 0)::int AS item_count, COALESCE(per.sold_count, 0)::int AS sold_count,
+           (SELECT COUNT(*)::int FROM purchase_orders po WHERE po.batch_id = bs.id AND po.deleted_at IS NULL) AS po_count,
+           COALESCE(per.total, 0)::bigint::text AS total, COALESCE(per.revenue, 0)::bigint::text AS revenue,
+           COALESCE(per.profit, 0)::bigint::text AS profit, COALESCE(per.unsold, 0)::bigint::text AS unsold,
+           CASE WHEN per.cogs > 0 THEN ROUND(100.0 * per.profit / per.cogs, 2) END::text AS roi
+      FROM bs LEFT JOIN per ON per.batch_id = bs.id
+     ORDER BY bs.created_at DESC, bs.code DESC`;
   return rows.map((r) => ({
     id: r.id,
     code: r.code,
@@ -165,7 +188,7 @@ export async function getBatch(db: Db, id: string): Promise<BatchDetail | null> 
   const [b] = await db<{ id: string; code: string; name: string | null; status: string; fx: string | null; note: string | null; fin: string | null }[]>`
     SELECT id::text, code, name, status::text, planned_fx_rate::text AS fx, note, costs_finalized_at::text AS fin FROM batches WHERE id = ${id} AND deleted_at IS NULL`;
   if (!b) return null;
-  const summary = (await listBatches(db)).find((x) => x.id === id)!;
+  const [summary] = await listBatches(db, id);
   const pos = await db<
     {
       id: string;

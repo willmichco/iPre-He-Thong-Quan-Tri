@@ -7,7 +7,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[264px_1fr]">
       <aside className="hidden md:block sticky top-0 h-dvh p-3">
-        <div className="glass-strong flex h-full flex-col gap-1 rounded-[26px] p-3">
+        <div className="glass-panel flex h-full flex-col gap-1 rounded-[26px] p-3">
           <div className="mb-3 flex items-center gap-3 px-2 pt-1">
             <span
               aria-hidden

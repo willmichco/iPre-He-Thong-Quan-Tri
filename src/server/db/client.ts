@@ -7,6 +7,6 @@ const globalForDb = globalThis as unknown as { __ipreSql?: ReturnType<typeof pos
 export function getSql() {
   const url = process.env.DATABASE_URL;
   if (!url) return null;
-  globalForDb.__ipreSql ??= postgres(url, { max: 5, idle_timeout: 30, onnotice: () => {} });
+  globalForDb.__ipreSql ??= postgres(url, { max: 10, idle_timeout: 30, onnotice: () => {} });
   return globalForDb.__ipreSql;
 }

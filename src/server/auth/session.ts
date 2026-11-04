@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { devBypassAllowed, readOwnerConfig } from "./config";
 import { SESSION_COOKIE, SESSION_TTL_SECONDS, signSessionToken, verifySessionToken } from "./session-token";
@@ -13,8 +14,9 @@ export interface CurrentOwner {
 /**
  * Lớp truy cập dữ liệu (DAL): mọi trang, Server Action và Route Handler gọi hàm này
  * để tự kiểm tra phiên — không chỉ dựa vào proxy.ts.
+ * Bọc `cache` của React: layout và trang trong CÙNG một yêu cầu chỉ kiểm tra phiên một lần (mỗi yêu cầu vẫn kiểm tra).
  */
-export async function requireOwner(): Promise<CurrentOwner> {
+export const requireOwner = cache(async function requireOwner(): Promise<CurrentOwner> {
   // Đọc cookie TRƯỚC mọi nhánh: buộc trang render theo từng yêu cầu, không bao giờ bị dựng tĩnh lúc build.
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (devBypassAllowed()) return { email: "dev@localhost", devBypass: true };
@@ -23,7 +25,7 @@ export async function requireOwner(): Promise<CurrentOwner> {
   const claims = await verifySessionToken(token, cfg.sessionSecret, cfg.email);
   if (!claims) redirect("/dang-nhap");
   return { email: claims.sub, devBypass: false };
-}
+});
 
 export async function startSession(email: string, sessionSecret: string) {
   const token = await signSessionToken(email, sessionSecret);
