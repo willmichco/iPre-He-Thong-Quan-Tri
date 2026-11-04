@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { formatVnd } from "@/domain/costing";
 import { ITEM_STATUS_LABEL } from "@/domain/purchasing";
+import { STAGES } from "@/domain/overview";
+import { listItemsAtStatuses } from "@/server/overview/service";
 import { searchItems } from "@/server/sales/service";
 import { catalogDb, Empty, NoDatabase } from "../danh-muc/shared";
 
@@ -11,9 +13,12 @@ const ageClass = (d: number | null) =>
 
 export default async function StockPage({ searchParams }: PageProps<"/kho">) {
   const db = await catalogDb();
-  const raw = (await searchParams).q;
-  const q = (Array.isArray(raw) ? raw[0] : raw)?.trim() ?? "";
-  const items = db ? await searchItems(db, q) : [];
+  const sp = await searchParams;
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim() ?? "";
+  const q = one(sp.q);
+  // lọc theo chặng (bấm từ thanh "Vốn đang nằm ở đâu" ở Tổng quan)
+  const stage = q ? undefined : STAGES.find((s) => s.key === one(sp.chang));
+  const items = db ? (stage ? await listItemsAtStatuses(db, stage.statuses) : await searchItems(db, q)) : [];
   const total = items.reduce((a, i) => a + BigInt(i.cost), 0n);
   return (
     <main className="mx-auto max-w-5xl p-4 md:p-8">
@@ -27,13 +32,23 @@ export default async function StockPage({ searchParams }: PageProps<"/kho">) {
           Tìm
         </button>
       </form>
+      {stage && (
+        <p className="mt-3 flex items-center gap-2 text-sm">
+          <span className="chip" data-testid="stage-filter">
+            Chặng: {stage.label}
+          </span>
+          <Link href="/kho" className="text-muted underline">
+            Bỏ lọc
+          </Link>
+        </p>
+      )}
       {!db ? (
         <div className="mt-4">
           <NoDatabase />
         </div>
       ) : items.length === 0 ? (
         <div className="mt-4">
-          <Empty>{q ? `Không có máy nào khớp "${q}".` : "Chưa có máy nào tồn ở SG."}</Empty>
+          <Empty>{q ? `Không có máy nào khớp "${q}".` : stage ? `Không có máy nào ở chặng ${stage.label}.` : "Chưa có máy nào tồn ở SG."}</Empty>
         </div>
       ) : (
         <>

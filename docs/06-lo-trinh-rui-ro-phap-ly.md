@@ -91,7 +91,11 @@ gantt
   - hoàn tất: máy "Đã bán", mốc M8, chụp giá vốn lúc bán, bảo hành shop; tiền vào sổ thu chi (chuyển khoản / tiền mặt / cọc / ghi nợ); khách theo SĐT (tự tạo / tìm lại)
   - đơn cọc: hoàn tất khi máy về; thu thêm; huỷ cọc (máy về đúng trạng thái theo mốc, hoàn một phần / giữ cọc); khách trả lại (máy về tồn kho, hoàn tiền, giữ lịch sử)
   - kho máy: tìm theo Serial / IMEI / Part No. / tên, tồn kho SG kèm tuổi tồn; hồ sơ máy: thành phần giá vốn, dòng thời gian M1–M8, lịch sử bán & bảo hành, nút "Bán máy này"
-- [ ] Tổng quan cơ bản: vốn theo chặng, doanh thu/lãi tháng, tồn kho, cảnh báo
+- [x] **Tổng quan cơ bản** (`/`, `src/server/overview/service.ts`, `src/domain/overview.ts`):
+  - kỳ: tháng này / tháng trước / năm nay, so với kỳ trước; thẻ KPI: vốn trong hàng (và phần còn trên đường), doanh thu, lãi máy (đếm máy "tạm tính"), biên lãi, tuổi tồn TB; lãi ròng sau chi phí vận hành khi có
+  - "Vốn đang nằm ở đâu" theo 7 chặng — máy khách đã cọc tính ở chỗ máy đang thật sự nằm; bấm chặng → Kho máy lọc `?chang=`
+  - "Cần xử lý": kiện giữ hải quan (số ngày), kiện trễ ETA quá số ngày ân hạn, đơn mua sắp hết hạn đổi trả mà còn máy chưa kiểm, máy tồn quá N ngày, đơn cọc đã về SG cần giao, khách còn nợ, doanh thu năm chạm ngưỡng — ngưỡng đọc từ `app_settings`
+  - biểu đồ doanh thu & lãi 12 tháng (kèm bảng số), lãi theo dòng máy, tuổi tồn kho, chuyến đang chạy (số máy theo chặng)
 - [ ] Nghiệm thu: nhập lại một chuyến thật từ Excel, giá vốn và lãi từng máy khớp 0 đồng
 
 **Ưu tiên khi phải cắt giảm:** costing engine và mốc vận chuyển là **không thể cắt**. Có thể dời: biểu đồ nâng cao, Kanban kéo thả (dùng nút bấm thay thế), PWA ngoại tuyến, tracking API.
