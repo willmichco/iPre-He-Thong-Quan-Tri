@@ -341,7 +341,9 @@ export function ItemGrid({
                   <td className="p-2 text-xs whitespace-nowrap">
                     {info ? (
                       <>
-                        <div>{ITEM_STATUS_LABEL[info.status] ?? info.status}</div>
+                        <a href={`/kho/${r.id}`} className="underline">
+                          {ITEM_STATUS_LABEL[info.status] ?? info.status}
+                        </a>
                         <div className="tabular-nums text-muted">
                           {vnd(info.landedCostVnd)} ₫{info.hasEstimate ? " · tạm tính" : ""}
                         </div>

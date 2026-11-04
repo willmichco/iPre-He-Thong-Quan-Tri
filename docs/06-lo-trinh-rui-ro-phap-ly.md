@@ -85,7 +85,12 @@ gantt
   - USD theo tỷ giá riêng của khoản; số âm = hoàn phí; dự toán / có chứng từ / chưa trả (công nợ); chia tay từng máy theo Serial/IMEI (tổng phải khớp)
   - thêm / sửa / xoá (mềm) → giá vốn tự tính lại; chuyến đã chốt → chặn; còn dự toán → không chốt được
   - cấu trúc giá vốn chuyến theo nhóm A–E + đối soát nhóm A = Σ đơn mua; mỗi khoản hiện "đã phân bổ ✓ n máy"
-- [ ] Bán nhanh + cọc; hồ sơ máy (giá vốn chi tiết, dòng thời gian)
+- [x] **Bán nhanh + cọc + hồ sơ máy** (`/ban-hang`, `/kho`, `src/server/sales/service.ts`, `src/domain/sales.ts`):
+  - bán nhanh tối ưu điện thoại: quét IMEI/Serial → giá vốn → gõ giá `34,5tr` / `30k` → **lãi & biên lãi hiện ngay khi gõ**; nhiều máy một đơn (giảm giá, phí chia theo giá bán)
+  - kiểm tra: máy đã bán / đã cọc / thất lạc… không bán được (nêu lý do); máy chưa về SG chỉ nhận cọc hoặc tích "bán giao thẳng"; dưới giá vốn phải xác nhận
+  - hoàn tất: máy "Đã bán", mốc M8, chụp giá vốn lúc bán, bảo hành shop; tiền vào sổ thu chi (chuyển khoản / tiền mặt / cọc / ghi nợ); khách theo SĐT (tự tạo / tìm lại)
+  - đơn cọc: hoàn tất khi máy về; thu thêm; huỷ cọc (máy về đúng trạng thái theo mốc, hoàn một phần / giữ cọc); khách trả lại (máy về tồn kho, hoàn tiền, giữ lịch sử)
+  - kho máy: tìm theo Serial / IMEI / Part No. / tên, tồn kho SG kèm tuổi tồn; hồ sơ máy: thành phần giá vốn, dòng thời gian M1–M8, lịch sử bán & bảo hành, nút "Bán máy này"
 - [ ] Tổng quan cơ bản: vốn theo chặng, doanh thu/lãi tháng, tồn kho, cảnh báo
 - [ ] Nghiệm thu: nhập lại một chuyến thật từ Excel, giá vốn và lãi từng máy khớp 0 đồng
 

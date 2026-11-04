@@ -177,7 +177,11 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
               <tbody>
                 {s.items.map((i) => (
                   <tr key={i.id} className="border-t border-border" aria-label={i.serial ?? i.imei1 ?? i.id}>
-                    <td className="p-2">{i.label}</td>
+                    <td className="p-2">
+                      <Link href={`/kho/${i.id}`} className="underline">
+                        {i.label}
+                      </Link>
+                    </td>
                     <td className="p-2 font-mono text-xs">
                       {i.serial ?? "—"}
                       <br />
