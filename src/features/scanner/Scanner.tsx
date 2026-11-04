@@ -25,7 +25,7 @@ import { classifyCode, splitPastedText } from "@/domain/identifiers";
 import { extractFromText, hasIdentity, isComplete, mergeExtractions } from "@/domain/text-extract";
 import { acceptedAsExtraction, addReading, emptyVotes, hasNew, isDeviceComplete, type Accepted, type ScreenVotes } from "@/domain/screen-votes";
 import { captureVideoFrame, decodePhoto, decodeVideoFrame, initDecoder, rasterizeImageUrl, type WasmSource } from "./decoder";
-import { recognizeCanvas, recognizeSplit, recognizeText, warmOcr } from "./ocr";
+import { recognizeCanvas, recognizeSplit, recognizeText, warmOcr, type OcrLine } from "./ocr";
 import { findTextRegion, inkLineHeight, sharpness, shiftEstimate, toGray, type Gray, type TextRegion } from "./frame-analysis";
 import { haptic, unlockFeedback } from "./haptics";
 import "./scanner.css";
@@ -123,6 +123,17 @@ export interface ScreenReadResult {
   pending: string[];
   accepted: Accepted;
   newly: Accepted;
+  /**
+   * Dải dọc (tỉ lệ 0–1 của ảnh vừa đọc) chứa các dòng còn chờ xác nhận (Serial, Part No.) — lần đọc sau chỉ cần
+   * đọc lại đúng dải này (2 dòng, nhanh gấp nhiều lần đọc cả màn hình). Không có = lần sau đọc cả vùng.
+   */
+  focus?: { y0: number; y1: number };
+}
+
+/** So khớp lỏng giữa dòng OCR và giá trị đã chuẩn hoá (OCR hay lẫn O/0, I/1, bỏ khoảng trắng). */
+function lineHas(line: string, value: string): boolean {
+  const norm = (t: string) => t.toUpperCase().replace(/\s+/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
+  return norm(line).includes(norm(value));
 }
 
 export interface ImageResult {
@@ -411,8 +422,9 @@ export function Scanner({
           newly: { imeis: [] },
         };
       let text = "";
+      let lines: OcrLine[] = [];
       try {
-        text = await recognizeSplit(ocrBase, canvas, (p) => setBusy(`Đang tải bộ đọc chữ (lần đầu)… ${Math.round(p * 100)}%`));
+        ({ text, lines } = await recognizeSplit(ocrBase, canvas, (p) => setBusy(`Đang tải bộ đọc chữ (lần đầu)… ${Math.round(p * 100)}%`)));
       } catch {
         return {
           ok: false,
@@ -450,7 +462,16 @@ export function Scanner({
       const pending: string[] = [];
       if (x.serial && x.serial !== acc.serial) pending.push(`Serial ${x.serial}`);
       if (x.partNumber && x.partNumber !== acc.partNumber) pending.push(`Part No. ${x.partNumber}`);
-      return { ok: true, pending, accepted: acc, newly: r.newly };
+      // dòng nào chứa giá trị đang chờ → lần sau chỉ đọc lại các dòng đó
+      const want = [x.serial && x.serial !== acc.serial ? x.serial : null, x.partNumber && x.partNumber !== acc.partNumber ? x.partNumber.slice(0, 5) : null].filter(
+        (v): v is string => Boolean(v),
+      );
+      const hit = lines.filter((l) => want.some((v) => lineHas(l.text, v)));
+      const focus =
+        want.length && want.every((v) => hit.some((l) => lineHas(l.text, v))) && canvas.height > 0
+          ? { y0: Math.min(...hit.map((l) => l.y0)) / canvas.height, y1: Math.max(...hit.map((l) => l.y1)) / canvas.height }
+          : undefined;
+      return { ok: true, pending, accepted: acc, newly: r.newly, focus };
     },
     [ocrBase, update],
   );
@@ -909,6 +930,7 @@ function CameraPanel({
     let regionSince = 0;
     let lastShot = 0;
     let blurSkips = 0;
+    let focus: Band | undefined; // các dòng còn chờ xác nhận — lần đọc sau chỉ đọc dải này
     const sharpWin: number[] = [];
     const small = document.createElement("canvas");
 
@@ -940,7 +962,7 @@ function CameraPanel({
         // Đứng yên đủ 2 khung & nét → chụp. Tay không giữ được yên (hoặc màn hình nhấp nháy khi chụp trực tiếp):
         // vùng chữ đã thấy ≥ 0,5 giây thì vẫn chụp khung nét nhất gần đây — không bao giờ treo ở "Giữ yên máy".
         const waitedLong = regionSince > 0 && t - Math.max(regionSince, lastShot) > 500;
-        const crop = !reading && region && sharpEnough && (steady >= 2 || waitedLong) ? cropForOcr(video, region, f) : null;
+        const crop = !reading && region && sharpEnough && (steady >= 2 || waitedLong) ? cropForOcr(video, region, f, focus) : null;
         // Khung nhòe (không đo được nét chữ) → bỏ, không tốn một lượt đọc chữ (tối đa 4 khung liền, phòng đo sai)
         const blurred = crop !== null && crop.ink === 0 && blurSkips < 4;
         if (blurred) blurSkips++;
@@ -957,6 +979,9 @@ function CameraPanel({
           onScreenCapture(crop.canvas)
             .then((r) => {
               const lastMs = Date.now() - t;
+              // dải chờ xác nhận (tỉ lệ của ảnh vừa đọc) → quy về tỉ lệ của vùng chữ đầy đủ
+              const b = crop.band;
+              focus = r.focus ? { y0: b.y0 + r.focus.y0 * (b.y1 - b.y0), y1: b.y0 + r.focus.y1 * (b.y1 - b.y0) } : undefined;
               const gotNew = hasNew(r.newly);
               if (r.accepted.serial) quietAfter = gotNew ? 0 : quietAfter + 1;
               const complete = r.ok && isDeviceComplete(r.accepted, quietAfter, r.pending.length);
@@ -974,7 +999,9 @@ function CameraPanel({
               }));
               if (gotNew || complete) setLastReadAt(Date.now());
             })
-            .catch(() => undefined)
+            .catch(() => {
+              focus = undefined;
+            })
             .finally(() => {
               reading = false;
               steady = 0;
@@ -1412,35 +1439,52 @@ function toDisplayBox(r: TextRegion, f: number, video: HTMLVideoElement, wrap: H
  * Cắt vùng chữ ở ĐỘ PHÂN GIẢI GỐC của camera và phóng to để mỗi dòng chữ cao ~56 px
  * (cỡ chữ Tesseract đọc tốt nhất). Đây là khác biệt lớn nhất so với đọc cả khung hình.
  */
-function cropForOcr(video: HTMLVideoElement, r: TextRegion, f: number): { canvas: HTMLCanvasElement; ink: number } {
+/** Dải dọc của vùng chữ, tính theo tỉ lệ 0–1 chiều cao vùng cắt đầy đủ. */
+type Band = { y0: number; y1: number };
+
+/**
+ * Cắt vùng chữ từ khung video và đưa về cỡ chữ bộ đọc cần. Có `band` → chỉ cắt dải đó (± đệm), dùng cho lần
+ * đọc xác nhận Serial/Part No. — trả kèm dải thực đã cắt.
+ */
+function cropForOcr(video: HTMLVideoElement, r: TextRegion, f: number, band?: Band): { canvas: HTMLCanvasElement; ink: number; band: Band } {
   const margin = Math.max(r.lineHeight, 8);
   const sx = Math.max(0, (r.x - margin) * f);
-  const sy = Math.max(0, (r.y - margin) * f);
+  const fy = Math.max(0, (r.y - margin) * f);
+  const fh = Math.min(video.videoHeight - fy, (r.h + 2 * margin) * f);
+  let sy = fy;
+  let sh = fh;
+  if (band) {
+    const pad = Math.max(r.lineHeight * f, (band.y1 - band.y0) * fh * 0.35);
+    sy = Math.max(fy, fy + band.y0 * fh - pad);
+    sh = Math.min(fy + fh, fy + band.y1 * fh + pad) - sy;
+  }
+  const used: Band = { y0: (sy - fy) / fh, y1: (sy + sh - fy) / fh };
   const sw = Math.min(video.videoWidth - sx, (r.w + 2 * margin) * f);
-  const sh = Math.min(video.videoHeight - sy, (r.h + 2 * margin) * f);
-  // 1) cắt ở độ phân giải gốc
-  const native = document.createElement("canvas");
-  native.width = Math.max(1, Math.round(sw));
-  native.height = Math.max(1, Math.round(sh));
-  const nctx = native.getContext("2d", { willReadFrequently: true })!;
-  nctx.drawImage(video, sx, sy, sw, sh, 0, 0, native.width, native.height);
-  // 2) đo chiều cao nét chữ thật rồi đưa về ~14 px — cỡ bộ đọc chữ đọc đúng mà nhanh nhất (đã đo:
-  //    chữ 11–26 px đọc đúng, 7 px đọc sai; camera 4K cho chữ 50–80 px → thu nhỏ, đọc nhanh gấp nhiều lần)
-  const ink = inkLineHeight(toGray(nctx.getImageData(0, 0, native.width, native.height).data, native.width, native.height));
+  // 1) đo chiều cao nét chữ trên bản thu nhỏ (≤ 900 px) của vùng cắt — đủ chính xác, khỏi đọc cả vùng 4K gốc
+  const s0 = Math.min(1, 900 / Math.max(sw, sh));
+  const probe = document.createElement("canvas");
+  probe.width = Math.max(1, Math.round(sw * s0));
+  probe.height = Math.max(1, Math.round(sh * s0));
+  const pctx = probe.getContext("2d", { willReadFrequently: true })!;
+  pctx.drawImage(video, sx, sy, sw, sh, 0, 0, probe.width, probe.height);
+  const inkSmall = inkLineHeight(toGray(pctx.getImageData(0, 0, probe.width, probe.height).data, probe.width, probe.height));
+  const ink = inkSmall / s0; // px của khung gốc
+  // 2) đưa chữ về ~INK_TARGET_PX — cỡ bộ đọc chữ đọc đúng mà nhanh nhất (đã đo: chữ 11–26 px đọc đúng, 7 px đọc
+  //    sai; camera 4K cho chữ 50–80 px → thu nhỏ, đọc nhanh gấp nhiều lần). Cắt + thu/phóng bằng MỘT lần vẽ từ video.
   let scale = ink > 0 ? Math.min(2.5, Math.max(0.3, INK_TARGET_PX / ink)) : Math.min(3, Math.max(1, 56 / Math.max(4, r.lineHeight * f)));
   scale = Math.min(scale, 2000 / Math.max(sw, sh));
-  if (Math.abs(scale - 1) < 0.05) return { canvas: native, ink };
+  if (Math.abs(scale - s0) < 0.03) return { canvas: probe, ink, band: used };
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(sw * scale));
   canvas.height = Math.max(1, Math.round(sh * scale));
   const ctx = canvas.getContext("2d")!;
   ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(native, 0, 0, canvas.width, canvas.height);
-  return { canvas, ink };
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return { canvas, ink, band: used };
 }
 
 /** Chiều cao nét chữ mục tiêu khi đưa vào bộ đọc chữ (px). */
-const INK_TARGET_PX = 14;
+const INK_TARGET_PX = 13;
 
 /** Ảnh tĩnh: tìm vùng chữ trên bản thu nhỏ rồi cắt ở độ phân giải gốc, phóng to (null nếu không thấy vùng chữ rõ). */
 async function cropTextRegion(image: Blob): Promise<HTMLCanvasElement | null> {
