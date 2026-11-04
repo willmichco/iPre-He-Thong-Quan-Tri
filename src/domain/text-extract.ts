@@ -16,10 +16,13 @@ export interface TextExtraction {
 }
 
 // Nhãn neo của serial (Anh/Việt, kể cả khi OCR làm mất dấu tiếng Việt)
-const SERIAL_ANCHOR = /(SERIAL(\s*(NO\.?|NUMBER|#))?|S[ỐÔO6]\s*S[ÊEÉ][\s-]*R[IÍ]|\(S\))/i;
+// OCR tiếng Anh đọc "Số sê-ri" thành "S6 sé-ri", "SB sé", "SO se ri"…
+const SERIAL_ANCHOR = /(SERIAL(\s*(NO\.?|NUMBER|#))?|S[ỐÔO6B8]\s*S[ÊEÉ](?:[\s-]*R[IÍ])?(?=[\s:]|$)|\(S\))/i;
 // Chuỗi đứng riêng (không dính vào chữ phía trước như "IMEI2"), cho phép ký tự OCR hay nhầm với chữ số
 const IMEI_LIKE = /(?<![A-Z0-9])[0-9OISBDZ](?:[0-9OISBDZ ]{10,40})[0-9OISBDZ](?![A-Z0-9])/g;
 const PART_IN_TEXT = /\b([A-Z0-9]{5}[A-Z]{1,2})\s?[/|]\s?A\b/g;
+// OCR hay đọc dấu "/" thành J, I, l, 1 (vd "MXVX3ZP/A" → "MXVX3ZPJA") — chỉ dùng cho văn bản từ OCR
+const PART_IN_OCR = /\b([A-Z0-9]{5}[A-Z]{1,2})\s?[/|JIL1]\s?A\b/g;
 const SERIAL_TOKEN = /^(?:[A-Z0-9]{10}|[A-Z0-9]{12})$/;
 
 function serialCandidate(token: string): string | null {
@@ -51,7 +54,7 @@ export function extractFromText(text: string, opts: ExtractOptions = {}): TextEx
 
   // 1) Part No. (vd: MYWX3VN/A) — có thể đứng giữa dòng mô tả trên nhãn hộp
   for (const line of upper) {
-    for (const m of line.matchAll(PART_IN_TEXT)) {
+    for (const m of line.matchAll(opts.ocr ? PART_IN_OCR : PART_IN_TEXT)) {
       let stem = m[1];
       if (opts.ocr) {
         const region = stem.slice(5);

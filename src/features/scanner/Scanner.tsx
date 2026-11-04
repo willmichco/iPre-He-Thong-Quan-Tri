@@ -22,9 +22,12 @@ import {
   type StreamState,
 } from "@/domain/scan-session";
 import { classifyCode, splitPastedText } from "@/domain/identifiers";
-import { extractFromText, hasIdentity, hasStrongIdentity } from "@/domain/text-extract";
+import { extractFromText, hasIdentity } from "@/domain/text-extract";
+import { acceptedAsExtraction, addReading, emptyVotes, hasNew, type Accepted, type ScreenVotes } from "@/domain/screen-votes";
 import { captureVideoFrame, decodePhoto, decodeVideoFrame, initDecoder, rasterizeImageUrl, type WasmSource } from "./decoder";
-import { recognizeText } from "./ocr";
+import { recognizeCanvas, recognizeText } from "./ocr";
+import { findTextRegion, motion, sharpness, toGray, type Gray, type TextRegion } from "./frame-analysis";
+import { haptic, unlockFeedback } from "./haptics";
 import "./scanner.css";
 
 type Mode = "camera" | "photo" | "manual";
@@ -83,26 +86,7 @@ function loadSession(key: string): StreamState {
 }
 
 function feedback() {
-  try {
-    navigator.vibrate?.(60);
-  } catch {
-    /* không hỗ trợ rung */
-  }
-  try {
-    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.frequency.value = 1320;
-    gain.gain.value = 0.08;
-    osc.connect(gain).connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.09);
-    osc.onended = () => ctx.close();
-  } catch {
-    /* không phát được âm thanh */
-  }
+  haptic("tick");
 }
 
 async function defaultSaveFile(filename: string, content: string) {
@@ -133,6 +117,14 @@ function readClipboard(e: ClipboardEvent | ReactClipboardEvent) {
   return { images, text: dt?.getData("text/plain") ?? "" };
 }
 
+export interface ScreenReadResult {
+  ok: boolean;
+  /** giá trị mới đọc được 1 lần, đang chờ lần đọc thứ hai xác nhận */
+  pending: string[];
+  accepted: Accepted;
+  newly: Accepted;
+}
+
 export interface ImageResult {
   barcodes: number;
   usedOcr: boolean;
@@ -160,6 +152,8 @@ export function Scanner({
   const [busy, setBusy] = useState<string | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const ocrTried = useRef<Set<string>>(new Set());
+  /** Phiếu bầu của các lần chụp màn hình máy (chế độ "Màn hình máy") cho máy đang quét. */
+  const votesRef = useRef<ScreenVotes>(emptyVotes());
 
   /** Mọi thay đổi phiên đi qua đây để ref (dùng trong vòng quét) luôn khớp state. */
   const update = useCallback(
@@ -187,13 +181,21 @@ export function Scanner({
     window.setTimeout(() => setToast((t) => (t === msg ? null : t)), 3000);
   }, []);
 
-  /** Đọc chữ trên ảnh; trả về null khi không có bộ đọc chữ hoặc lỗi. */
+  /**
+   * Đọc chữ trên ảnh: trước hết tự tìm VÙNG CHỮ (vd màn hình máy trong ảnh chụp), cắt ở độ phân giải gốc,
+   * phóng to rồi đọc; không ra IMEI/Serial thì đọc cả ảnh. Trả về null khi không có bộ đọc chữ hoặc lỗi.
+   */
   const ocr = useCallback(
     async (image: Blob) => {
       if (!ocrBase) return null;
+      const progress = (p: number) => setBusy(`Đang tải bộ đọc chữ (lần đầu)… ${Math.round(p * 100)}%`);
       try {
-        const text = await recognizeText(ocrBase, image, (p) => setBusy(`Đang tải bộ đọc chữ (lần đầu)… ${Math.round(p * 100)}%`));
-        return extractFromText(text, { ocr: true });
+        const crop = await cropTextRegion(image);
+        if (crop) {
+          const x = extractFromText(await recognizeCanvas(ocrBase, crop, progress), { ocr: true });
+          if (hasIdentity(x)) return x;
+        }
+        return extractFromText(await recognizeText(ocrBase, image, progress), { ocr: true });
       } catch {
         return null;
       }
@@ -327,6 +329,7 @@ export function Scanner({
 
   const nextDevice = useCallback(() => {
     update((s) => ({ ...s, currentId: null }));
+    votesRef.current = emptyVotes();
     notify("Sẵn sàng quét máy tiếp theo");
   }, [notify, update]);
 
@@ -378,19 +381,48 @@ export function Scanner({
     [ocr, ocrBase, update],
   );
 
-  /** Camera ở chế độ "Màn hình máy": đọc chữ trên khung hình, chỉ nhận khi có IMEI (Luhn) hoặc serial cạnh nhãn. */
-  const onLiveScreen = useCallback(
-    async (grab: () => Promise<Blob>) => {
-      if (!ocrBase) return null;
+  /**
+   * Camera tự chụp vùng chữ (khi đã đứng yên, đủ nét) → đọc chữ → bỏ phiếu → chỉ ghi giá trị đã chốt
+   * vào MÁY ĐANG QUÉT. Đọc sai lẻ tẻ không tạo máy mới; gặp serial/IMEI khác hẳn mới sang máy mới.
+   */
+  const onScreenCapture = useCallback(
+    async (canvas: HTMLCanvasElement): Promise<ScreenReadResult> => {
+      if (!ocrBase) return { ok: false, pending: [], accepted: { imeis: [] }, newly: { imeis: [] } };
+      let text = "";
       try {
-        const x = await ocr(await grab());
-        if (!x || !hasStrongIdentity(x)) return { added: 0, updated: 0 };
-        return addRecords([applyExtraction(emptyRecord(newId(), "CAMERA"), x).record]);
+        text = await recognizeCanvas(ocrBase, canvas, (p) => setBusy(`Đang tải bộ đọc chữ (lần đầu)… ${Math.round(p * 100)}%`));
+      } catch {
+        return { ok: false, pending: [], accepted: votesRef.current.accepted, newly: { imeis: [] } };
       } finally {
         setBusy(null);
       }
+      const x = extractFromText(text, { ocr: true });
+      let r = addReading(votesRef.current, x);
+      if (r.otherDevice) {
+        // máy khác: chốt máy cũ, bắt đầu máy mới với phiếu bầu mới
+        update((s) => ({ ...s, currentId: null }));
+        r = addReading(emptyVotes(), x);
+      }
+      votesRef.current = r.votes;
+      const acc = r.votes.accepted;
+      if (acc.serial || acc.imeis.length) {
+        update((s) => {
+          const probe = applyExtraction(emptyRecord("probe", "CAMERA"), acceptedAsExtraction(acc)).record;
+          const base = s.records.find((rec) => rec.id === s.currentId) ?? findMatch(s.records, probe) ?? emptyRecord(newId(), "CAMERA");
+          const res = applyExtraction(base, acceptedAsExtraction(acc));
+          const exists = s.records.some((rec) => rec.id === base.id);
+          return { records: exists ? s.records.map((rec) => (rec.id === base.id ? res.record : rec)) : [...s.records, res.record], currentId: base.id };
+        });
+        if (r.newly.serial || r.newly.imeis.length) haptic("success");
+        else if (hasNew(r.newly)) haptic("tick");
+      }
+      // giá trị đang chờ xác nhận (mới đọc được 1 lần)
+      const pending: string[] = [];
+      if (x.serial && x.serial !== acc.serial) pending.push(`Serial ${x.serial}`);
+      if (x.partNumber && x.partNumber !== acc.partNumber) pending.push(`Part No. ${x.partNumber}`);
+      return { ok: true, pending, accepted: acc, newly: r.newly };
     },
-    [addRecords, ocr, ocrBase],
+    [ocrBase, update],
   );
 
   const records = session.records;
@@ -481,7 +513,7 @@ export function Scanner({
           ready={ready}
           busy={busy !== null}
           onCodes={onLiveCodes}
-          onScreen={ocrBase ? onLiveScreen : undefined}
+          onScreenCapture={ocrBase ? onScreenCapture : undefined}
           onCapture={async (blob) => {
             const r = await processImage(blob, `camera-${new Date().toLocaleTimeString("vi-VN")}.jpg`);
             notify(
@@ -680,7 +712,7 @@ function CameraPanel({
   ready,
   busy,
   onCodes,
-  onScreen,
+  onScreenCapture,
   onCapture,
   onNextDevice,
   onManual,
@@ -689,8 +721,8 @@ function CameraPanel({
   ready: boolean;
   busy: boolean;
   onCodes: (codes: PositionedCode[], grab: () => Promise<Blob>) => void;
-  /** Có = hỗ trợ đọc chữ trên màn hình máy (dạng 1). */
-  onScreen?: (grab: () => Promise<Blob>) => Promise<{ added: number; updated: number } | null>;
+  /** Có = hỗ trợ đọc chữ trên màn hình máy (dạng 1): nhận vùng chữ đã cắt, phóng to. */
+  onScreenCapture?: (canvas: HTMLCanvasElement) => Promise<ScreenReadResult>;
   onCapture: (blob: Blob) => Promise<void>;
   onNextDevice: () => void;
   onManual: () => void;
@@ -707,7 +739,8 @@ function CameraPanel({
   const [now, setNow] = useState(0);
   const [resolution, setResolution] = useState("");
   const [target, setTarget] = useState<CameraTarget>("box");
-  const [reading, setReading] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [scan, setScan] = useState<ScreenScanState>({ phase: "searching", box: null, pending: [], accepted: { imeis: [] }, flash: 0 });
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -721,6 +754,7 @@ function CameraPanel({
 
   const start = async () => {
     setError(null);
+    unlockFeedback(); // mở khoá âm thanh / rung trong lúc người dùng chạm
     if (!navigator.mediaDevices?.getUserMedia) {
       setState("error");
       setError("Trình duyệt hoặc trang này không cho mở camera trực tiếp.");
@@ -790,30 +824,86 @@ function CameraPanel({
     };
   }, [state, ready, onCodes, grab]);
 
-  // Chế độ "Màn hình máy": đọc chữ liên tục (mỗi lần ~1–2 giây), không cần bấm
+  // Chế độ "Màn hình máy" — luồng kiểu app quét tài liệu:
+  // tìm vùng chữ → chờ đứng yên & đủ nét → tự chụp vùng đó ở độ phân giải gốc → đọc chữ → bỏ phiếu
   useEffect(() => {
-    if (state !== "running" || target !== "screen" || !onScreen) return;
+    if (state !== "running" || target !== "screen" || !onScreenCapture) return;
     let stopped = false;
     let timer = 0;
-    const loop = async () => {
+    let prev: Gray | null = null;
+    let steady = 0;
+    let reading = false;
+    let idle = false; // đã đọc xong, chờ khung hình thay đổi (đổi máy / cuộn màn hình) mới đọc tiếp
+    let quietReads = 0;
+    let anchor: Gray | null = null;
+    const sharpWin: number[] = [];
+    const small = document.createElement("canvas");
+
+    const tick = () => {
       if (stopped) return;
-      setReading(true);
-      try {
-        const r = await onScreen(grab);
-        if (r && (r.added || r.updated)) setLastReadAt(Date.now());
-      } catch {
-        /* khung hình lỗi — bỏ qua */
+      const video = videoRef.current;
+      const wrap = wrapRef.current;
+      if (video && wrap && video.videoWidth) {
+        const W = 480;
+        const f = video.videoWidth / W;
+        small.width = W;
+        small.height = Math.round(video.videoHeight / f);
+        const ctx = small.getContext("2d", { willReadFrequently: true })!;
+        ctx.drawImage(video, 0, 0, small.width, small.height);
+        const gray = toGray(ctx.getImageData(0, 0, small.width, small.height).data, small.width, small.height);
+        const region = findTextRegion(gray);
+        const m = prev && region ? motion(prev, gray, region) : 99;
+        prev = gray;
+        const sh = region ? sharpness(gray, region) : 0;
+        sharpWin.push(sh);
+        if (sharpWin.length > 10) sharpWin.shift();
+        steady = region && m < 3.5 ? steady + 1 : 0;
+        if (idle && anchor && region && motion(anchor, gray, region) > 10) {
+          idle = false; // màn hình đã đổi → đọc tiếp
+          quietReads = 0;
+        }
+        const display = region ? toDisplayBox(region, f, video, wrap) : null;
+        const sharpEnough = sh > 0 && sh >= 0.8 * Math.max(...sharpWin);
+        if (!reading && !idle && region && steady >= 3 && sharpEnough) {
+          reading = true;
+          anchor = gray;
+          setScan((sc) => ({ ...sc, phase: "reading", box: display, flash: Date.now() }));
+          const crop = cropForOcr(video, region, f);
+          onScreenCapture(crop)
+            .then((r) => {
+              const gotNew = hasNew(r.newly);
+              quietReads = gotNew || r.pending.length ? 0 : quietReads + 1;
+              if (quietReads >= 2) idle = true;
+              setScan((sc) => ({
+                ...sc,
+                phase: r.accepted.serial || r.accepted.imeis.length ? (gotNew ? "done" : sc.phase === "done" ? "done" : "searching") : "searching",
+                pending: r.pending,
+                accepted: r.accepted,
+              }));
+              if (gotNew) setLastReadAt(Date.now());
+            })
+            .catch(() => undefined)
+            .finally(() => {
+              reading = false;
+              steady = 0;
+            });
+        } else if (!reading) {
+          setScan((sc) => ({
+            ...sc,
+            box: display,
+            phase: sc.phase === "done" && Date.now() - sc.flash < 1500 ? "done" : !region ? "searching" : idle ? "idle" : steady >= 1 ? "steady" : "moving",
+          }));
+        }
       }
-      setReading(false);
-      if (!stopped) timer = window.setTimeout(loop, 500);
+      setNow(Date.now());
+      timer = window.setTimeout(tick, 120);
     };
-    timer = window.setTimeout(loop, 400);
+    tick();
     return () => {
       stopped = true;
       window.clearTimeout(timer);
-      setReading(false);
     };
-  }, [state, target, onScreen, grab]);
+  }, [state, target, onScreenCapture]);
 
   const toggleTorch = async () => {
     const track = streamRef.current?.getVideoTracks()[0];
@@ -842,7 +932,7 @@ function CameraPanel({
 
   return (
     <section className="sc-panel">
-      {onScreen && (
+      {onScreenCapture && (
         <div className="sc-seg" role="radiogroup" aria-label="Quét cái gì">
           <button role="radio" aria-checked={target === "box"} className={target === "box" ? "is-active" : ""} onClick={() => setTarget("box")}>
             Sau hộp <span>mã vạch</span>
@@ -852,14 +942,20 @@ function CameraPanel({
           </button>
         </div>
       )}
-      <div className={`sc-video-wrap ${state === "running" ? "is-running" : ""}`}>
+      <div ref={wrapRef} className={`sc-video-wrap ${state === "running" ? "is-running" : ""}`}>
         <video ref={videoRef} className="sc-video" playsInline muted autoPlay />
-        {state === "running" && (
-          <div className={`sc-reticle ${target === "screen" ? "is-screen" : ""} ${now - lastReadAt < 800 ? "is-hit" : ""}`} aria-hidden />
+        {state === "running" && target === "box" && <div className={`sc-reticle ${now - lastReadAt < 800 ? "is-hit" : ""}`} aria-hidden />}
+        {state === "running" && target === "screen" && scan.box && (
+          <div
+            className={`sc-docbox is-${scan.phase}`}
+            style={{ left: scan.box.x, top: scan.box.y, width: scan.box.w, height: scan.box.h }}
+            aria-hidden
+          />
         )}
+        {state === "running" && target === "screen" && now - scan.flash < 180 && <div className="sc-shutter" aria-hidden />}
         {state === "running" && (
-          <span className="sc-live-pill">
-            ● {target === "screen" ? (reading ? "Đang đọc chữ trên màn hình…" : "Đang tự đọc màn hình") : "Đang tự quét mã vạch"}
+          <span className="sc-live-pill" data-testid="scan-status">
+            ● {target === "screen" ? PHASE_LABEL[scan.phase] : "Đang tự quét mã vạch"}
             {resolution ? ` · ${resolution}` : ""}
           </span>
         )}
@@ -913,6 +1009,22 @@ function CameraPanel({
           </div>
         </>
       )}
+      {target === "screen" && state === "running" && (scan.accepted.serial || scan.accepted.imeis.length > 0 || scan.pending.length > 0) && (
+        <div className="sc-readout" aria-live="polite">
+          {scan.accepted.serial && <span className="sc-chip is-ok">✓ Serial {scan.accepted.serial}</span>}
+          {scan.accepted.imeis.map((i, k) => (
+            <span key={i} className="sc-chip is-ok">
+              ✓ IMEI{k ? " 2" : ""} {i}
+            </span>
+          ))}
+          {scan.accepted.partNumber && <span className="sc-chip is-ok">✓ {scan.accepted.partNumber}</span>}
+          {scan.pending.map((p) => (
+            <span key={p} className="sc-chip">
+              {p} · chờ đọc lần 2
+            </span>
+          ))}
+        </div>
+      )}
       {target === "screen" ? (
         <p className={`sc-hint ${stuck ? "sc-hint-warn" : ""}`}>
           {stuck ? (
@@ -921,7 +1033,8 @@ function CameraPanel({
             </>
           ) : (
             <>
-              Hướng camera vào màn hình <b>Giới thiệu</b> của máy cần quét — IMEI, IMEI2, Số sê-ri, Số kiểu máy được <b>tự đọc</b>. Kéo màn hình máy lên/xuống để thấy hết các dòng.
+              Hướng camera vào màn hình <b>Giới thiệu</b> của máy cần quét. Khung vàng tự bám theo vùng chữ; <b>giữ yên khoảng nửa giây</b> là tự chụp và đọc —
+              mỗi giá trị phải đọc khớp 2 lần mới nhận, đọc xong máy sẽ <b>rung + bíp</b>. Cuộn màn hình máy để đọc thêm IMEI.
             </>
           )}
         </p>
@@ -1123,4 +1236,87 @@ function ManualPanel({ onText, onAddBlank }: { onText: (text: string) => number;
       </p>
     </section>
   );
+}
+
+type ScanPhase = "searching" | "moving" | "steady" | "reading" | "done" | "idle";
+
+interface ScreenScanState {
+  phase: ScanPhase;
+  box: { x: number; y: number; w: number; h: number } | null;
+  pending: string[];
+  accepted: Accepted;
+  flash: number;
+}
+
+const PHASE_LABEL: Record<ScanPhase, string> = {
+  searching: "Đang tìm vùng chữ…",
+  moving: "Giữ yên máy…",
+  steady: "Giữ yên… sắp chụp",
+  reading: "Đang đọc chữ…",
+  done: "✓ Đã đọc",
+  idle: "✓ Đã đọc xong — đổi máy hoặc cuộn màn hình",
+};
+
+/** Hộp trên khung hình nhỏ (phân tích) → toạ độ hiển thị trên thẻ video (object-fit: cover). */
+function toDisplayBox(r: TextRegion, f: number, video: HTMLVideoElement, wrap: HTMLElement) {
+  const cw = wrap.clientWidth;
+  const ch = wrap.clientHeight;
+  const scale = Math.max(cw / video.videoWidth, ch / video.videoHeight);
+  const ox = (cw - video.videoWidth * scale) / 2;
+  const oy = (ch - video.videoHeight * scale) / 2;
+  return { x: ox + r.x * f * scale, y: oy + r.y * f * scale, w: r.w * f * scale, h: r.h * f * scale };
+}
+
+/**
+ * Cắt vùng chữ ở ĐỘ PHÂN GIẢI GỐC của camera và phóng to để mỗi dòng chữ cao ~56 px
+ * (cỡ chữ Tesseract đọc tốt nhất). Đây là khác biệt lớn nhất so với đọc cả khung hình.
+ */
+function cropForOcr(video: HTMLVideoElement, r: TextRegion, f: number): HTMLCanvasElement {
+  const margin = Math.max(r.lineHeight, 8);
+  const sx = Math.max(0, (r.x - margin) * f);
+  const sy = Math.max(0, (r.y - margin) * f);
+  const sw = Math.min(video.videoWidth - sx, (r.w + 2 * margin) * f);
+  const sh = Math.min(video.videoHeight - sy, (r.h + 2 * margin) * f);
+  const lineH = Math.max(4, r.lineHeight * f);
+  let scale = Math.min(3, Math.max(1, 56 / lineH));
+  scale = Math.min(scale, 2600 / Math.max(sw, sh));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(sw * scale));
+  canvas.height = Math.max(1, Math.round(sh * scale));
+  const ctx = canvas.getContext("2d")!;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+/** Ảnh tĩnh: tìm vùng chữ trên bản thu nhỏ rồi cắt ở độ phân giải gốc, phóng to (null nếu không thấy vùng chữ rõ). */
+async function cropTextRegion(image: Blob): Promise<HTMLCanvasElement | null> {
+  const bitmap = await createImageBitmap(image, { imageOrientation: "from-image" });
+  try {
+    const W = 480;
+    const f = bitmap.width / W;
+    const small = document.createElement("canvas");
+    small.width = W;
+    small.height = Math.max(1, Math.round(bitmap.height / f));
+    const ctx = small.getContext("2d", { willReadFrequently: true })!;
+    ctx.drawImage(bitmap, 0, 0, small.width, small.height);
+    const region = findTextRegion(toGray(ctx.getImageData(0, 0, small.width, small.height).data, small.width, small.height));
+    // vùng chữ chiếm gần hết ảnh (ảnh chụp màn hình gốc) → không cần cắt
+    if (!region || region.lineCount < 2 || region.w * region.h > 0.8 * small.width * small.height) return null;
+    const margin = Math.max(region.lineHeight, 8);
+    const sx = Math.max(0, (region.x - margin) * f);
+    const sy = Math.max(0, (region.y - margin) * f);
+    const sw = Math.min(bitmap.width - sx, (region.w + 2 * margin) * f);
+    const sh = Math.min(bitmap.height - sy, (region.h + 2 * margin) * f);
+    const scale = Math.min(3, Math.max(1, 56 / Math.max(4, region.lineHeight * f)), 2600 / Math.max(sw, sh));
+    const out = document.createElement("canvas");
+    out.width = Math.max(1, Math.round(sw * scale));
+    out.height = Math.max(1, Math.round(sh * scale));
+    const octx = out.getContext("2d")!;
+    octx.imageSmoothingQuality = "high";
+    octx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, out.width, out.height);
+    return out;
+  } finally {
+    bitmap.close();
+  }
 }

@@ -1,6 +1,6 @@
 /**
- * Dạng 1: camera hướng vào màn hình Cài đặt › Giới thiệu của một iPhone khác (giao diện tiếng Việt,
- * ám màu, hơi mờ) → tự đọc chữ IMEI, IMEI2, Số sê-ri, Số kiểu máy — không bấm nút.
+ * Dạng 1: camera hướng vào màn hình Cài đặt › Giới thiệu của một iPhone khác (tiếng Việt, chế độ tối,
+ * ám màu, TAY RUNG: 12/30 khung lệch & nhòe) → tự tìm vùng chữ, chờ yên, tự chụp, đọc, bỏ phiếu — không bấm nút.
  */
 import { expect, test } from "@playwright/test";
 import { SAMPLE } from "./fixtures";
@@ -18,9 +18,14 @@ test("dạng 1 — camera tự đọc IMEI/Serial trên màn hình máy, không 
   const card = page.locator("article.sc-card").first();
   await expect(card.getByLabel(/^IMEI 1/)).toHaveValue(SAMPLE.imei1, { timeout: 120_000 });
   await expect(card.getByLabel(/^IMEI 2/)).toHaveValue(SAMPLE.imei2, { timeout: 30_000 });
+  // Serial cần 2 lần chụp đọc khớp mới được nhận
   await expect(card.getByLabel(/^Serial/)).toHaveValue(SAMPLE.serial, { timeout: 30_000 });
   await expect(card.getByText("Aa Đọc chữ").first()).toBeVisible();
-  // Đọc lại liên tục cùng một màn hình không sinh máy trùng
-  await page.waitForTimeout(4000);
+  await expect(page.getByText(/✓ Serial F2LXQ7Y9KD/)).toBeVisible();
+  // Đọc xong → có phát tín hiệu rung "thành công"
+  expect(await page.evaluate(() => window.__ipreHaptics?.success ?? 0)).toBeGreaterThanOrEqual(1);
+  // Tay rung + đọc lại liên tục cùng một màn hình: không sinh máy trùng, không ghi đè giá trị sai
+  await page.waitForTimeout(5000);
   await expect(page.locator("article.sc-card")).toHaveCount(1);
+  await expect(card.getByLabel(/^Serial/)).toHaveValue(SAMPLE.serial);
 });

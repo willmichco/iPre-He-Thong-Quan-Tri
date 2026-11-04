@@ -583,3 +583,57 @@
   bottom: 6%;
   border-radius: 22px;
 }
+/* Khung bám vùng chữ (chế độ "Màn hình máy") */
+.sc-docbox {
+  position: absolute;
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  transition: left 0.12s linear, top 0.12s linear, width 0.12s linear, height 0.12s linear, border-color 0.2s;
+}
+.sc-docbox.is-moving {
+  border-style: dashed;
+}
+.sc-docbox.is-steady {
+  border-color: #f0b84a;
+}
+.sc-docbox.is-reading {
+  border-color: #5b8cff;
+}
+.sc-docbox.is-done,
+.sc-docbox.is-idle {
+  border-color: #4cc38a;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.25), 0 0 0 4px rgba(76, 195, 138, 0.5);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-docbox {
+    transition: none;
+  }
+}
+.sc-shutter {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.sc-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.sc-chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--sc-info-bg);
+  color: var(--sc-info);
+}
+.sc-chip.is-ok {
+  background: var(--sc-ok-bg);
+  color: var(--sc-ok);
+  font-weight: 600;
+}

@@ -131,3 +131,15 @@ describe("extractFromText — ảnh chụp màn hình iPhone thật (giao diện
     expect(extractFromText("Model Number MDEMILL/A").partNumber).toBe("MDEMILL/A"); // văn bản gõ/dán: giữ nguyên
   });
 });
+
+describe("extractFromText — OCR khung hình camera chụp màn hình máy (giao diện Việt, chế độ tối)", () => {
+  it("dấu / đọc thành J, nhãn 'Số sê-ri' đọc thành 'SB sé'", () => {
+    const x = extractFromText("Phién ban iOS  272 >\nTén may  Phone 16 Plus\nSO may  MDEM1LLJA\nSB sé  F2LXQ7Y9KD", { ocr: true });
+    expect(x.partNumber).toBe("MDEM1LL/A");
+    expect(x.serial).toBe("F2LXQ7Y9KD");
+    expect(x.serialAnchored).toBe(true);
+  });
+  it("văn bản gõ/dán (không phải OCR) không sửa J → /", () => {
+    expect(extractFromText("MDEM1LLJA").partNumber).toBeUndefined();
+  });
+});

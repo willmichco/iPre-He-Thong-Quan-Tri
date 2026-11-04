@@ -43,8 +43,23 @@ export function getOcrWorker(base: string, onProgress?: (p: number) => void): Pr
   return workerPromise;
 }
 
+/** Ảnh xám + đảo màu nếu nền tối (chế độ tối của iOS) — xử lý tại chỗ trên canvas. */
+function toOcrGray(canvas: HTMLCanvasElement) {
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = img.data;
+  let sum = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    d[i] = d[i + 1] = d[i + 2] = g;
+    sum += g;
+  }
+  if (sum / (d.length / 4) < 110) for (let i = 0; i < d.length; i += 4) d[i] = d[i + 1] = d[i + 2] = 255 - d[i];
+  ctx.putImageData(img, 0, 0);
+}
+
 /**
- * Chuẩn bị ảnh cho OCR: ảnh xám, đảo màu nếu nền tối (chế độ tối của iOS), phóng to ảnh nhỏ.
+ * Chuẩn bị ảnh cho OCR: ảnh xám, đảo màu nếu nền tối, phóng to ảnh nhỏ.
  * KHÔNG kéo giãn độ tương phản: đã đo — với ảnh chủ yếu là nền, kéo giãn làm chữ chìm vào nền
  * (ảnh chế độ tối không đọc được gì); Tesseract tự chọn ngưỡng sáng tối tốt hơn.
  */
@@ -53,27 +68,27 @@ async function prepare(image: Blob): Promise<HTMLCanvasElement> {
   try {
     const longSide = Math.max(bitmap.width, bitmap.height);
     const scale = longSide < 1200 ? 2 : longSide > 3000 ? 3000 / longSide : 1;
-    const w = Math.round(bitmap.width * scale);
-    const h = Math.round(bitmap.height * scale);
     const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
-    ctx.drawImage(bitmap, 0, 0, w, h);
-    const img = ctx.getImageData(0, 0, w, h);
-    const d = img.data;
-    let sum = 0;
-    for (let i = 0; i < d.length; i += 4) {
-      const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-      d[i] = d[i + 1] = d[i + 2] = g;
-      sum += g;
-    }
-    if (sum / (d.length / 4) < 110) for (let i = 0; i < d.length; i += 4) d[i] = d[i + 1] = d[i + 2] = 255 - d[i];
-    ctx.putImageData(img, 0, 0);
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    toOcrGray(canvas);
     return canvas;
   } finally {
     bitmap.close();
   }
+}
+
+/** Đọc chữ trên một canvas đã cắt sẵn vùng văn bản (camera, chế độ "Màn hình máy"). */
+export function recognizeCanvas(base: string, canvas: HTMLCanvasElement, onProgress?: (p: number) => void): Promise<string> {
+  const job = queue.then(async () => {
+    const worker = await getOcrWorker(base, onProgress);
+    toOcrGray(canvas);
+    const { data } = await worker.recognize(canvas);
+    return data.text;
+  });
+  queue = job.catch(() => undefined);
+  return job;
 }
 
 /** Đọc toàn bộ chữ trên ảnh. Các lần gọi được xếp hàng (một worker). */

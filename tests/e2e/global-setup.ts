@@ -17,8 +17,12 @@ export default async function globalSetup() {
     const frame = await cameraFrameJpeg(browser, `data:image/svg+xml;base64,${svg}`);
     mkdirSync(join(process.cwd(), ".e2e-fixtures"), { recursive: true });
     writeFileSync(FAKE_CAMERA_FILE, Buffer.concat(Array.from({ length: 30 }, () => frame)));
-    const screen = await cameraScreenFrameJpeg(browser, await aboutScreenshot(browser, { lang: "vi", dark: false }));
-    writeFileSync(FAKE_SCREEN_CAMERA_FILE, Buffer.concat(Array.from({ length: 30 }, () => screen)));
+    // Màn hình máy (tiếng Việt, chế độ tối như iOS mới) + TAY RUNG: 12 khung lệch/nhòe rồi 18 khung yên, lặp lại
+    const shot = await aboutScreenshot(browser, { lang: "vi", dark: true });
+    const shaky = [];
+    for (let i = 0; i < 12; i++) shaky.push(await cameraScreenFrameJpeg(browser, shot, { dx: ((i * 37) % 41) - 20, dy: ((i * 23) % 31) - 15, blur: 3 }));
+    const steady = await cameraScreenFrameJpeg(browser, shot);
+    writeFileSync(FAKE_SCREEN_CAMERA_FILE, Buffer.concat([...shaky, ...Array.from({ length: 18 }, () => steady)]));
   } finally {
     await browser.close();
   }

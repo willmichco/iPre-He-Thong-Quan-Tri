@@ -21,7 +21,7 @@ export async function aboutScreenshot(browser: Browser, opts: { lang: "en" | "vi
   const L =
     opts.lang === "en"
       ? { title: "About", name: "Model Name", number: "Model Number", serial: "Serial Number", warranty: "Limited Warranty" }
-      : { title: "Giới thiệu", name: "Tên kiểu máy", number: "Số kiểu máy", serial: "Số sê-ri", warranty: "Bảo hành giới hạn" };
+      : { title: "Giới thiệu", name: "Tên máy", number: "Số máy", serial: "Số sê-ri", warranty: "Gói bảo hành đã hết hạn" };
   const rows: [string, string][] = [
     ["Name", "iPhone"],
     [L.name, "iPhone 16 Pro Max"],
@@ -71,12 +71,16 @@ export async function cameraFrameJpeg(browser: Browser, labelSvgUrl: string): Pr
  * Khung hình "camera" nhìn vào màn hình Giới thiệu của một iPhone khác: ảnh màn hình đặt nghiêng
  * nhẹ trên nền bàn, hơi mờ, ám hồng — giống ảnh chụp thật bằng máy khác.
  */
-export async function cameraScreenFrameJpeg(browser: Browser, screenshotPng: Buffer): Promise<Buffer> {
+export async function cameraScreenFrameJpeg(
+  browser: Browser,
+  screenshotPng: Buffer,
+  shake: { dx: number; dy: number; blur: number } = { dx: 0, dy: 0, blur: 0.5 },
+): Promise<Buffer> {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1, isMobile: false });
   const src = `data:image/png;base64,${screenshotPng.toString("base64")}`;
   await page.setContent(`<body style="margin:0;background:#8a8378;display:grid;place-items:center;height:1080px;overflow:hidden">
-    <div style="padding:14px;background:#111;border-radius:48px;transform:rotate(1.5deg)">
-      <img id="mh" src="${src}" style="height:1000px;border-radius:36px;display:block;filter:blur(0.5px) sepia(0.15) saturate(1.3) hue-rotate(-20deg) contrast(0.9)">
+    <div style="padding:14px;background:#111;border-radius:48px;transform:translate(${shake.dx}px,${shake.dy}px) rotate(1.5deg)">
+      <img id="mh" src="${src}" style="height:1000px;border-radius:36px;display:block;filter:blur(${shake.blur}px) sepia(0.15) saturate(1.3) hue-rotate(-20deg) contrast(0.9)">
     </div>
   </body>`);
   await page.locator("#mh").evaluate((img: HTMLImageElement) => img.decode());

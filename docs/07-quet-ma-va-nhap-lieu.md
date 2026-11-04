@@ -469,3 +469,41 @@ Bộ ảnh chạy tự động trong CI (zxing-wasm chạy được trên Node) 
 | Chụp lại cùng một hộp | Trùng serial/IMEI thì chỉ bổ sung ô còn thiếu, không tạo máy trùng |
 
 **Kiểm thử:** 62 kiểm thử đơn vị và 26 kiểm thử đầu-cuối. Có hai camera giả để kiểm tra hai dạng quét: một phát nhãn hộp 1080p hơi nghiêng, mờ, nén JPEG; một phát màn hình *Giới thiệu* tiếng Việt bị ám màu. Ngoài ra có ảnh chụp màn hình tiếng Anh/Việt ở chế độ sáng và tối, và thao tác dán ảnh, dán chữ.
+
+## 13. Chế độ "Màn hình máy" kiểu máy quét tài liệu (04/11/2026, lần thử thứ hai)
+
+**Phản hồi khi thử thật:** quét trực tiếp màn hình máy khác đọc lung tung (3 "máy" rác), rung tay nhẹ là không đọc được, điện thoại không rung khi đọc xong.
+
+**Nguyên nhân (đo trên chính ảnh chụp màn hình người dùng gửi):**
+1. Đọc chữ trên **cả khung 4K**: vùng màn hình máy chỉ chiếm một phần, chữ nhỏ, lẫn nền → kết quả vô nghĩa. Cắt đúng vùng chữ rồi phóng to thì đọc được các dòng "Số máy", "Số sê-ri".
+2. Không chờ đứng yên / đủ nét → khung nhòe vẫn bị đem đi đọc.
+3. Mỗi lần đọc sai serial tạo thành một máy mới (màn hình đó không có IMEI để đối chiếu).
+4. Safari trên iPhone **không hỗ trợ** `navigator.vibrate` → trước đây không bao giờ rung.
+
+**Luồng mới:**
+
+```mermaid
+flowchart LR
+    A[Khung hình<br/>thu nhỏ 480 px] --> B[Tìm vùng chữ<br/>theo dòng]
+    B --> C{Đứng yên ≥ 0,36 s<br/>và đủ nét?}
+    C -->|Chưa| A
+    C -->|Rồi| D[Tự chụp: cắt vùng chữ<br/>ở độ phân giải gốc,<br/>phóng to dòng ~56 px]
+    D --> E[Đọc chữ]
+    E --> F[Bỏ phiếu:<br/>IMEI nhận ngay nhờ Luhn<br/>Serial/Part No. cần khớp 2 lần]
+    F --> G[Ghi vào MÁY ĐANG QUÉT<br/>+ rung + bíp]
+    G --> A
+```
+
+| Thành phần | Chi tiết |
+|---|---|
+| Tìm vùng chữ (`frame-analysis.ts`) | Lưới mật độ cạnh → đoạn ngang dài ≥ 3 ô = dòng chữ (viền dọc, nhiễu bị loại) → gom các dòng thẳng hàng, cách đều thành khối → chọn khối nhiều dòng nhất. Khung bám vùng chữ hiện trên camera (trắng: tìm, vàng: giữ yên, xanh dương: đang đọc, xanh lá: đã đọc) |
+| Chống rung | Đo rung **trong vùng chữ** (ngưỡng 3,5); chỉ chụp sau 3 khung liền đứng yên và khi độ nét đạt ≥ 80% mức nét nhất gần đây |
+| Bỏ phiếu (`screen-votes.ts`) | IMEI nhận ngay (Luhn); Serial, Part No., EID phải đọc khớp **2 lần**; serial không có nhãn neo chỉ tính nửa phiếu; gặp serial/IMEI khác hẳn → sang máy mới. Hiện "chờ đọc lần 2" cho giá trị mới đọc 1 lần |
+| Tiết kiệm pin | Đọc xong và hai lần chụp liền không có gì mới → tạm dừng đọc cho tới khi màn hình đổi (đổi máy, cuộn) |
+| Rung + bíp (`haptics.ts`) | Android: `navigator.vibrate`. iPhone (iOS 18+): bật/tắt công tắc gốc ẩn `<input type="checkbox" switch>` tạo rung Taptic. Bíp qua một AudioContext mở khoá khi bấm "Bật camera". Đọc xong máy: rung 2 nhịp + 2 tiếng bíp |
+| Ảnh tải lên / "Chụp & đọc kỹ" | Cũng tự tìm và cắt vùng chữ trước khi đọc; không ra IMEI/Serial thì đọc cả ảnh |
+| Sửa lỗi đọc chữ đặc trưng | Dấu "/" bị đọc thành J/I/1 trong Part No. (`MXVX3ZPJA` → `MXVX3ZP/A`); nhãn "Số sê-ri" bị đọc thành "SB sé"/"S6 sé-ri" |
+
+**Kiểm thử thêm:** camera giả màn hình *Giới thiệu* tiếng Việt chế độ tối, có **12/30 khung lệch và nhòe** (mô phỏng tay rung): đọc đủ IMEI, IMEI2, Serial, Part No. trong khoảng 3 giây, chỉ 1 máy, có rung "thành công". Có thêm kiểm thử đơn vị cho tìm vùng chữ (kể cả có viền dọc gây nhiễu), đo rung và độ nét, và bỏ phiếu.
+
+**Giới hạn còn lại:** ảnh mẫu người dùng gửi là ảnh chụp màn hình độ phân giải thấp. Trên ảnh đó, serial vẫn bị đọc lệch vài ký tự (`9→I`, `0→O`). Khung hình camera thật có độ phân giải cao hơn khoảng 2,7 lần và đi qua bước bỏ phiếu, nên cần người dùng thử lại trên máy thật để xác nhận. Cách rung trên iPhone qua công tắc ẩn chỉ có tác dụng từ iOS 18; máy iOS cũ hơn chỉ có tiếng bíp và hiệu ứng nháy.
