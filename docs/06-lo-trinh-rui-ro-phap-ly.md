@@ -74,7 +74,12 @@ gantt
   - đơn mua: tỷ giá thực tế gõ kiểu Việt Nam (`26.350`), hạn đổi trả tự tính theo nơi mua, sửa đơn → giá vốn tự tính lại; chuyến đã chốt → chặn
   - **lưới nhập máy kiểu bảng tính**: dán từ Excel/Sheets (nhận cột theo tiêu đề, hoặc tự nhận IMEI/Serial/Part No./giá), gõ tắt cấu hình (`pm 256 sil`), Part No. tự điền cấu hình, Enter xuống dòng (máy quét USB), Ctrl+D điền xuống, mã quét nhầm cột tự chuyển, kiểm Luhn & trùng ngay khi gõ, Σ đơn giá so với Subtotal, cảnh báo khi rời trang chưa lưu
   - lưu cả lưới trong 1 transaction: thêm (kèm mốc "Đã đặt"), sửa, xoá mềm; chống trùng Serial/IMEI toàn hệ thống; máy đã vào kiện / đã bán không xoá được; tính lại giá vốn
-- [ ] Kiện 3 chặng: tạo kiện, gán máy (quét), "Gửi đi" / "Đã nhận" sinh mốc M1–M8 cho mọi máy
+- [x] **Kiện 3 chặng** (`/van-chuyen`, `src/server/shipping/service.ts`, `src/domain/shipping.ts`):
+  - bảng tiến độ Kanban (Chờ gửi · ① Nội địa Mỹ · ② Mỹ → VN · ③ HN → SG · Đã nhận), thẻ trễ ETA tô đỏ, đếm kiện quá hạn
+  - quét máy vào kiện (máy quét USB + Enter, hoặc dán danh sách): mã lạ / đã ở kiện khác cùng chặng / máy đã bán được báo riêng, mã đúng vẫn thêm
+  - "Gửi đi" / "Đã nhận" (chọn ngày giờ, nhập bù được) → mốc M2–M7 + trạng thái cho mọi máy; chỉ đi tới không lùi; khách cọc giữ "Khách cọc"; ETA tự tính theo đơn vị vận chuyển
+  - giữ hải quan / hết giữ (ghi nhật ký tracking); chuyến tự chuyển "Đang vận chuyển" → "Đã về"
+  - đổi máy trong kiện → cước kiện chia lại → giá vốn tính lại (chuyến đã chốt → chặn); kiện đã gửi không bỏ máy / xoá được
 - [ ] Chi phí theo chặng (form) → tự tính lại giá vốn
 - [ ] Bán nhanh + cọc; hồ sơ máy (giá vốn chi tiết, dòng thời gian)
 - [ ] Tổng quan cơ bản: vốn theo chặng, doanh thu/lãi tháng, tồn kho, cảnh báo
