@@ -11,5 +11,5 @@ const Scanner = dynamic(() => import("@/features/scanner/Scanner").then((m) => m
 const WASM = { url: "/wasm/zxing_reader.wasm" };
 
 export function ScannerClient() {
-  return <Scanner wasm={WASM} sampleLabelUrl="/nhan-mau.svg" />;
+  return <Scanner wasm={WASM} ocrBase="/ocr" sampleLabelUrl="/nhan-mau.svg" />;
 }

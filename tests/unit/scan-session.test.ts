@@ -119,3 +119,85 @@ describe("xuất dữ liệu", () => {
     expect(csv).toContain('"=""350000000000006"""');
   });
 });
+
+describe("applyExtraction — kết quả OCR", () => {
+  it("chỉ điền ô trống, không đè giá trị đọc từ mã vạch; serial OCR có cảnh báo soát lại", async () => {
+    const { applyExtraction } = await import("@/domain/scan-session");
+    const base = mergeStream({ records: [], currentId: null }, ["350000000000006"], "BARCODE", "CAMERA", ids()).records[0];
+    const { record, filled } = applyExtraction(base, {
+      serial: "F2LXQ7Y9KD",
+      serialAnchored: true,
+      imeis: ["350000000000006", "350000000000014"],
+      partNumber: "MDEM1LL/A",
+    });
+    expect(filled).toBe(3);
+    expect(record.fields.imei1).toEqual({ value: "350000000000006", source: "BARCODE" });
+    expect(record.fields.imei2).toEqual({ value: "350000000000014", source: "OCR" });
+    expect(record.fields.partNumber?.source).toBe("OCR");
+    expect(validateRecord(record, [record]).some((i) => i.field === "serial" && i.message.includes("OCR"))).toBe(true);
+  });
+});
+
+describe("findMatch / mergeRecord — chụp lại cùng một hộp", () => {
+  it("nhận ra máy đã có theo IMEI và chỉ bổ sung ô còn thiếu", async () => {
+    const { findMatch, mergeRecord, recordsFromPhoto: fromPhoto } = await import("@/domain/scan-session");
+    const makeId = ids();
+    const existing = mergeStream({ records: [], currentId: null }, ["350000000000006"], "BARCODE", "CAMERA", makeId).records;
+    const photo = fromPhoto(
+      [
+        { text: "SF2LXQ7Y9KD", x: 0, y: 0 },
+        { text: "350000000000006", x: 0, y: 50 },
+      ],
+      "lan-2.jpg",
+      makeId,
+    )[0];
+    const match = findMatch(existing, photo);
+    expect(match?.id).toBe(existing[0].id);
+    const { record, filled } = mergeRecord(match!, photo);
+    expect(filled).toBe(1);
+    expect(record.fields.serial?.value).toBe("F2LXQ7Y9KD");
+    expect(record.fields.imei2).toBeUndefined();
+  });
+});
+
+describe("mergeLiveFrame — camera thấy hai nhãn xếp chồng (không gán chéo Part No.)", () => {
+  // Toạ độ như khung hình 1080p: nhãn iPhone ở trên, nhãn iPad ở dưới
+  const iphone = [
+    { text: "1PMDEM1LL/A", x: 700, y: 120 },
+    { text: "SF2LXQ7Y9KD", x: 700, y: 236 },
+    { text: "350000000000006", x: 700, y: 336 },
+    { text: "350000000000014", x: 700, y: 436 },
+    { text: "012345678905", x: 1100, y: 536 },
+  ];
+  const ipad = [
+    { text: "1PMDEM2VN/A", x: 700, y: 700 },
+    { text: "SC02XL0GTJGH5", x: 700, y: 800 },
+    { text: "490154203237518", x: 700, y: 900 },
+  ];
+
+  it("khung cắt giữa (iPhone thiếu Part No., thấy Part No. của iPad bên dưới) → không gán nhầm", async () => {
+    const { mergeLiveFrame } = await import("@/domain/scan-session");
+    const makeId = ids();
+    let s: StreamState = { records: [], currentId: null };
+    // khung 1: vùng giữa — iPhone serial/IMEI/UPC + chỉ dòng Part No. của iPad
+    s = mergeLiveFrame(s, [...iphone.slice(1), ipad[0]], makeId);
+    expect(s.records).toHaveLength(1);
+    expect(s.records[0].fields.partNumber).toBeUndefined();
+    // khung 2: toàn khung — thấy cả hai nhãn
+    s = mergeLiveFrame(s, [...iphone, ...ipad], makeId);
+    const bySerial = Object.fromEntries(s.records.map((r) => [r.fields.serial?.value, r.fields.partNumber?.value]));
+    expect(bySerial).toEqual({ F2LXQ7Y9KD: "MDEM1LL/A", C02XL0GTJGH5: "MDEM2VN/A" });
+    const iphoneRec = s.records.find((r) => r.fields.serial?.value === "F2LXQ7Y9KD")!;
+    expect(iphoneRec.fields.upc?.value).toBe("012345678905");
+    expect(iphoneRec.fields.imei2?.value).toBe("350000000000014");
+  });
+
+  it("ảnh chụp hai hộp: mỗi IMEI/Part No./UPC về đúng máy", () => {
+    const recs = recordsFromPhoto([...iphone, ...ipad], "hai-hop.jpg", ids());
+    const by = Object.fromEntries(recs.map((r) => [r.fields.serial?.value, [r.fields.imei1?.value, r.fields.partNumber?.value, r.fields.upc?.value]]));
+    expect(by).toEqual({
+      F2LXQ7Y9KD: ["350000000000006", "MDEM1LL/A", "012345678905"],
+      C02XL0GTJGH5: ["490154203237518", "MDEM2VN/A", undefined],
+    });
+  });
+});

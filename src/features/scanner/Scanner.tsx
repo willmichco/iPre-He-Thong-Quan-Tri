@@ -1,10 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent } from "react";
 import {
   FIELD_LABELS,
   FIELD_ORDER,
+  applyExtraction,
   emptyRecord,
+  findMatch,
+  mergeRecord,
+  mergeLiveFrame,
   mergeStream,
   recordsFromPhoto,
   setField,
@@ -14,16 +18,21 @@ import {
   type DeviceRecord,
   type FieldKey,
   type FieldSource,
+  type PositionedCode,
   type StreamState,
 } from "@/domain/scan-session";
-import { splitPastedText } from "@/domain/identifiers";
-import { decodeImageUrl, decodePhoto, decodeVideoFrame, initDecoder, type WasmSource } from "./decoder";
+import { classifyCode, splitPastedText } from "@/domain/identifiers";
+import { extractFromText, hasIdentity, hasStrongIdentity } from "@/domain/text-extract";
+import { captureVideoFrame, decodePhoto, decodeVideoFrame, initDecoder, rasterizeImageUrl, type WasmSource } from "./decoder";
+import { recognizeText } from "./ocr";
 import "./scanner.css";
 
 type Mode = "camera" | "photo" | "manual";
 
 export interface ScannerProps {
   wasm: WasmSource;
+  /** Thư mục chứa bộ đọc chữ Tesseract (vd: "/ocr"); null = không có đọc chữ. */
+  ocrBase?: string | null;
   /** Khoá lưu phiên quét trên thiết bị (localStorage). */
   storageKey?: string;
   /** Mã thị trường mong đợi — cảnh báo khi khác (mặc định hàng Mỹ LL/A). */
@@ -39,6 +48,7 @@ export interface ScannerProps {
 const SOURCE_BADGE: Record<FieldSource, { label: string; cls: string }> = {
   BARCODE: { label: "▌▌▌ Mã vạch", cls: "sc-badge-ok" },
   HW_SCANNER: { label: "▌▌▌ Máy quét", cls: "sc-badge-ok" },
+  OCR: { label: "Aa Đọc chữ", cls: "sc-badge-warn" },
   PASTE: { label: "📋 Dán", cls: "sc-badge-info" },
   MANUAL: { label: "✍ Tay", cls: "sc-badge-info" },
 };
@@ -106,8 +116,33 @@ async function defaultSaveFile(filename: string, content: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+/** Lấy ảnh và chữ từ sự kiện dán (ảnh chụp màn hình đã sao chép, hoặc mã dạng chữ). */
+function readClipboard(e: ClipboardEvent | ReactClipboardEvent) {
+  const dt = e.clipboardData;
+  const images: File[] = [];
+  if (dt) {
+    for (const f of Array.from(dt.files ?? [])) if (f.type.startsWith("image/")) images.push(f);
+    if (images.length === 0)
+      for (const it of Array.from(dt.items ?? [])) {
+        if (it.kind === "file" && it.type.startsWith("image/")) {
+          const f = it.getAsFile();
+          if (f) images.push(f);
+        }
+      }
+  }
+  return { images, text: dt?.getData("text/plain") ?? "" };
+}
+
+export interface ImageResult {
+  barcodes: number;
+  usedOcr: boolean;
+  added: number;
+  updated: number;
+}
+
 export function Scanner({
   wasm,
+  ocrBase = null,
   storageKey = "ipre.scan-session",
   expectedRegion = "LL/A",
   saveFile = defaultSaveFile,
@@ -122,18 +157,23 @@ export function Scanner({
   const [copyFallback, setCopyFallback] = useState<string | null>(null);
   const [decoderState, setDecoderState] = useState<"loading" | "ready" | "error">("loading");
   const [toast, setToast] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const ocrTried = useRef<Set<string>>(new Set());
 
   /** Mọi thay đổi phiên đi qua đây để ref (dùng trong vòng quét) luôn khớp state. */
-  const update = useCallback((fn: (s: StreamState) => StreamState) => {
-    sessionRef.current = fn(sessionRef.current);
-    setSession(sessionRef.current);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(sessionRef.current));
-    } catch {
-      /* bỏ qua: chỉ là tiện ích lưu tạm trên thiết bị */
-    }
-  }, [storageKey]);
+  const update = useCallback(
+    (fn: (s: StreamState) => StreamState) => {
+      sessionRef.current = fn(sessionRef.current);
+      setSession(sessionRef.current);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(sessionRef.current));
+      } catch {
+        /* bỏ qua: chỉ là tiện ích lưu tạm trên thiết bị */
+      }
+    },
+    [storageKey],
+  );
 
   useEffect(() => {
     initDecoder(wasm).then(
@@ -144,15 +184,146 @@ export function Scanner({
 
   const notify = useCallback((msg: string) => {
     setToast(msg);
-    window.setTimeout(() => setToast((t) => (t === msg ? null : t)), 2600);
+    window.setTimeout(() => setToast((t) => (t === msg ? null : t)), 3000);
   }, []);
 
+  /** Đọc chữ trên ảnh; trả về null khi không có bộ đọc chữ hoặc lỗi. */
+  const ocr = useCallback(
+    async (image: Blob) => {
+      if (!ocrBase) return null;
+      try {
+        const text = await recognizeText(ocrBase, image, (p) => setBusy(`Đang tải bộ đọc chữ (lần đầu)… ${Math.round(p * 100)}%`));
+        return extractFromText(text, { ocr: true });
+      } catch {
+        return null;
+      }
+    },
+    [ocrBase],
+  );
+
   /** Đưa một loạt mã (camera, máy quét, dán) vào phiên. Trả về số mã mới. */
-  const ingestStream = useCallback((codes: string[], source: FieldSource, origin: DeviceRecord["origin"]) => {
-    const next = mergeStream(sessionRef.current, codes, source, origin, newId);
-    if (next.added.length > 0) update(() => ({ records: next.records, currentId: next.currentId }));
-    return next.added.length;
-  }, [update]);
+  const ingestStream = useCallback(
+    (codes: string[], source: FieldSource, origin: DeviceRecord["origin"]) => {
+      const next = mergeStream(sessionRef.current, codes, source, origin, newId);
+      if (next.added.length > 0) update(() => ({ records: next.records, currentId: next.currentId }));
+      return next.added.length;
+    },
+    [update],
+  );
+
+  /** Đưa bản ghi mới vào phiên: trùng serial/IMEI với máy đã có thì chỉ bổ sung ô còn thiếu. */
+  const addRecords = useCallback(
+    (recs: DeviceRecord[], thumbnail?: string) => {
+      let added = 0;
+      let updated = 0;
+      const addedIds: string[] = [];
+      update((s) => {
+        let records = [...s.records];
+        for (const rec of recs) {
+          const match = findMatch(records, rec);
+          if (match) {
+            const m = mergeRecord(match, rec);
+            if (m.filled) {
+              records = records.map((r) => (r.id === match.id ? m.record : r));
+              updated++;
+            }
+          } else if (Object.keys(rec.fields).length > 0) {
+            records = [...records, rec];
+            addedIds.push(rec.id);
+            added++;
+          }
+        }
+        return { records, currentId: null };
+      });
+      if (thumbnail && addedIds.length) setThumbs((t) => ({ ...t, ...Object.fromEntries(addedIds.map((id) => [id, thumbnail])) }));
+      if (added || updated) feedback();
+      return { added, updated };
+    },
+    [update],
+  );
+
+  /**
+   * Xử lý một ảnh (chụp, chọn, dán, chụp từ camera): đọc mã vạch, rồi TỰ ĐỘNG đọc chữ khi
+   * mã vạch chưa đủ Serial / IMEI / Part No. (ảnh chụp màn hình Cài đặt không có mã vạch).
+   */
+  const processImage = useCallback(
+    async (image: Blob, name: string): Promise<ImageResult> => {
+      setBusy(`Đang đọc mã vạch: ${name}…`);
+      try {
+        const result = await decodePhoto(image);
+        let recs = recordsFromPhoto(result.codes, name, newId);
+        let usedOcr = false;
+        const incomplete = recs.length === 0 || (recs.length === 1 && (!recs[0].fields.serial || !recs[0].fields.imei1 || !recs[0].fields.partNumber));
+        if (ocrBase && incomplete) {
+          setBusy(`Đang đọc chữ trên ảnh: ${name}…`);
+          const x = await ocr(image);
+          if (x) {
+            usedOcr = true;
+            if (recs.length === 1) recs = [applyExtraction(recs[0], x).record];
+            else if (hasIdentity(x)) recs = [{ ...applyExtraction(emptyRecord(newId(), "PHOTO"), x).record, photoName: name }];
+          }
+        }
+        const r = addRecords(recs, result.thumbnail);
+        return { barcodes: result.codes.length, usedOcr, ...r };
+      } finally {
+        setBusy(null);
+      }
+    },
+    [addRecords, ocr, ocrBase],
+  );
+
+  /** Dán văn bản: mỗi dòng nhiều mã = một máy; dòng một mã thì nối tiếp như quét liên tục. */
+  const ingestText = useCallback(
+    (text: string) => {
+      let added = 0;
+      const lines = splitPastedText(text);
+      for (const tokens of lines) {
+        if (tokens.length > 1) update((s) => ({ ...s, currentId: null }));
+        added += ingestStream(tokens, "PASTE", "PASTE");
+      }
+      // Văn bản dài kiểu "Giới thiệu" sao chép từ máy: thử trích xuất theo nhãn
+      if (added === 0) {
+        const x = extractFromText(text);
+        if (hasIdentity(x)) {
+          const r = addRecords([applyExtraction(emptyRecord(newId(), "PASTE"), x, "PASTE").record]);
+          added = r.added + r.updated;
+        }
+      }
+      if (added) feedback();
+      notify(added ? `Đã nhận ${added} mã` : "Không thấy mã mới trong nội dung vừa dán");
+      return added;
+    },
+    [addRecords, ingestStream, notify, update],
+  );
+
+  const handlePaste = useCallback(
+    async (e: ClipboardEvent | ReactClipboardEvent) => {
+      const { images, text } = readClipboard(e);
+      if (images.length === 0 && !text.trim()) return false;
+      e.preventDefault();
+      if (images.length) {
+        for (const [i, img] of images.entries()) {
+          const r = await processImage(img, `anh-dan-${i + 1}.png`);
+          notify(r.added || r.updated ? `Ảnh dán: ${r.added} máy mới, ${r.updated} máy bổ sung` : "Không đọc được mã nào trên ảnh vừa dán");
+        }
+      } else {
+        ingestText(text);
+      }
+      return true;
+    },
+    [ingestText, notify, processImage],
+  );
+
+  // Dán ở bất kỳ đâu trên trang (trừ khi đang sửa một ô của máy) → tự nhận diện
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.(".sc-card") || t?.dataset?.pasteIgnore) return;
+      void handlePaste(e);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [handlePaste]);
 
   const nextDevice = useCallback(() => {
     update((s) => ({ ...s, currentId: null }));
@@ -184,6 +355,44 @@ export function Scanner({
     return () => window.removeEventListener("keydown", onKey);
   }, [ingestStream, notify]);
 
+  /** Camera đọc được mã: thêm vào máy đang quét; nếu máy chưa có Part No. thì tự đọc chữ trên khung hình. */
+  const onLiveCodes = useCallback(
+    (codes: PositionedCode[], grab: () => Promise<Blob>) => {
+      const next = mergeLiveFrame(sessionRef.current, codes, newId);
+      if (!next.added) return;
+      update(() => ({ records: next.records, currentId: next.currentId }));
+      feedback();
+      const id = sessionRef.current.currentId;
+      const rec = sessionRef.current.records.find((r) => r.id === id);
+      if (!ocrBase || !rec || rec.fields.partNumber || ocrTried.current.has(rec.id)) return;
+      ocrTried.current.add(rec.id);
+      void grab()
+        .then((blob) => ocr(blob))
+        .then((x) => {
+          setBusy(null);
+          if (!x) return;
+          update((s) => ({ ...s, records: s.records.map((r) => (r.id === rec.id ? applyExtraction(r, x).record : r)) }));
+        })
+        .catch(() => setBusy(null));
+    },
+    [ocr, ocrBase, update],
+  );
+
+  /** Camera ở chế độ "Màn hình máy": đọc chữ trên khung hình, chỉ nhận khi có IMEI (Luhn) hoặc serial cạnh nhãn. */
+  const onLiveScreen = useCallback(
+    async (grab: () => Promise<Blob>) => {
+      if (!ocrBase) return null;
+      try {
+        const x = await ocr(await grab());
+        if (!x || !hasStrongIdentity(x)) return { added: 0, updated: 0 };
+        return addRecords([applyExtraction(emptyRecord(newId(), "CAMERA"), x).record]);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [addRecords, ocr, ocrBase],
+  );
+
   const records = session.records;
   const issuesById = useMemo(
     () => Object.fromEntries(records.map((r) => [r.id, validateRecord(r, records, expectedRegion)])),
@@ -200,6 +409,7 @@ export function Scanner({
   const clearAll = () => {
     update(() => ({ records: [], currentId: null }));
     setThumbs({});
+    ocrTried.current.clear();
     setConfirmClear(false);
   };
 
@@ -221,6 +431,8 @@ export function Scanner({
       notify("Chưa tải được file — dùng nút Sao chép bảng");
     }
   };
+
+  const ready = decoderState === "ready";
 
   return (
     <div className="sc-root">
@@ -255,7 +467,7 @@ export function Scanner({
         <section className="sc-panel">
           <p>Trang xem thử này không được phép mở camera trực tiếp.</p>
           <p className="sc-hint">
-            Dùng tab <b>Ảnh</b> → <b>Chụp ảnh</b>: iPhone mở camera để chụp nhãn hộp, kết quả giống hệt. Quét liên tục bằng camera có trong ứng dụng iPre.
+            Dùng tab <b>Ảnh</b> → <b>Chụp ảnh</b>: iPhone mở camera để chụp nhãn hộp, kết quả giống hệt.
           </p>
           <div className="sc-row">
             <button className="sc-btn sc-btn-primary" onClick={() => setMode("photo")}>
@@ -266,43 +478,29 @@ export function Scanner({
       )}
       {mode === "camera" && liveCamera && (
         <CameraPanel
-          ready={decoderState === "ready"}
-          onCodes={(codes) => {
-            const n = ingestStream(codes, "BARCODE", "CAMERA");
-            if (n) feedback();
+          ready={ready}
+          busy={busy !== null}
+          onCodes={onLiveCodes}
+          onScreen={ocrBase ? onLiveScreen : undefined}
+          onCapture={async (blob) => {
+            const r = await processImage(blob, `camera-${new Date().toLocaleTimeString("vi-VN")}.jpg`);
+            notify(
+              r.added || r.updated
+                ? `Đã đọc: ${r.added} máy mới, ${r.updated} máy bổ sung${r.usedOcr ? " (có đọc chữ)" : ""}`
+                : "Vẫn chưa đọc được — thử lùi xa hơn, bật đèn, hoặc nhập tay",
+            );
           }}
           onNextDevice={nextDevice}
+          onManual={() => setMode("manual")}
           onSwitchToPhoto={() => setMode("photo")}
         />
       )}
       {mode === "photo" && (
-        <PhotoPanel
-          ready={decoderState === "ready"}
-          sampleLabelUrl={sampleLabelUrl}
-          onPhoto={(name, result) => {
-            const recs = recordsFromPhoto(result.codes, name, newId);
-            const known = new Set(sessionRef.current.records.flatMap((r) => Object.values(r.fields).map((f) => f?.value)));
-            const fresh = recs.filter((r) => Object.values(r.fields).some((f) => f && !known.has(f.value)));
-            if (fresh.length) {
-              update((s) => ({ records: [...s.records, ...fresh], currentId: null }));
-              setThumbs((t) => ({ ...t, ...Object.fromEntries(fresh.map((r) => [r.id, result.thumbnail])) }));
-              feedback();
-            }
-            return { found: result.codes.length, devices: fresh.length, duplicates: recs.length - fresh.length };
-          }}
-        />
+        <PhotoPanel ready={ready} busy={busy !== null} hasOcr={Boolean(ocrBase)} sampleLabelUrl={sampleLabelUrl} onImage={processImage} />
       )}
       {mode === "manual" && (
         <ManualPanel
-          onPaste={(text) => {
-            let added = 0;
-            for (const tokens of splitPastedText(text)) {
-              // mỗi dòng nhiều mã = một máy; dòng chỉ một mã thì nối tiếp như quét liên tục
-              if (tokens.length > 1) update((s) => ({ ...s, currentId: null }));
-              added += ingestStream(tokens, "PASTE", "PASTE");
-            }
-            notify(added ? `Đã thêm ${added} mã` : "Không có mã mới");
-          }}
+          onText={ingestText}
           onAddBlank={() => {
             const r = emptyRecord(newId(), "MANUAL");
             update((s) => ({ records: [...s.records, r], currentId: r.id }));
@@ -310,10 +508,16 @@ export function Scanner({
         />
       )}
 
+      {busy && (
+        <p className="sc-busy" role="status">
+          <span className="sc-spinner" aria-hidden /> {busy}
+        </p>
+      )}
+
       <section className="sc-list" aria-label="Danh sách máy đã quét">
         {records.length === 0 ? (
           <div className="sc-empty">
-            Chưa có máy nào. Quét nhãn sau hộp máy, chụp ảnh hộp, chụp màn hình <b>Cài đặt › Cài đặt chung › Giới thiệu</b>, hoặc nhập tay.
+            Chưa có máy nào. Quét nhãn sau hộp máy, chụp ảnh hộp, dán ảnh chụp màn hình <b>Cài đặt › Cài đặt chung › Giới thiệu</b>, hoặc nhập tay.
           </div>
         ) : (
           [...records].reverse().map((r) => {
@@ -323,7 +527,10 @@ export function Scanner({
               <article key={r.id} className={`sc-card ${r.id === session.currentId ? "is-current" : ""}`}>
                 <div className="sc-card-head">
                   <strong>Máy #{index}</strong>
-                  <span className="sc-origin">{ORIGIN_LABEL[r.origin]}{r.photoName ? ` · ${r.photoName}` : ""}</span>
+                  <span className="sc-origin">
+                    {ORIGIN_LABEL[r.origin]}
+                    {r.photoName ? ` · ${r.photoName}` : ""}
+                  </span>
                   {r.id === session.currentId && <span className="sc-badge sc-badge-live">đang quét</span>}
                   <button className="sc-icon-btn" aria-label={`Xoá máy #${index}`} onClick={() => removeRecord(r.id)}>
                     ✕
@@ -356,11 +563,13 @@ export function Scanner({
                     </label>
                   </div>
                 </div>
-                {issues.filter((i) => !i.field).map((i) => (
-                  <p key={i.message} className={`sc-issue sc-issue-${i.severity}`}>
-                    {i.message}
-                  </p>
-                ))}
+                {issues
+                  .filter((i) => !i.field)
+                  .map((i) => (
+                    <p key={i.message} className={`sc-issue sc-issue-${i.severity}`}>
+                      {i.message}
+                    </p>
+                  ))}
                 {r.extras.length > 0 && <p className="sc-extras">Mã khác đọc được: {r.extras.join(" · ")}</p>}
               </article>
             );
@@ -399,6 +608,7 @@ export function Scanner({
             className="sc-input sc-textarea"
             rows={6}
             readOnly
+            data-paste-ignore="1"
             value={copyFallback}
             onFocus={(e) => e.currentTarget.select()}
           />
@@ -462,15 +672,28 @@ function FieldRow({
   );
 }
 
+type ZoomCaps = { min: number; max: number; step?: number };
+
+type CameraTarget = "box" | "screen";
+
 function CameraPanel({
   ready,
+  busy,
   onCodes,
+  onScreen,
+  onCapture,
   onNextDevice,
+  onManual,
   onSwitchToPhoto,
 }: {
   ready: boolean;
-  onCodes: (codes: string[]) => void;
+  busy: boolean;
+  onCodes: (codes: PositionedCode[], grab: () => Promise<Blob>) => void;
+  /** Có = hỗ trợ đọc chữ trên màn hình máy (dạng 1). */
+  onScreen?: (grab: () => Promise<Blob>) => Promise<{ added: number; updated: number } | null>;
+  onCapture: (blob: Blob) => Promise<void>;
   onNextDevice: () => void;
+  onManual: () => void;
   onSwitchToPhoto: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -478,13 +701,20 @@ function CameraPanel({
   const [state, setState] = useState<"idle" | "starting" | "running" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [torch, setTorch] = useState<boolean | null>(null);
+  const [zoom, setZoom] = useState<{ caps: ZoomCaps; value: number } | null>(null);
   const [lastSeen, setLastSeen] = useState<string[]>([]);
+  const [lastReadAt, setLastReadAt] = useState(0);
+  const [now, setNow] = useState(0);
+  const [resolution, setResolution] = useState("");
+  const [target, setTarget] = useState<CameraTarget>("box");
+  const [reading, setReading] = useState(false);
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     setState("idle");
     setTorch(null);
+    setZoom(null);
   }, []);
 
   useEffect(() => stop, [stop]);
@@ -498,32 +728,39 @@ function CameraPanel({
     }
     setState("starting");
     try {
+      // Độ phân giải càng cao càng đọc được mã mảnh trên nhãn Apple; trình duyệt tự hạ nếu không hỗ trợ
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } },
       });
       streamRef.current = stream;
       const video = videoRef.current!;
       video.srcObject = stream;
       await video.play();
       const track = stream.getVideoTracks()[0];
-      const caps = (track.getCapabilities?.() ?? {}) as { torch?: boolean };
+      const caps = (track.getCapabilities?.() ?? {}) as { torch?: boolean; zoom?: ZoomCaps; focusMode?: string[] };
+      if (caps.focusMode?.includes("continuous")) {
+        track.applyConstraints({ advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet] }).catch(() => undefined);
+      }
       setTorch(caps.torch ? false : null);
+      setZoom(caps.zoom && caps.zoom.max >= 1.5 ? { caps: caps.zoom, value: 1 } : null);
+      setResolution(`${video.videoWidth}×${video.videoHeight}`);
+      const t = Date.now();
+      setLastReadAt(t);
+      setNow(t);
       setState("running");
     } catch (e) {
       setState("error");
       const name = (e as DOMException)?.name;
       setError(
-        name === "NotAllowedError"
-          ? "Chưa được cấp quyền camera."
-          : name === "NotFoundError"
-            ? "Không tìm thấy camera."
-            : "Không mở được camera trực tiếp.",
+        name === "NotAllowedError" ? "Chưa được cấp quyền camera." : name === "NotFoundError" ? "Không tìm thấy camera." : "Không mở được camera trực tiếp.",
       );
     }
   };
 
-  // Vòng quét: ~5 khung hình/giây, bỏ qua khung khi khung trước chưa xong
+  const grab = useCallback(() => captureVideoFrame(videoRef.current!), []);
+
+  // Vòng quét: đọc liên tục, tự động — không cần bấm nút
   useEffect(() => {
     if (state !== "running" || !ready) return;
     let stopped = false;
@@ -535,22 +772,48 @@ function CameraPanel({
         try {
           const codes = await decodeVideoFrame(video);
           if (codes.length) {
-            const texts = codes.map((c) => c.text);
-            setLastSeen(texts);
-            onCodes(texts);
+            setLastSeen(codes.map((c) => c.text));
+            setLastReadAt(Date.now());
+            onCodes(codes, grab);
           }
         } catch {
           /* khung hình lỗi — bỏ qua */
         }
       }
-      timer = window.setTimeout(tick, 200);
+      setNow(Date.now());
+      timer = window.setTimeout(tick, 150);
     };
     tick();
     return () => {
       stopped = true;
       window.clearTimeout(timer);
     };
-  }, [state, ready, onCodes]);
+  }, [state, ready, onCodes, grab]);
+
+  // Chế độ "Màn hình máy": đọc chữ liên tục (mỗi lần ~1–2 giây), không cần bấm
+  useEffect(() => {
+    if (state !== "running" || target !== "screen" || !onScreen) return;
+    let stopped = false;
+    let timer = 0;
+    const loop = async () => {
+      if (stopped) return;
+      setReading(true);
+      try {
+        const r = await onScreen(grab);
+        if (r && (r.added || r.updated)) setLastReadAt(Date.now());
+      } catch {
+        /* khung hình lỗi — bỏ qua */
+      }
+      setReading(false);
+      if (!stopped) timer = window.setTimeout(loop, 500);
+    };
+    timer = window.setTimeout(loop, 400);
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+      setReading(false);
+    };
+  }, [state, target, onScreen, grab]);
 
   const toggleTorch = async () => {
     const track = streamRef.current?.getVideoTracks()[0];
@@ -563,11 +826,43 @@ function CameraPanel({
     }
   };
 
+  const toggleZoom = async () => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track || !zoom) return;
+    const next = zoom.value > 1 ? 1 : Math.min(2, zoom.caps.max);
+    try {
+      await track.applyConstraints({ advanced: [{ zoom: next } as MediaTrackConstraintSet] });
+      setZoom({ ...zoom, value: next });
+    } catch {
+      setZoom(null);
+    }
+  };
+
+  const stuck = state === "running" && now - lastReadAt > (target === "screen" ? 9000 : 5000);
+
   return (
     <section className="sc-panel">
+      {onScreen && (
+        <div className="sc-seg" role="radiogroup" aria-label="Quét cái gì">
+          <button role="radio" aria-checked={target === "box"} className={target === "box" ? "is-active" : ""} onClick={() => setTarget("box")}>
+            Sau hộp <span>mã vạch</span>
+          </button>
+          <button role="radio" aria-checked={target === "screen"} className={target === "screen" ? "is-active" : ""} onClick={() => setTarget("screen")}>
+            Màn hình máy <span>IMEI, Serial</span>
+          </button>
+        </div>
+      )}
       <div className={`sc-video-wrap ${state === "running" ? "is-running" : ""}`}>
         <video ref={videoRef} className="sc-video" playsInline muted autoPlay />
-        {state === "running" && <div className="sc-reticle" aria-hidden />}
+        {state === "running" && (
+          <div className={`sc-reticle ${target === "screen" ? "is-screen" : ""} ${now - lastReadAt < 800 ? "is-hit" : ""}`} aria-hidden />
+        )}
+        {state === "running" && (
+          <span className="sc-live-pill">
+            ● {target === "screen" ? (reading ? "Đang đọc chữ trên màn hình…" : "Đang tự đọc màn hình") : "Đang tự quét mã vạch"}
+            {resolution ? ` · ${resolution}` : ""}
+          </span>
+        )}
         {state !== "running" && (
           <div className="sc-video-placeholder">
             {state === "error" ? (
@@ -589,71 +884,98 @@ function CameraPanel({
         )}
       </div>
       {state === "running" && (
-        <div className="sc-row">
-          <button className="sc-btn sc-btn-primary" onClick={onNextDevice}>
-            Máy tiếp theo
-          </button>
-          {torch !== null && (
-            <button className="sc-btn" onClick={toggleTorch}>
-              {torch ? "Tắt đèn" : "Bật đèn"}
+        <>
+          <div className="sc-row">
+            <button className="sc-btn sc-btn-primary" onClick={onNextDevice}>
+              Máy tiếp theo
             </button>
-          )}
-          <button className="sc-btn sc-btn-ghost" onClick={stop}>
-            Tắt camera
-          </button>
-        </div>
+            <button className="sc-btn" disabled={busy} onClick={async () => onCapture(await grab())}>
+              📸 Chụp &amp; đọc kỹ
+            </button>
+            <button className="sc-btn" onClick={onManual}>
+              ⌨ Nhập tay
+            </button>
+          </div>
+          <div className="sc-row">
+            {torch !== null && (
+              <button className="sc-btn sc-btn-ghost" onClick={toggleTorch}>
+                {torch ? "Tắt đèn" : "Bật đèn"}
+              </button>
+            )}
+            {zoom && (
+              <button className="sc-btn sc-btn-ghost" onClick={toggleZoom}>
+                {zoom.value > 1 ? "Thu về 1×" : "Phóng to 2×"}
+              </button>
+            )}
+            <button className="sc-btn sc-btn-ghost" onClick={stop}>
+              Tắt camera
+            </button>
+          </div>
+        </>
       )}
-      <p className="sc-hint">
-        Đưa camera song song với nhãn sau hộp, cách 10–20 cm. Các mã trên cùng một hộp được gom vào một máy; gặp serial mới sẽ tự sang máy mới.
-        {lastSeen.length > 0 && <span className="sc-muted"> Vừa thấy: {lastSeen.join(" · ")}</span>}
-      </p>
+      {target === "screen" ? (
+        <p className={`sc-hint ${stuck ? "sc-hint-warn" : ""}`}>
+          {stuck ? (
+            <>
+              Chưa đọc được. Mở <b>Cài đặt › Cài đặt chung › Giới thiệu</b> trên máy cần quét, để màn hình đủ sáng, giữ thẳng và tránh loá; lùi ra 20–30 cm để thấy cả dòng IMEI / Số sê-ri.
+            </>
+          ) : (
+            <>
+              Hướng camera vào màn hình <b>Giới thiệu</b> của máy cần quét — IMEI, IMEI2, Số sê-ri, Số kiểu máy được <b>tự đọc</b>. Kéo màn hình máy lên/xuống để thấy hết các dòng.
+            </>
+          )}
+        </p>
+      ) : stuck ? (
+        <p className="sc-hint sc-hint-warn">
+          Chưa đọc được mã nào. Lùi máy ra <b>20–30 cm</b> (camera iPhone Pro không lấy nét quá gần){zoom ? <>, bấm <b>Phóng to 2×</b></> : null}, bật đèn nếu tối, hoặc bấm{" "}
+          <b>📸 Chụp &amp; đọc kỹ</b> để đọc cả chữ trên nhãn.
+        </p>
+      ) : (
+        <p className="sc-hint">
+          Đưa nhãn sau hộp vào khung — mã được đọc <b>tự động</b>, không cần bấm. Part No. chỉ in bằng chữ sẽ được tự đọc chữ sau khi bắt được mã vạch.
+          {lastSeen.length > 0 && <span className="sc-muted"> Vừa thấy: {lastSeen.join(" · ")}</span>}
+        </p>
+      )}
     </section>
   );
 }
 
 function PhotoPanel({
   ready,
+  busy,
+  hasOcr,
   sampleLabelUrl,
-  onPhoto,
+  onImage,
 }: {
   ready: boolean;
+  busy: boolean;
+  hasOcr: boolean;
   sampleLabelUrl?: string;
-  onPhoto: (name: string, result: Awaited<ReturnType<typeof decodePhoto>>) => { found: number; devices: number; duplicates: number };
+  onImage: (image: Blob, name: string) => Promise<ImageResult>;
 }) {
-  const [busy, setBusy] = useState<string | null>(null);
   const [log, setLog] = useState<{ name: string; text: string; ok: boolean }[]>([]);
+
+  const describe = (r: ImageResult) =>
+    r.added || r.updated
+      ? `${r.barcodes} mã vạch${r.usedOcr ? " + đọc chữ" : ""} → ${r.added} máy mới${r.updated ? `, ${r.updated} máy bổ sung` : ""}`
+      : r.barcodes
+        ? `${r.barcodes} mã vạch → 0 máy mới (đã có trong danh sách)`
+        : hasOcr
+          ? "Không thấy mã vạch hay IMEI/Serial — chụp gần hơn, đủ sáng, nhãn phẳng"
+          : "Không thấy mã vạch — chụp gần hơn, đủ sáng, nhãn phẳng, tránh loá";
+
+  const run = async (image: Blob, name: string) => {
+    try {
+      const r = await onImage(image, name);
+      setLog((l) => [{ name, text: describe(r), ok: r.added + r.updated > 0 }, ...l].slice(0, 30));
+    } catch {
+      setLog((l) => [{ name, text: "Không mở được ảnh này", ok: false }, ...l].slice(0, 30));
+    }
+  };
 
   const handleFiles = async (files: FileList | null) => {
     if (!files?.length) return;
-    for (const [i, file] of Array.from(files).entries()) {
-      setBusy(`Đang đọc ảnh ${i + 1}/${files.length}…`);
-      const name = file.name || `anh-${Date.now()}.jpg`;
-      try {
-        const result = await decodePhoto(file);
-        const s = onPhoto(name, result);
-        const text =
-          s.found === 0
-            ? "Không thấy mã vạch — chụp gần hơn, đủ sáng, nhãn phẳng, tránh loá"
-            : `${s.found} mã → ${s.devices} máy mới${s.duplicates ? `, ${s.duplicates} máy đã có` : ""}`;
-        setLog((l) => [{ name, text, ok: s.found > 0 }, ...l].slice(0, 30));
-      } catch {
-        setLog((l) => [{ name, text: "Không mở được ảnh này", ok: false }, ...l].slice(0, 30));
-      }
-    }
-    setBusy(null);
-  };
-
-  const trySample = async () => {
-    if (!sampleLabelUrl) return;
-    setBusy("Đang đọc nhãn mẫu…");
-    try {
-      const result = await decodeImageUrl(sampleLabelUrl);
-      const s = onPhoto("nhan-mau.svg", result);
-      setLog((l) => [{ name: "Nhãn mẫu", text: `${s.found} mã → ${s.devices} máy mới${s.duplicates ? `, ${s.duplicates} máy đã có` : ""}`, ok: s.found > 0 }, ...l]);
-    } catch {
-      setLog((l) => [{ name: "Nhãn mẫu", text: "Không đọc được nhãn mẫu", ok: false }, ...l]);
-    }
-    setBusy(null);
+    for (const file of Array.from(files)) await run(file, file.name || `anh-${Date.now()}.jpg`);
   };
 
   return (
@@ -668,13 +990,13 @@ function PhotoPanel({
             hidden
             disabled={!ready}
             onChange={(e) => {
-              handleFiles(e.target.files);
+              void handleFiles(e.target.files);
               e.target.value = "";
             }}
           />
         </label>
         <label className={`sc-btn ${!ready ? "is-disabled" : ""}`}>
-          🖼️ Chọn nhiều ảnh
+          🖼️ Chọn ảnh / ảnh chụp màn hình
           <input
             type="file"
             accept="image/*"
@@ -683,30 +1005,41 @@ function PhotoPanel({
             disabled={!ready}
             data-testid="photo-input"
             onChange={(e) => {
-              handleFiles(e.target.files);
+              void handleFiles(e.target.files);
               e.target.value = "";
             }}
           />
         </label>
       </div>
+      <div
+        className="sc-paste-zone"
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-label="Vùng dán ảnh hoặc mã"
+        inputMode="none"
+        onInput={(e) => (e.currentTarget.textContent = "")}
+      >
+        Chạm vào đây → <b>Dán</b> ảnh chụp màn hình hoặc mã đã sao chép — tự nhận diện ngay.
+      </div>
+      <p className="sc-hint">
+        Chọn ảnh là <b>tự đọc ngay</b>: mã vạch trên nhãn hộp{hasOcr ? <>, và chữ trên ảnh chụp màn hình <b>Cài đặt › Cài đặt chung › Giới thiệu</b> (IMEI, Số sê-ri, Số kiểu máy)</> : null}. Ảnh không rời
+        khỏi máy của bạn.
+      </p>
       {sampleLabelUrl && (
         <div className="sc-sample">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={sampleLabelUrl} alt="Nhãn hộp mẫu với mã vạch Part No., Serial, IMEI và UPC" />
           <div>
             <p>
-              <b>Chưa có hộp máy?</b> Bấm thử với nhãn mẫu (2 máy, số liệu minh hoạ), hoặc mở nhãn này trên máy tính rồi chụp bằng điện thoại.
+              <b>Chưa có hộp máy?</b> Thử với nhãn mẫu (2 máy, số liệu minh hoạ).
             </p>
-            <button className="sc-btn" disabled={!ready || busy !== null} onClick={trySample}>
+            <button className="sc-btn" disabled={!ready || busy} onClick={async () => run(await rasterizeImageUrl(sampleLabelUrl), "Nhãn mẫu")}>
               Thử với nhãn mẫu
             </button>
           </div>
         </div>
       )}
-      {busy && <p className="sc-muted">{busy}</p>}
-      <p className="sc-hint">
-        Chụp nhãn sau hộp máy, hoặc chọn ảnh forwarder gửi. Ảnh có nhiều hộp sẽ được tách thành nhiều máy. Ảnh không rời khỏi điện thoại của bạn.
-      </p>
       {log.length > 0 && (
         <ul className="sc-log">
           {log.map((l, i) => (
@@ -720,15 +1053,48 @@ function PhotoPanel({
   );
 }
 
-function ManualPanel({ onPaste, onAddBlank }: { onPaste: (text: string) => void; onAddBlank: () => void }) {
+function ManualPanel({ onText, onAddBlank }: { onText: (text: string) => number; onAddBlank: () => void }) {
+  const [code, setCode] = useState("");
   const [text, setText] = useState("");
+
+  /** Ô nhập một mã: IMEI (có số kiểm tra) hoặc Part No. đủ mẫu là tự thêm; mã khác bấm Enter. */
+  const onCodeChange = (value: string) => {
+    const c = classifyCode(value);
+    if (c.kind === "IMEI" || c.kind === "PART_NUMBER") {
+      onText(c.value);
+      setCode("");
+    } else {
+      setCode(value);
+    }
+  };
+
   return (
     <section className="sc-panel">
       <label className="sc-field">
-        <span className="sc-label">Dán danh sách mã (từ Excel, email, tin nhắn) — mỗi dòng một máy</span>
+        <span className="sc-label">Nhập một mã — IMEI đủ 15 số hợp lệ sẽ tự thêm; Serial thì bấm Enter</span>
+        <input
+          className="sc-input"
+          value={code}
+          placeholder="IMEI, Serial hoặc Part No."
+          autoCapitalize="characters"
+          autoCorrect="off"
+          autoComplete="off"
+          spellCheck={false}
+          enterKeyHint="done"
+          onChange={(e) => onCodeChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && code.trim()) {
+              onText(code);
+              setCode("");
+            }
+          }}
+        />
+      </label>
+      <label className="sc-field">
+        <span className="sc-label">Hoặc dán danh sách (Excel, email, tin nhắn, ảnh chụp màn hình) — tự nhận diện khi dán</span>
         <textarea
           className="sc-input sc-textarea"
-          rows={4}
+          rows={3}
           value={text}
           placeholder={"F2LXQ7Y9KD\t350000000000006\tMDEM1LL/A\nC02XL0GTJGH5, 350000000000014"}
           autoCapitalize="characters"
@@ -739,17 +1105,17 @@ function ManualPanel({ onPaste, onAddBlank }: { onPaste: (text: string) => void;
       </label>
       <div className="sc-row">
         <button
-          className="sc-btn sc-btn-primary"
+          className="sc-btn"
           disabled={!text.trim()}
           onClick={() => {
-            onPaste(text);
+            onText(text);
             setText("");
           }}
         >
-          Thêm từ văn bản
+          Thêm từ văn bản đã gõ
         </button>
         <button className="sc-btn" onClick={onAddBlank}>
-          + Thêm máy, nhập tay
+          + Thêm máy trống, nhập từng ô
         </button>
       </div>
       <p className="sc-hint">

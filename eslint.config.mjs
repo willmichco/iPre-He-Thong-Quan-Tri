@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Thư viện chép vào public/ và bản build chạy thử
+    "public/wasm/**",
+    "public/ocr/**",
+    "dist/**",
+    "test-results/**",
+    ".e2e-fixtures/**",
   ]),
 ]);
 

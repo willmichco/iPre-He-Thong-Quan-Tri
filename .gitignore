@@ -51,3 +51,5 @@ next-env.d.ts
 
 # bộ giải mã chép từ node_modules khi cài đặt
 /public/wasm/
+/public/ocr/
+/.e2e-fixtures/

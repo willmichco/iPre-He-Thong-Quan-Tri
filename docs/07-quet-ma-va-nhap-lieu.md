@@ -447,3 +447,25 @@ Bộ ảnh chạy tự động trong CI (zxing-wasm chạy được trên Node) 
 | **GĐ1 — MVP** | Toàn bộ **form nhập tay** + lưới nhập máy · Quét trực tiếp và từ ảnh bằng **mã vạch** · Máy quét USB/Bluetooth · Dán văn bản · `variant_codes` + học mã mới · Tra cứu nhanh bằng quét |
 | **GĐ2** | **OCR** ảnh chụp màn hình · **Hộp chờ duyệt** · Nhận kiện bằng quét đối chiếu danh sách · Bộ ảnh mẫu chạy trong CI |
 | **GĐ3** | **AI đọc ảnh** cho trường hợp khó · **Hoá đơn → đơn mua** |
+
+---
+
+## 12. Cập nhật sau lần thử với hộp máy thật (04/11/2026)
+
+**Hiện tượng:** quét trực tiếp nhãn sau hộp iPhone 16 Pro Max thật trên iPhone, camera chạy nhưng không ra máy nào.
+
+**Nguyên nhân (đã đo):** chế độ quét trực tiếp tắt `tryHarder` để chạy nhanh. Mã Code 128 trên nhãn Apple rất mảnh và dày nên không đọc được. Trên cùng một khung hình mô phỏng: tắt `tryHarder` đọc được **2/8 mã**, bật `tryHarder` đọc được **8/8 mã**, mỗi khung mất khoảng 20 ms. Ngoài ra khung hình bị thu nhỏ về 1.280 px trước khi giải mã.
+
+**Đã sửa và bổ sung:**
+
+| Hạng mục | Thay đổi |
+|---|---|
+| Giải mã camera | Luôn bật `tryHarder`; đọc vùng khung ngắm ở **độ phân giải gốc**, xen kẽ với toàn khung; xin camera tới 4K; lấy nét liên tục, phóng to 2× nếu máy hỗ trợ |
+| **Hai dạng quét** | Camera có lựa chọn **Sau hộp (mã vạch)** / **Màn hình máy (IMEI, Serial)**. Ở chế độ màn hình, máy tự đọc chữ liên tục và chỉ nhận khi có IMEI qua kiểm tra Luhn hoặc serial nằm cạnh nhãn "Serial / Số sê-ri" |
+| Đọc chữ (OCR) đưa sớm từ GĐ2 | Tesseract.js tự phục vụ (`/ocr`), chỉ tải khi cần (~7 MB lần đầu). Chế độ PSM 6 giữ nhãn và giá trị trên cùng dòng; đảo màu ảnh chế độ tối; sửa nhầm 1→I trong Part No.; bỏ qua MEID (14 số), ICCID (20 số) |
+| Tự nhận diện, không cần bấm | Chọn ảnh, **dán ảnh chụp màn hình**, dán mã, hoặc gõ IMEI đủ 15 số hợp lệ là tự thêm. Part No. chỉ in bằng chữ (không có mã vạch) được tự đọc chữ sau khi camera bắt được mã vạch |
+| Nút dự phòng | **📸 Chụp & đọc kỹ** (ảnh độ phân giải gốc, mã vạch + đọc chữ) và **⌨ Nhập tay**; sau 5 giây không đọc được thì hiện gợi ý lùi 20–30 cm (camera iPhone Pro không lấy nét quá gần) |
+| Nhiều hộp trong khung | Gom theo **vị trí**: IMEI theo serial gần nhất, mã khác theo máy có mã định danh gần nhất; khi chỉ thấy một máy thì bỏ Part No. nằm dưới mọi mã định danh (là của hộp bên dưới) — trước đó Part No. bị gán chéo giữa 2 hộp xếp chồng |
+| Chụp lại cùng một hộp | Trùng serial/IMEI thì chỉ bổ sung ô còn thiếu, không tạo máy trùng |
+
+**Kiểm thử:** 62 kiểm thử đơn vị và 26 kiểm thử đầu-cuối. Có hai camera giả để kiểm tra hai dạng quét: một phát nhãn hộp 1080p hơi nghiêng, mờ, nén JPEG; một phát màn hình *Giới thiệu* tiếng Việt bị ám màu. Ngoài ra có ảnh chụp màn hình tiếng Anh/Việt ở chế độ sáng và tối, và thao tác dán ảnh, dán chữ.

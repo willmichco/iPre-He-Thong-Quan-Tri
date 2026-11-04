@@ -39,14 +39,18 @@ async function saveFile(filename: string, content: string) {
 }
 
 const wasm = { binary: base64ToArrayBuffer(window.__IPRE_WASM_B64__ ?? "") };
-// Trong khung xem thử, camera trực tiếp bị chặn; mở file HTML trực tiếp (https) thì dùng được.
-const liveCamera = !window.claude;
+// Trong khung xem thử của claude.ai: camera trực tiếp và tải tệp đọc chữ bị chặn.
+// Trên GitHub Pages (https thật): dùng được cả hai, bộ đọc chữ nằm ở ./ocr/.
+const inClaudeFrame = Boolean(window.claude);
+const liveCamera = !inClaudeFrame;
+const ocrBase = inClaudeFrame ? null : "./ocr";
 
 createRoot(document.getElementById("ipre-scanner")!).render(
   <Scanner
     wasm={wasm}
     storageKey="ipre.scan-demo"
     liveCamera={liveCamera}
+    ocrBase={ocrBase}
     saveFile={saveFile}
     sampleLabelUrl={window.__IPRE_SAMPLE_LABEL__}
   />,

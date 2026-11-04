@@ -26,6 +26,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Bỏ qua: trang đăng nhập, kiểm tra sức khoẻ, file tĩnh, bộ giải mã wasm, biểu tượng
-    "/((?!dang-nhap|api/health|_next/static|_next/image|wasm/|favicon.ico|nhan-mau|.*\\.(?:svg|png|jpg|webp|ico)$).*)",
+    "/((?!dang-nhap|api/health|_next/static|_next/image|wasm/|ocr/|favicon.ico|nhan-mau|.*\\.(?:svg|png|jpg|webp|ico)$).*)",
   ],
 };

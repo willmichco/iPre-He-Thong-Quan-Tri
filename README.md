@@ -64,8 +64,8 @@ Lệnh hỏi mật khẩu (tối thiểu 12 ký tự), in mã QR để quét b�
 |---|---|
 | `npm run dev` | Chạy máy phát triển |
 | `npm run typecheck` · `npm run lint` | Kiểm tra kiểu dữ liệu · quy tắc mã |
-| `npm test` | Kiểm thử đơn vị (nhận dạng mã, gom máy, đăng nhập, mã vạch thật → giải mã) |
-| `npm run test:e2e` | Kiểm thử đầu-cuối bằng trình duyệt (máy tính + giả lập iPhone) |
+| `npm test` | Kiểm thử đơn vị (nhận dạng mã, trích xuất chữ OCR, gom máy theo vị trí, đăng nhập, mã vạch thật → giải mã) |
+| `npm run test:e2e` | Kiểm thử đầu-cuối bằng trình duyệt (máy tính, giả lập iPhone, 2 camera giả: nhãn hộp và màn hình Giới thiệu) |
 | `npm run db:migrate` | Áp dụng migration còn thiếu (`db/migrations/*.sql`) |
 | `npm run db:seed` | Migration + nạp dữ liệu ví dụ |
 | `npm run build:standalone` | Đóng gói bộ quét thành bản chạy thử: `dist/quet-ma-thu.html` (một file) và `dist/pages/` (trang web cho GitHub Pages, nhánh `gh-pages`) |

@@ -30,7 +30,7 @@ test("nhãn mẫu: đọc đủ Part No., Serial, IMEI, UPC cho 2 máy và cản
 
   // Quét lại cùng nhãn: không tạo máy trùng
   await page.getByRole("button", { name: "Thử với nhãn mẫu" }).click();
-  await expect(page.getByText(/0 máy mới, 2 máy đã có/)).toBeVisible();
+  await expect(page.getByText(/0 máy mới \(đã có trong danh sách\)/)).toBeVisible();
   await expect(page.locator("article.sc-card")).toHaveCount(2);
 });
 
@@ -53,8 +53,8 @@ test("tải ảnh chụp lên (PNG) → đọc được mã như ảnh từ đi�
 test("dán từ Excel + sửa tay: IMEI sai số kiểm tra bị đánh dấu lỗi", async ({ page }) => {
   await login(page, "/quet-ma");
   await page.getByRole("tab", { name: /Nhập tay/ }).click();
-  await page.getByLabel(/Dán danh sách mã/).fill("F2LXQ7Y9KD\t350000000000006\tMDEM1LL/A\nC02XL0GTJGH5, 350000000000014");
-  await page.getByRole("button", { name: "Thêm từ văn bản" }).click();
+  await page.getByLabel(/Hoặc dán danh sách/).fill("F2LXQ7Y9KD\t350000000000006\tMDEM1LL/A\nC02XL0GTJGH5, 350000000000014");
+  await page.getByRole("button", { name: "Thêm từ văn bản đã gõ" }).click();
   await expect(page.locator("article.sc-card")).toHaveCount(2);
 
   const second = card(page, 2);

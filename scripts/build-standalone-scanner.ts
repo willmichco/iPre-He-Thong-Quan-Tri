@@ -6,7 +6,7 @@
  *   npm run build:standalone   → dist/quet-ma-thu.html
  */
 import { build, type Plugin } from "esbuild";
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
@@ -92,7 +92,7 @@ body {
 .sc-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
 ${css}
 </style>
-<p class="demo-note"><strong>Bản chạy thử GĐ0.</strong> Mọi xử lý diễn ra ngay trên máy của bạn; ảnh và mã không được gửi đi đâu. Kết quả chỉ lưu tạm trên trình duyệt này — dùng <strong>Tải CSV</strong> hoặc <strong>Sao chép bảng</strong> để giữ lại.</p>
+<p class="demo-note"><strong>Bản xem thử.</strong> Mọi xử lý diễn ra ngay trên máy của bạn; ảnh và mã không được gửi đi đâu. Kết quả chỉ lưu tạm trên trình duyệt này — dùng <strong>Tải CSV</strong> hoặc <strong>Sao chép bảng</strong> để giữ lại.</p>
 <div id="ipre-scanner"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/${REACT_VERSION}/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/${REACT_VERSION}/umd/react-dom.production.min.js"></script>
@@ -125,6 +125,9 @@ ${html}</body>
   writeFileSync(join(pagesDir, "index.html"), page);
   writeFileSync(join(pagesDir, ".nojekyll"), "");
   copyFileSync(join(root, "public", "nhan-mau.svg"), join(pagesDir, "nhan-mau.svg"));
+  // Bộ đọc chữ (OCR) tự phục vụ — chép từ public/ocr (tạo bởi scripts/copy-wasm.mjs)
+  mkdirSync(join(pagesDir, "ocr"), { recursive: true });
+  for (const f of readdirSync(join(root, "public", "ocr"))) copyFileSync(join(root, "public", "ocr", f), join(pagesDir, "ocr", f));
   console.log("✓ dist/pages/ (index.html, nhan-mau.svg, .nojekyll) — cho GitHub Pages");
 }
 
