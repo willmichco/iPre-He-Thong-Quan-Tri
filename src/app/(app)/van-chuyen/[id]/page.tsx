@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 import { LEG_LABEL, type LegType } from "@/domain/catalog";
 import { ITEM_STATUS_LABEL } from "@/domain/purchasing";
 import { daysLate, isMainLeg, isoToVnLocal, LEG_RULES, SHIPMENT_STATUS_LABEL, trackingUrl } from "@/domain/shipping";
+import { KINDS_BY_LEG } from "@/domain/costs";
+import { listCosts } from "@/server/costs/service";
 import { getShipment, shippingOptions } from "@/server/shipping/service";
+import { CostSection } from "../../_components/CostSection";
 import { ActionForm, Input, Submit } from "../../_components/form";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
 import { arriveAction, assignAction, deleteShipmentAction, holdAction, removeItemAction, shipAction, updateShipmentAction } from "../actions";
@@ -30,7 +33,12 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const s = await getShipment(db, id);
   if (!s) notFound();
-  const opts = await shippingOptions(db);
+  const [opts, costs, accounts] = await Promise.all([
+    shippingOptions(db),
+    listCosts(db, { shipmentId: s.id }),
+    db<{ id: string; name: string; currency: string }[]>`SELECT id::text, name, currency::text FROM accounts WHERE is_active ORDER BY name`,
+  ]);
+  const accountOptions = [["", "— chưa chọn —"] as const, ...accounts.map((a) => [a.id, `${a.name} (${a.currency})`] as const)];
   const carriers = [["", "— chọn —"] as const, ...opts.carriers.filter((c) => c.legTypes.includes(s.legType)).map((c) => [c.id, c.name] as const)];
   const batches = [["", "— không / nhiều chuyến —"] as const, ...opts.batches.map((b) => [b.id, b.code] as const)];
   const rule = isMainLeg(s.legType) ? LEG_RULES[s.legType] : null;
@@ -198,6 +206,15 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
           </div>
         )}
       </section>
+
+      <CostSection
+        costs={costs}
+        targets={[[`SHIPMENT:${s.id}`, `Kiện ${title}`]]}
+        defaultTarget={`SHIPMENT:${s.id}`}
+        accounts={accountOptions}
+        kinds={KINDS_BY_LEG[s.legType] ?? []}
+        title="Chi phí của kiện"
+      />
 
       <details className="mt-6">
         <summary className="cursor-pointer text-sm text-muted">Sửa thông tin kiện{s.status === "PLANNED" ? " / xoá kiện" : ""}</summary>

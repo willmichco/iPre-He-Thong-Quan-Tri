@@ -13,6 +13,7 @@ import {
   type InputHTMLAttributes,
   type ReactNode,
   type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
 } from "react";
 import { INITIAL_STATE, type FormState } from "./form-state";
 
@@ -92,6 +93,23 @@ export function Input({ label, name, hint, className = "", ...rest }: { label: s
       ) : (
         hint && <span className="text-xs text-muted">{hint}</span>
       )}
+    </label>
+  );
+}
+
+export function Textarea({
+  label,
+  name,
+  hint,
+  className = "",
+  ...rest
+}: { label: string; name: string; hint?: string } & TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const error = useFieldError(name);
+  return (
+    <label className={`flex flex-col gap-1 text-sm ${className}`}>
+      <span className="text-muted">{label}</span>
+      <textarea name={name} className="field" aria-invalid={error ? true : undefined} {...rest} />
+      {error ? <span className="text-xs text-danger">{error}</span> : hint && <span className="text-xs text-muted">{hint}</span>}
     </label>
   );
 }

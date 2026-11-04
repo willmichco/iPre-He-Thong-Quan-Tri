@@ -80,7 +80,11 @@ gantt
   - "Gửi đi" / "Đã nhận" (chọn ngày giờ, nhập bù được) → mốc M2–M7 + trạng thái cho mọi máy; chỉ đi tới không lùi; khách cọc giữ "Khách cọc"; ETA tự tính theo đơn vị vận chuyển
   - giữ hải quan / hết giữ (ghi nhật ký tracking); chuyến tự chuyển "Đang vận chuyển" → "Đã về"
   - đổi máy trong kiện → cước kiện chia lại → giá vốn tính lại (chuyến đã chốt → chặn); kiện đã gửi không bỏ máy / xoá được
-- [ ] Chi phí theo chặng (form) → tự tính lại giá vốn
+- [x] **Chi phí theo chặng** (`src/server/costs/service.ts`, `src/domain/costs.ts`, khối Chi phí ở trang chuyến & trang kiện):
+  - gắn vào chuyến / đơn mua / kiện / một máy; cách chia mặc định theo tài liệu 01 mục 5.1 (nội địa: số lượng · Mỹ→VN: cân nặng · bảo hiểm, thuế: giá trị), đổi được
+  - USD theo tỷ giá riêng của khoản; số âm = hoàn phí; dự toán / có chứng từ / chưa trả (công nợ); chia tay từng máy theo Serial/IMEI (tổng phải khớp)
+  - thêm / sửa / xoá (mềm) → giá vốn tự tính lại; chuyến đã chốt → chặn; còn dự toán → không chốt được
+  - cấu trúc giá vốn chuyến theo nhóm A–E + đối soát nhóm A = Σ đơn mua; mỗi khoản hiện "đã phân bổ ✓ n máy"
 - [ ] Bán nhanh + cọc; hồ sơ máy (giá vốn chi tiết, dòng thời gian)
 - [ ] Tổng quan cơ bản: vốn theo chặng, doanh thu/lãi tháng, tồn kho, cảnh báo
 - [ ] Nghiệm thu: nhập lại một chuyến thật từ Excel, giá vốn và lãi từng máy khớp 0 đồng

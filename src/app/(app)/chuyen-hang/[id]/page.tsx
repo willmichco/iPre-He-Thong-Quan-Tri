@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatVnd } from "@/domain/costing";
 import { BATCH_STATUS_LABEL, type GridRow } from "@/domain/purchasing";
+import { LEG_LABEL, type LegType } from "@/domain/catalog";
+import { costBreakdown, costTargets, listCosts } from "@/server/costs/service";
 import { getBatch, purchaseOptions, variantRefs, type PurchaseOrderRow } from "@/server/purchasing/service";
+import { CostSection } from "../../_components/CostSection";
 import { ActionForm, Input, Select, Submit } from "../../_components/form";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
 import { deleteBatchAction, deletePurchaseOrderAction, finalizeBatchAction, reopenBatchAction, savePurchaseOrderAction, updateBatchAction } from "../actions";
@@ -116,12 +119,15 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const batch = await getBatch(db, id);
   if (!batch) notFound();
-  const [variants, options] = await Promise.all([
+  const [variants, options, costs, breakdown, targets] = await Promise.all([
     variantRefs(
       db,
       batch.orders.flatMap((o) => o.items.map((i) => i.variantId)),
     ),
     purchaseOptions(db),
+    listCosts(db, { batchId: batch.id }),
+    costBreakdown(db, batch.id),
+    costTargets(db, batch.id),
   ]);
   const s = batch.summary;
   const finalized = FINAL.includes(batch.status);
@@ -130,6 +136,22 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
 
   const supplierOptions = [["", "— chọn nơi mua —"] as const, ...options.suppliers.map((x) => [x.id, x.name] as const)];
   const accountOptions = [["", "— chưa chọn —"] as const, ...options.accounts.map((a) => [a.id, `${a.name} (${a.currency})`] as const)];
+
+  const costTargetOptions = [
+    [`BATCH:${batch.id}`, `Cả chuyến ${batch.code}`] as const,
+    ...targets.purchaseOrders.map((p) => [`PURCHASE_ORDER:${p.id}`, `Đơn ${p.label}`] as const),
+    ...targets.shipments.map((x) => [`SHIPMENT:${x.id}`, `Kiện ${x.label} (${LEG_LABEL[x.leg as LegType]})`] as const),
+    ...batch.orders.flatMap((o) => o.items.map((i) => [`ITEM:${i.id}`, `Máy ${i.serial ?? i.imei1 ?? i.variantLabel}`] as const)),
+  ];
+  const groups = [
+    ["A. Giá mua (đơn giá, thuế, ship người bán, giảm giá, phí thẻ)", breakdown.purchaseVnd],
+    ["B. Nội địa Mỹ", breakdown.usDomesticVnd],
+    ["C. Mỹ → VN (cước, bảo hiểm, thông quan)", breakdown.internationalVnd],
+    ["D. HN → SG", breakdown.hnSgVnd],
+    ["E. Khác (phí chuyển tiền, kiểm máy, lưu kho…)", breakdown.otherVnd],
+  ] as const;
+  const extraPct = breakdown.totalVnd > 0n ? Number(((breakdown.totalVnd - breakdown.purchaseVnd) * 10000n) / breakdown.totalVnd) / 100 : 0;
+  const reconciled = breakdown.purchaseVnd === breakdown.purchaseOrdersVnd;
 
   return (
     <main className="mx-auto max-w-6xl p-4 md:p-8">
@@ -297,6 +319,45 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
           <Submit>Thêm đơn mua</Submit>
         </ActionForm>
       </section>
+
+      <section className="mt-8" aria-labelledby="cau-truc">
+        <h2 id="cau-truc" className="text-lg font-semibold">
+          Cấu trúc giá vốn
+        </h2>
+        <div className="card mt-2 p-4">
+          <table className="w-full text-sm" aria-label="Cấu trúc giá vốn">
+            <tbody>
+              {groups.map(([label, v]) => {
+                const pct = breakdown.totalVnd > 0n ? Number((v * 1000n) / breakdown.totalVnd) / 10 : 0;
+                return (
+                  <tr key={label}>
+                    <td className="py-1 pr-3">{label}</td>
+                    <td className="py-1 w-1/3">
+                      <div className="h-2 rounded bg-primary" style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} aria-hidden />
+                    </td>
+                    <td className="py-1 pl-3 text-right tabular-nums whitespace-nowrap">{formatVnd(v)} ₫</td>
+                  </tr>
+                );
+              })}
+              <tr className="border-t border-border font-semibold">
+                <td className="pt-2">= Giá vốn chuyến{breakdown.hasEstimate ? " (còn khoản dự toán)" : ""}</td>
+                <td />
+                <td className="pt-2 text-right tabular-nums">{formatVnd(breakdown.totalVnd)} ₫</td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="mt-2 text-xs text-muted">
+            Chi phí ngoài giá mua: {extraPct.toLocaleString("vi-VN")}% tổng vốn ·{" "}
+            <span className={reconciled ? "text-[var(--ok)]" : "text-[var(--warn)]"} data-testid="reconcile">
+              {reconciled
+                ? "Đối soát: nhóm A = Σ tổng tiền các đơn mua ✓"
+                : `Đối soát: nhóm A ${formatVnd(breakdown.purchaseVnd)} ≠ Σ đơn mua ${formatVnd(breakdown.purchaseOrdersVnd)} — kiểm tra subtotal / máy chưa nhập`}
+            </span>
+          </p>
+        </div>
+      </section>
+
+      <CostSection costs={costs} targets={costTargetOptions} accounts={accountOptions} title="Chi phí của chuyến" />
     </main>
   );
 }
