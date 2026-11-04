@@ -130,3 +130,24 @@ export function hasStrongIdentity(x: TextExtraction): boolean {
 export function hasIdentity(x: TextExtraction): boolean {
   return Boolean(x.serial || x.imeis.length > 0);
 }
+
+/**
+ * Gộp hai lần đọc chữ độc lập (vd: vùng chữ đã cắt + cả ảnh): lần đầu được ưu tiên,
+ * lần sau chỉ bổ sung trường còn thiếu; IMEI lấy hợp (đều đã qua Luhn).
+ */
+export function mergeExtractions(a: TextExtraction, b: TextExtraction): TextExtraction {
+  const serialFromA = a.serial && (a.serialAnchored || !b.serialAnchored || !b.serial);
+  return {
+    serial: serialFromA ? a.serial : (b.serial ?? a.serial),
+    serialAnchored: serialFromA ? a.serialAnchored : b.serial ? b.serialAnchored : a.serialAnchored,
+    imeis: [...a.imeis, ...b.imeis.filter((i) => !a.imeis.includes(i))].slice(0, 2),
+    partNumber: a.partNumber ?? b.partNumber,
+    eid: a.eid ?? b.eid,
+    upc: a.upc ?? b.upc,
+  };
+}
+
+/** Lần đọc đã đủ các trường thường thấy trên màn hình Giới thiệu chưa (để khỏi đọc thêm cả ảnh). */
+export function isComplete(x: TextExtraction): boolean {
+  return Boolean(x.serial && x.serialAnchored && x.partNumber && x.imeis.length > 0);
+}

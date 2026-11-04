@@ -22,7 +22,7 @@ import {
   type StreamState,
 } from "@/domain/scan-session";
 import { classifyCode, splitPastedText } from "@/domain/identifiers";
-import { extractFromText, hasIdentity } from "@/domain/text-extract";
+import { extractFromText, hasIdentity, isComplete, mergeExtractions } from "@/domain/text-extract";
 import { acceptedAsExtraction, addReading, emptyVotes, hasNew, type Accepted, type ScreenVotes } from "@/domain/screen-votes";
 import { captureVideoFrame, decodePhoto, decodeVideoFrame, initDecoder, rasterizeImageUrl, type WasmSource } from "./decoder";
 import { recognizeCanvas, recognizeText } from "./ocr";
@@ -191,11 +191,14 @@ export function Scanner({
       const progress = (p: number) => setBusy(`Đang tải bộ đọc chữ (lần đầu)… ${Math.round(p * 100)}%`);
       try {
         const crop = await cropTextRegion(image);
+        let first: ReturnType<typeof extractFromText> | null = null;
         if (crop) {
-          const x = extractFromText(await recognizeCanvas(ocrBase, crop, progress), { ocr: true });
-          if (hasIdentity(x)) return x;
+          first = extractFromText(await recognizeCanvas(ocrBase, crop, progress), { ocr: true });
+          if (isComplete(first)) return first;
         }
-        return extractFromText(await recognizeText(ocrBase, image, progress), { ocr: true });
+        // vùng cắt chưa đọc đủ (hoặc không tìm được vùng) → đọc thêm cả ảnh rồi GỘP, không bỏ kết quả đã có
+        const whole = extractFromText(await recognizeText(ocrBase, image, progress), { ocr: true });
+        return first ? mergeExtractions(first, whole) : whole;
       } catch {
         return null;
       }

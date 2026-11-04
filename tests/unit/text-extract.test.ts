@@ -143,3 +143,15 @@ describe("extractFromText — OCR khung hình camera chụp màn hình máy (gia
     expect(extractFromText("MDEM1LLJA").partNumber).toBeUndefined();
   });
 });
+
+describe("mergeExtractions — gộp hai lần đọc (vùng cắt + cả ảnh)", () => {
+  it("lần đọc vùng cắt thiếu Part No. → lấy từ lần đọc cả ảnh, không mất IMEI/Serial đã có", async () => {
+    const { mergeExtractions, isComplete } = await import("@/domain/text-extract");
+    const crop = { serial: "F2LXQ7Y9KD", serialAnchored: true, imeis: [IMEI1, IMEI2] };
+    expect(isComplete(crop)).toBe(false);
+    const whole = { serial: "F2LXQ7Y9K0", serialAnchored: false, imeis: [IMEI1], partNumber: "MDEM1LL/A" };
+    const m = mergeExtractions(crop, whole);
+    expect(m).toMatchObject({ serial: "F2LXQ7Y9KD", serialAnchored: true, imeis: [IMEI1, IMEI2], partNumber: "MDEM1LL/A" });
+    expect(isComplete(m)).toBe(true);
+  });
+});
