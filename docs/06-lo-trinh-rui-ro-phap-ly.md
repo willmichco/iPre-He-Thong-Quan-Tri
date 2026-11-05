@@ -130,7 +130,10 @@ gantt
 - [x] **Cài đặt** (`/cai-dat`): ngưỡng cảnh báo, ngưỡng doanh thu thuế + tỷ lệ cảnh báo, chính sách máy trả người bán — chỉ những tham số hệ thống thật sự đọc;
   **tải toàn bộ dữ liệu** (ZIP các CSV, một thời điểm nhất quán, ghi nhật ký)
 - [x] **Sổ thuế**: báo cáo doanh thu thuế (Báo cáo › Doanh thu thuế) + ghi / sửa số hoá đơn điện tử trên đơn bán
-- [ ] PWA, OCR, hộp chờ duyệt · nhập dữ liệu cũ · sao lưu hằng ngày
+- [x] **Sao lưu & khôi phục** (rủi ro #4; `npm run backup`, `src/server/backup/`): `pg_dump` + toàn bộ tệp chứng từ trong một gói mã hoá AES-256-GCM
+  (khoá `BACKUP_KEY`, sai khoá / tệp bị sửa → từ chối); giữ 30 bản ngày + 12 bản tháng; kiểm tra toàn vẹn; khôi phục trong một transaction, phải xác nhận ghi đè;
+  **diễn tập khôi phục tự động trong CI** (khôi phục vào CSDL mới, so từng bảng). Lịch chạy hằng ngày (cron) bật khi có máy chủ thật
+- [ ] PWA, OCR, hộp chờ duyệt · nhập dữ liệu cũ
 
 **Ưu tiên khi phải cắt giảm:** costing engine và mốc vận chuyển là **không thể cắt**. Có thể dời: biểu đồ nâng cao, Kanban kéo thả (dùng nút bấm thay thế), PWA ngoại tuyến, tracking API.
 

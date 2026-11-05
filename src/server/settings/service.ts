@@ -3,7 +3,7 @@
  */
 import type { Sql, TransactionSql } from "postgres";
 import { defaultStored, parseSetting, SETTINGS } from "@/domain/settings";
-import { zip } from "@/server/reports/xlsx";
+import { zip } from "@/server/zip";
 
 type Db = Sql | TransactionSql;
 

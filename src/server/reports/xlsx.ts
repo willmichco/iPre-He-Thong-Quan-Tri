@@ -4,7 +4,9 @@
  * Hỗ trợ: nhiều trang tính, dòng tiêu đề in đậm + cố định khi cuộn, cột tiền (#,##0), phần trăm, số lẻ,
  * dòng tổng in đậm, độ rộng cột tự tính. Tiền là số nguyên VND (Excel giữ chính xác tới 15 chữ số).
  */
-import { crc32, deflateRawSync } from "node:zlib";
+import { zip } from "@/server/zip";
+
+export { zip };
 
 export type ColumnType = "text" | "money" | "int" | "pct" | "dec";
 
@@ -187,57 +189,6 @@ export function workbookFiles(sheets: readonly Sheet[]): { name: string; data: s
     ...sheets.map((s, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, data: sheetXml(s) })),
   ];
   return files;
-}
-
-/** Đóng gói ZIP (deflate). Tên tệp UTF-8; ngày giờ cố định 01/01/1980 để cùng dữ liệu cho cùng tệp. */
-export function zip(files: readonly { name: string; data: string | Uint8Array }[]): Buffer {
-  const locals: Buffer[] = [];
-  const centrals: Buffer[] = [];
-  let offset = 0;
-  for (const f of files) {
-    const raw = typeof f.data === "string" ? Buffer.from(f.data, "utf8") : Buffer.from(f.data);
-    const comp = deflateRawSync(raw, { level: 6 });
-    const name = Buffer.from(f.name, "utf8");
-    const crc = crc32(raw) >>> 0;
-    const head = Buffer.alloc(30);
-    head.writeUInt32LE(0x04034b50, 0);
-    head.writeUInt16LE(20, 4); // phiên bản cần
-    head.writeUInt16LE(0x0800, 6); // tên UTF-8
-    head.writeUInt16LE(8, 8); // deflate
-    head.writeUInt16LE(0, 10); // giờ
-    head.writeUInt16LE(0x21, 12); // ngày 1980-01-01
-    head.writeUInt32LE(crc, 14);
-    head.writeUInt32LE(comp.length, 18);
-    head.writeUInt32LE(raw.length, 22);
-    head.writeUInt16LE(name.length, 26);
-    head.writeUInt16LE(0, 28);
-    locals.push(head, name, comp);
-
-    const cen = Buffer.alloc(46);
-    cen.writeUInt32LE(0x02014b50, 0);
-    cen.writeUInt16LE(20, 4);
-    cen.writeUInt16LE(20, 6);
-    cen.writeUInt16LE(0x0800, 8);
-    cen.writeUInt16LE(8, 10);
-    cen.writeUInt16LE(0, 12);
-    cen.writeUInt16LE(0x21, 14);
-    cen.writeUInt32LE(crc, 16);
-    cen.writeUInt32LE(comp.length, 20);
-    cen.writeUInt32LE(raw.length, 24);
-    cen.writeUInt16LE(name.length, 28);
-    // trường phụ, chú thích, đĩa, thuộc tính = 0
-    cen.writeUInt32LE(offset, 42);
-    centrals.push(cen, name);
-    offset += head.length + name.length + comp.length;
-  }
-  const cdSize = centrals.reduce((s, b) => s + b.length, 0);
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(files.length, 8);
-  end.writeUInt16LE(files.length, 10);
-  end.writeUInt32LE(cdSize, 12);
-  end.writeUInt32LE(offset, 16);
-  return Buffer.concat([...locals, ...centrals, end]);
 }
 
 export const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

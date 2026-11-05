@@ -21,7 +21,8 @@
     "build:standalone": "tsx scripts/build-standalone-scanner.ts",
     "test:db": "vitest run --project db",
     "costing:check": "tsx scripts/costing.ts check",
-    "costing:recalc": "tsx scripts/costing.ts recalc"
+    "costing:recalc": "tsx scripts/costing.ts recalc",
+    "backup": "tsx scripts/backup.ts"
   },
   "dependencies": {
     "@tesseract.js-data/eng": "^1.0.0",
