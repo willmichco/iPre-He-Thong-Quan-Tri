@@ -50,3 +50,23 @@ export function retention(names: readonly string[], opts: { days?: number; month
   pick("month", months);
   return { keep: dated.filter((b) => keep.has(b.n)).map((b) => b.n), remove: dated.filter((b) => !keep.has(b.n)).map((b) => b.n) };
 }
+
+/** "pg_restore (PostgreSQL) 17.2 (Ubuntu 17.2-1)" → 17; không đọc được → null. */
+export function pgMajor(versionOutput: string): number | null {
+  const m = /\(PostgreSQL\)\s+(\d+)/.exec(versionOutput) ?? /\b(\d{2})\.\d+/.exec(versionOutput);
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * Công cụ dòng lệnh có hợp với máy chủ không. pg_dump phải ≥ phiên bản máy chủ (pg_dump cũ hơn tự từ chối);
+ * pg_restore không được MỚI hơn máy chủ đích — bản mới ghi lệnh máy chủ cũ không hiểu (vd pg_restore 17 gửi
+ * "SET transaction_timeout" cho PostgreSQL 16 → khôi phục hỏng giữa chừng). null = hợp.
+ */
+export function toolMismatch(tool: "pg_dump" | "pg_restore", toolMajor: number | null, serverMajor: number): string | null {
+  if (toolMajor === null) return null;
+  if (tool === "pg_dump" && toolMajor < serverMajor)
+    return `pg_dump ${toolMajor} cũ hơn máy chủ PostgreSQL ${serverMajor} — cài postgresql-client-${serverMajor} (hoặc đặt PG_BIN tới thư mục bin của bản ${serverMajor})`;
+  if (tool === "pg_restore" && toolMajor > serverMajor)
+    return `pg_restore ${toolMajor} mới hơn máy chủ đích PostgreSQL ${serverMajor} — dùng pg_restore ${serverMajor}: cài postgresql-client-${serverMajor} hoặc đặt PG_BIN=/usr/lib/postgresql/${serverMajor}/bin`;
+  return null;
+}

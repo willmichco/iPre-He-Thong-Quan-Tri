@@ -53,6 +53,7 @@ describe("Sao lưu ↔ khôi phục (PostgreSQL thật)", () => {
     expect(b.path.endsWith("ipre-20261104-190000.ipbak")).toBe(true);
     expect(b.manifest.attachments.count).toBe(1);
     expect(b.manifest.migrations).toContain("0005_so_quy.sql");
+    expect(b.manifest.versions?.pgDump).toMatch(/^pg_dump \(PostgreSQL\) \d+/);
     expect(readFileSync(b.path).includes(Buffer.from("SERIALAIRPODS1"))).toBe(false); // đã mã hoá
 
     const v = await verifyBackup(b.path, KEY);

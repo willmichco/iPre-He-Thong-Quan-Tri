@@ -14,7 +14,7 @@ import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from "
 import { tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
 import postgres from "postgres";
-import { backupName, retention } from "@/domain/backup";
+import { backupName, pgMajor, retention, toolMismatch } from "@/domain/backup";
 import { unzip, zip } from "@/server/zip";
 
 const MAGIC = Buffer.from("IPREBAK1");
@@ -68,7 +68,9 @@ function pgEnv(url: string): NodeJS.ProcessEnv {
 
 function run(cmd: string, args: string[], env: NodeJS.ProcessEnv, input?: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const p = spawn(cmd, args, { env, stdio: ["pipe", "pipe", "pipe"] });
+    // PG_BIN: thư mục bin của đúng phiên bản PostgreSQL (vd /usr/lib/postgresql/16/bin) khi máy có nhiều bản
+    const bin = process.env.PG_BIN ? join(process.env.PG_BIN, cmd) : cmd;
+    const p = spawn(bin, args, { env, stdio: ["pipe", "pipe", "pipe"] });
     const out: Buffer[] = [];
     const err: Buffer[] = [];
     p.stdout.on("data", (b: Buffer) => out.push(b));
@@ -80,6 +82,29 @@ function run(cmd: string, args: string[], env: NodeJS.ProcessEnv, input?: Buffer
     if (input) p.stdin.end(input);
     else p.stdin.end();
   });
+}
+
+async function toolVersion(cmd: "pg_dump" | "pg_restore") {
+  const out = (await run(cmd, ["--version"], process.env)).toString().trim();
+  return { text: out, major: pgMajor(out) };
+}
+
+async function serverVersion(url: string): Promise<{ text: string; major: number }> {
+  const sql = postgres(url, { max: 1, onnotice: () => {} });
+  try {
+    const [r] = await sql<{ v: string; n: string }[]>`SELECT current_setting('server_version') AS v, current_setting('server_version_num') AS n`;
+    return { text: r.v, major: Math.floor(Number(r.n) / 10000) };
+  } finally {
+    await sql.end();
+  }
+}
+
+/** Dừng sớm với thông báo rõ ràng khi công cụ dòng lệnh không hợp phiên bản máy chủ. */
+async function assertTool(cmd: "pg_dump" | "pg_restore", url: string) {
+  const [tool, server] = await Promise.all([toolVersion(cmd), serverVersion(url)]);
+  const problem = toolMismatch(cmd, tool.major, server.major);
+  if (problem) throw new Error(problem);
+  return { tool: tool.text, server: server.text };
 }
 
 // ---- Tệp chứng từ ---------------------------------------------------------------------------------------
@@ -106,12 +131,15 @@ export interface Manifest {
   rows: Record<string, number>;
   database: { file: "csdl.dump"; bytes: number; sha256: string };
   attachments: { count: number; bytes: number };
+  /** phiên bản pg_dump và máy chủ lúc sao lưu (để chọn đúng pg_restore khi khôi phục) */
+  versions?: { pgDump: string; server: string };
 }
 
 // ---- Tạo / kiểm tra / khôi phục -------------------------------------------------------------------------
 
 export async function createBackup(opts: { databaseUrl: string; attachmentsDir: string; outDir: string; secret: string; now?: Date }) {
   const now = opts.now ?? new Date();
+  const versions = await assertTool("pg_dump", opts.databaseUrl);
   const dump = await run("pg_dump", ["--format=custom", "--no-owner", "--no-privileges", "--compress=6"], pgEnv(opts.databaseUrl));
   const sql = postgres(opts.databaseUrl, { max: 1, onnotice: () => {} });
   let migrations: string[];
@@ -133,6 +161,7 @@ export async function createBackup(opts: { databaseUrl: string; attachmentsDir: 
     rows,
     database: { file: "csdl.dump", bytes: dump.length, sha256: sha(dump) },
     attachments: { count: docs.length, bytes: docs.reduce((s, d) => s + d.data.length, 0) },
+    versions: { pgDump: versions.tool, server: versions.server },
   };
   // dump đã nén, ảnh / PDF đã nén → ZIP chỉ đóng gói (store)
   const bundle = zip([{ name: "manifest.json", data: JSON.stringify(manifest, null, 2) }, { name: "csdl.dump", data: dump }, ...docs], { store: true });
@@ -170,6 +199,7 @@ export async function verifyBackup(file: string, secret: string) {
  */
 export async function restoreBackup(opts: { file: string; secret: string; targetUrl: string; attachmentsDir: string }) {
   const { manifest, parts } = await verifyBackup(opts.file, opts.secret);
+  await assertTool("pg_restore", opts.targetUrl); // kiểm tra TRƯỚC khi đụng vào CSDL đích
   const dir = await mkdtemp(join(tmpdir(), "ipre-khoi-phuc-"));
   try {
     await writeFile(join(dir, "csdl.dump"), parts.get("csdl.dump")!);

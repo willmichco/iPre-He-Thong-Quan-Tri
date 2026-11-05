@@ -68,7 +68,7 @@ npm run backup -- kiem-tra data/sao-luu/ipre-20261105-190000.ipbak         # gi�
 npm run backup -- khoi-phuc <tệp.ipbak> --vao postgres://…/ipre --dong-y-ghi-de
 ```
 
-Mỗi bản `.ipbak` gồm `pg_dump` toàn bộ CSDL + mọi tệp chứng từ, mã hoá AES-256-GCM bằng `BACKUP_KEY` (**mất khoá là mất bản sao lưu** — cất khoá ở nơi riêng, ví dụ trình quản lý mật khẩu). Lưu ở `BACKUP_DIR` (mặc định `./data/sao-luu`), tự giữ 30 bản ngày gần nhất + 12 bản tháng. Chạy hằng ngày bằng cron (02:00 giờ VN = 19:00 UTC: `0 19 * * * cd /srv/ipre && npm run backup`) và chép `BACKUP_DIR` sang nơi khác máy chủ. Cần `pg_dump` / `pg_restore` cùng phiên bản PostgreSQL. Kiểm thử `tests/integration/backup.test.ts` diễn tập khôi phục vào CSDL mới và so từng bảng.
+Mỗi bản `.ipbak` gồm `pg_dump` toàn bộ CSDL + mọi tệp chứng từ, mã hoá AES-256-GCM bằng `BACKUP_KEY` (**mất khoá là mất bản sao lưu** — cất khoá ở nơi riêng, ví dụ trình quản lý mật khẩu). Lưu ở `BACKUP_DIR` (mặc định `./data/sao-luu`), tự giữ 30 bản ngày gần nhất + 12 bản tháng. Chạy hằng ngày bằng cron (02:00 giờ VN = 19:00 UTC: `0 19 * * * cd /srv/ipre && npm run backup`) và chép `BACKUP_DIR` sang nơi khác máy chủ. Cần `pg_dump` / `pg_restore` **cùng phiên bản lớn với máy chủ** (pg_restore mới hơn máy chủ đích sẽ bị từ chối trước khi đụng vào dữ liệu); máy có nhiều bản thì đặt `PG_BIN=/usr/lib/postgresql/16/bin`. Kiểm thử `tests/integration/backup.test.ts` diễn tập khôi phục vào CSDL mới và so từng bảng.
 
 ## Lệnh thường dùng
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { backupName, parseBackupName, retention } from "@/domain/backup";
+import { backupName, parseBackupName, pgMajor, retention, toolMismatch } from "@/domain/backup";
 import { decrypt, encrypt } from "@/server/backup/service";
 import { unzip, zip } from "@/server/zip";
 
@@ -30,6 +30,20 @@ describe("Sao lưu — tên tệp & chính sách giữ bản", () => {
     expect(r.keep.length).toBe(30 + 12 - 2);
     expect(retention([])).toEqual({ keep: [], remove: [] });
     expect(retention(["ipre-20261104-190000.ipbak"], { days: 0, months: 0 }).keep).toEqual(["ipre-20261104-190000.ipbak"]); // luôn giữ bản mới nhất
+  });
+});
+
+describe("Sao lưu — phiên bản công cụ PostgreSQL", () => {
+  it("đọc phiên bản; pg_dump không cũ hơn máy chủ, pg_restore không mới hơn máy chủ đích", () => {
+    expect(pgMajor("pg_restore (PostgreSQL) 17.2 (Ubuntu 17.2-1.pgdg24.04+1)")).toBe(17);
+    expect(pgMajor("pg_dump (PostgreSQL) 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)")).toBe(16);
+    expect(pgMajor("lạ")).toBeNull();
+    expect(toolMismatch("pg_restore", 17, 16)).toContain("pg_restore 17 mới hơn máy chủ đích PostgreSQL 16");
+    expect(toolMismatch("pg_restore", 16, 16)).toBeNull();
+    expect(toolMismatch("pg_restore", 15, 16)).toBeNull();
+    expect(toolMismatch("pg_dump", 15, 16)).toContain("pg_dump 15 cũ hơn máy chủ PostgreSQL 16");
+    expect(toolMismatch("pg_dump", 17, 16)).toBeNull();
+    expect(toolMismatch("pg_dump", null, 16)).toBeNull();
   });
 });
 
