@@ -32,6 +32,7 @@ export function ActionForm({
   confirm,
   className = "",
   label,
+  id,
 }: {
   action: Action;
   children: ReactNode;
@@ -39,6 +40,8 @@ export function ActionForm({
   confirm?: string;
   className?: string;
   label?: string;
+  /** để ô ở ngoài form (vd ô chọn trong bảng) gắn vào bằng thuộc tính form="…" */
+  id?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, INITIAL_STATE);
   const ref = useRef<HTMLFormElement>(null);
@@ -49,13 +52,16 @@ export function ActionForm({
     <FormCtx.Provider value={{ pending, errors: state.ok ? {} : (state.fieldErrors ?? {}) }}>
       <form
         ref={ref}
+        id={id}
         aria-label={label}
         className={className}
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
           if (confirm && !window.confirm(confirm)) return;
-          const fd = new FormData(e.currentTarget);
+          // kèm giá trị của nút đã bấm (form nhiều thao tác: name="do" value="…")
+          const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+          const fd = new FormData(e.currentTarget, submitter?.form === e.currentTarget ? submitter : null);
           startTransition(() => formAction(fd));
         }}
       >
@@ -139,7 +145,7 @@ export function Select({
 
 export function Checkbox({ label, name, defaultChecked, value = "on" }: { label: string; name: string; defaultChecked?: boolean; value?: string }) {
   return (
-    <label className="flex items-center gap-2 text-sm min-h-[44px]">
+    <label className="field-inline flex items-center gap-2 text-sm min-h-[44px]">
       <input type="checkbox" name={name} value={value} defaultChecked={defaultChecked} className="size-5" />
       {label}
     </label>
@@ -182,12 +188,14 @@ export function Submit({ children, variant = "primary" }: { children: ReactNode;
   );
 }
 
-export function Tabs({ tabs }: { tabs: readonly { href: string; label: string }[] }) {
+/** Thẻ chuyển mục con. Thẻ đầu (trang gốc) chỉ sáng khi đúng trang gốc — hoặc trang con không thuộc thẻ nào khác. */
+export function Tabs({ tabs, label = "Mục danh mục" }: { tabs: readonly { href: string; label: string }[]; label?: string }) {
   const pathname = usePathname();
+  const other = tabs.slice(1).some((t) => pathname.startsWith(t.href));
   return (
-    <nav aria-label="Mục danh mục" className="segmented mt-4">
-      {tabs.map((t) => {
-        const active = t.href === "/danh-muc" ? pathname === t.href : pathname.startsWith(t.href);
+    <nav aria-label={label} className="segmented mt-4">
+      {tabs.map((t, k) => {
+        const active = k === 0 ? pathname === t.href || (!other && pathname.startsWith(`${t.href}/`)) : pathname.startsWith(t.href);
         return (
           <Link key={t.href} href={t.href} aria-current={active ? "page" : undefined}>
             {t.label}

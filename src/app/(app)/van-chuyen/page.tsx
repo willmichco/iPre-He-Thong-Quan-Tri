@@ -35,7 +35,7 @@ export default async function ShippingBoard() {
 
       <details className="card mt-4 p-4">
         <summary className="cursor-pointer font-semibold">+ Tạo kiện</summary>
-        <ActionForm action={createShipmentAction} label="Tạo kiện" className="mt-3 flex flex-wrap items-end gap-3">
+        <ActionForm action={createShipmentAction} label="Tạo kiện" className="mt-3 field-row">
           <ShipmentFields carriers={carriers} batches={batches} />
           <Submit>Tạo kiện</Submit>
         </ActionForm>

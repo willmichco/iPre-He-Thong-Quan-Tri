@@ -47,7 +47,7 @@ export default async function SuppliersPage() {
         <h2 id="them-noi-mua" className="font-semibold">
           Thêm nơi mua
         </h2>
-        <ActionForm action={saveSupplierAction} resetOnSuccess label="Thêm nơi mua" className="mt-3 flex flex-wrap items-end gap-3">
+        <ActionForm action={saveSupplierAction} resetOnSuccess label="Thêm nơi mua" className="mt-3 field-row">
           <SupplierFields />
           <Submit>Thêm</Submit>
         </ActionForm>
@@ -69,7 +69,7 @@ export default async function SuppliersPage() {
               {s.note && <p className="mt-1 text-sm text-muted">{s.note}</p>}
               <details className="mt-2">
                 <summary className="cursor-pointer text-sm text-muted">Sửa / xoá</summary>
-                <ActionForm action={saveSupplierAction} label={`Sửa ${s.name}`} className="mt-3 flex flex-wrap items-end gap-3">
+                <ActionForm action={saveSupplierAction} label={`Sửa ${s.name}`} className="mt-3 field-row">
                   <input type="hidden" name="id" value={s.id} />
                   <SupplierFields s={s} />
                   <Submit variant="secondary">Lưu</Submit>

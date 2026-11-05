@@ -357,6 +357,18 @@ export async function returnItem(db: Db, saleItemId: string, reason: string, ref
   });
 }
 
+/** Ghi / sửa số hoá đơn điện tử của đơn (trống = chưa xuất). Phục vụ sổ doanh thu thuế. */
+export async function setEinvoiceNo(db: Db, saleId: string, raw: string) {
+  const no = raw.trim().slice(0, 60) || null;
+  return db.begin(async (tx) => {
+    const [s] = await tx<{ einvoice_no: string | null; status: string }[]>`SELECT einvoice_no, status::text FROM sales WHERE id = ${saleId} FOR UPDATE`;
+    if (!s) throw new SaleError("NOT_FOUND", "Không tìm thấy đơn bán");
+    if (s.status === "CANCELLED" && no) throw new SaleError("INVALID_STATE", "Đơn đã huỷ — không ghi hoá đơn", "einvoiceNo");
+    await tx`UPDATE sales SET einvoice_no = ${no}, updated_at = now() WHERE id = ${saleId}`;
+    await audit(tx, "UPDATE", saleId, { einvoiceNo: s.einvoice_no }, { einvoiceNo: no });
+  });
+}
+
 // ---- Đọc ------------------------------------------------------------------------------------------------
 
 export interface SaleDetail {

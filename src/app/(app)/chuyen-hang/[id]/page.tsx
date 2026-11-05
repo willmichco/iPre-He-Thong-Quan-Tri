@@ -4,6 +4,8 @@ import { formatVnd } from "@/domain/costing";
 import { BATCH_STATUS_LABEL, type GridRow } from "@/domain/purchasing";
 import { LEG_LABEL, type LegType } from "@/domain/catalog";
 import { costBreakdown, costTargets, listCosts } from "@/server/costs/service";
+import { listAttachments } from "@/server/attachments/service";
+import { Attachments } from "../../_components/Attachments";
 import { getBatch, purchaseOptions, variantRefs, type PurchaseOrderRow } from "@/server/purchasing/service";
 import { CostSection } from "../../_components/CostSection";
 import { ActionForm, Input, Select, Submit } from "../../_components/form";
@@ -119,7 +121,7 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const batch = await getBatch(db, id);
   if (!batch) notFound();
-  const [variants, options, costs, breakdown, targets] = await Promise.all([
+  const [variants, options, costs, breakdown, targets, poDocs, batchDocs] = await Promise.all([
     variantRefs(
       db,
       batch.orders.flatMap((o) => o.items.map((i) => i.variantId)),
@@ -128,6 +130,12 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
     listCosts(db, { batchId: batch.id }),
     costBreakdown(db, batch.id),
     costTargets(db, batch.id),
+    listAttachments(
+      db,
+      "PURCHASE_ORDER",
+      batch.orders.map((o) => o.id),
+    ),
+    listAttachments(db, "BATCH", [batch.id]),
   ]);
   const s = batch.summary;
   const finalized = FINAL.includes(batch.status);
@@ -192,7 +200,7 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
 
       <section className="mt-4 flex flex-wrap items-start gap-3" aria-label="Chốt chi phí">
         {finalized ? (
-          <ActionForm action={reopenBatchAction} label="Mở lại chuyến" className="flex flex-wrap items-end gap-3">
+          <ActionForm action={reopenBatchAction} label="Mở lại chuyến" className="field-row">
             <input type="hidden" name="id" value={batch.id} />
             <Input label="Lý do mở lại *" name="reason" placeholder="vd: hoá đơn cước điều chỉnh" className="min-w-64" />
             <Submit variant="secondary">Mở lại chuyến</Submit>
@@ -209,7 +217,7 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
         )}
         <details className="grow">
           <summary className="cursor-pointer text-sm text-muted min-h-[44px] flex items-center">Sửa thông tin chuyến</summary>
-          <ActionForm action={updateBatchAction} label="Sửa thông tin chuyến" className="mt-2 flex flex-wrap items-end gap-3">
+          <ActionForm action={updateBatchAction} label="Sửa thông tin chuyến" className="mt-2 field-row">
             <input type="hidden" name="id" value={batch.id} />
             <Input label="Mã chuyến" name="code" defaultValue={batch.code} className="w-40" />
             <Input label="Tên / ghi nhớ" name="name" defaultValue={batch.name ?? ""} className="grow min-w-48" />
@@ -283,9 +291,18 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
                 <span className="ml-auto font-semibold tabular-nums">{formatVnd(po.totalVnd)} ₫</span>
               </div>
               {po.returnDeadline && <div className="text-xs text-muted">Hạn đổi trả {dmy(po.returnDeadline)}</div>}
+              <div className="mt-3">
+                <Attachments
+                  entityType="PURCHASE_ORDER"
+                  entityId={po.id}
+                  docs={poDocs.filter((d) => d.entityId === po.id)}
+                  title="Chứng từ mua hàng"
+                  hint="hoá đơn / biên nhận của người bán — bằng chứng nguồn gốc hàng"
+                />
+              </div>
               <details className="mt-2">
                 <summary className="cursor-pointer text-sm text-muted">Sửa / xoá đơn mua</summary>
-                <ActionForm action={savePurchaseOrderAction} label={`Sửa đơn mua ${label}`} className="mt-2 flex flex-wrap items-end gap-3">
+                <ActionForm action={savePurchaseOrderAction} label={`Sửa đơn mua ${label}`} className="mt-2 field-row">
                   <PoFields po={po} batchId={batch.id} plannedFxRate={batch.plannedFxRate} suppliers={supplierOptions} accounts={accountOptions} />
                   <Submit variant="secondary">Lưu đơn mua</Submit>
                 </ActionForm>
@@ -310,11 +327,21 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
         })}
       </div>
 
+      <section className="card mt-4 p-4" aria-label="Chứng từ chuyến">
+        <Attachments
+          entityType="BATCH"
+          entityId={batch.id}
+          docs={batchDocs}
+          title="Chứng từ chung của chuyến"
+          hint="tờ khai / chứng từ nhập khẩu, vận đơn tổng"
+        />
+      </section>
+
       <section className="card mt-4 p-4" aria-labelledby="them-don">
         <h3 id="them-don" className="font-semibold">
           + Thêm đơn mua
         </h3>
-        <ActionForm action={savePurchaseOrderAction} resetOnSuccess label="Thêm đơn mua" className="mt-3 flex flex-wrap items-end gap-3">
+        <ActionForm action={savePurchaseOrderAction} resetOnSuccess label="Thêm đơn mua" className="mt-3 field-row">
           <PoFields batchId={batch.id} plannedFxRate={batch.plannedFxRate} suppliers={supplierOptions} accounts={accountOptions} />
           <Submit>Thêm đơn mua</Submit>
         </ActionForm>

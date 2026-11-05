@@ -31,7 +31,7 @@ export default async function CodesPage({ searchParams }: PageProps<"/danh-muc/m
         <p className="mt-1 text-sm text-muted">
           Mỗi Part No. (vd: <code>MDEM1LL/A</code>) hoặc UPC chỉ cần gán <b>một lần</b>: lần sau quét hộp là tự điền cấu hình, cân nặng.
         </p>
-        <form method="get" className="mt-3 flex flex-wrap items-end gap-3" role="search">
+        <form method="get" className="mt-3 field-row" role="search">
           <label className="flex flex-col gap-1 text-sm grow min-w-56">
             <span className="text-muted">Part No. / UPC / EAN</span>
             <input
@@ -75,7 +75,7 @@ export default async function CodesPage({ searchParams }: PageProps<"/danh-muc/m
             {variants.length === 0 ? (
               <Empty>Chưa có cấu hình nào — thêm mẫu máy và cấu hình ở tab &quot;Mẫu máy &amp; cấu hình&quot; trước.</Empty>
             ) : (
-              <ActionForm action={addCodeAction} label="Gán mã cho cấu hình" className="mt-2 flex flex-wrap items-end gap-3">
+              <ActionForm action={addCodeAction} label="Gán mã cho cấu hình" className="mt-2 field-row">
                 <input type="hidden" name="codeType" value={type!} />
                 <input type="hidden" name="code" value={checked.code} />
                 <Select label="Cấu hình" name="variantId" options={variantOptions} className="grow min-w-64" />
@@ -130,7 +130,7 @@ export default async function CodesPage({ searchParams }: PageProps<"/danh-muc/m
         )}
         <details className="mt-3">
           <summary className="cursor-pointer text-sm text-primary">+ Gán mã thủ công</summary>
-          <ActionForm action={addCodeAction} resetOnSuccess label="Gán mã thủ công" className="mt-3 flex flex-wrap items-end gap-3">
+          <ActionForm action={addCodeAction} resetOnSuccess label="Gán mã thủ công" className="mt-3 field-row">
             <Select label="Loại mã" name="codeType" options={CODE_OPTIONS} />
             <Input label="Mã" name="code" autoCapitalize="characters" autoComplete="off" spellCheck={false} className="w-44" />
             <Select label="Cấu hình" name="variantId" options={variantOptions} className="grow min-w-64" />

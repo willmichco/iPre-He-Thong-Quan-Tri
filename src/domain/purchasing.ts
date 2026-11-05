@@ -7,6 +7,8 @@ import { parseDecimalInput, validate, type FieldErrors } from "./catalog";
 
 export { validate, type FieldErrors };
 export * from "./purchasing-core";
+export { parseFxRate } from "./decimal-input";
+import { parseFxRate } from "./decimal-input";
 
 // ---- Form chuyến & đơn mua ----------------------------------------------------------------------------
 
@@ -48,16 +50,6 @@ const optId = z
   .transform((s: string) => s.trim())
   .transform((s) => (s === "" ? null : s))
   .refine((s) => s === null || z.guid().safeParse(s).success, "Lựa chọn không hợp lệ");
-
-/**
- * Tỷ giá VND/USD: "26.350" / "26,350" là 26.350 đồng (dấu hàng nghìn kiểu Việt Nam), không phải 26,35.
- * "26.350,5" / "26350.5" vẫn đọc phần lẻ bình thường. Tối đa 4 chữ số thập phân.
- */
-export function parseFxRate(raw: string): string | null {
-  const s = raw.trim();
-  if (/^\d{1,3}([.,]\d{3})+$/.test(s)) return parseDecimalInput(s.replace(/[.,]/g, ""), 4);
-  return parseDecimalInput(s, 4);
-}
 
 const fxRate = (label: string, required: boolean) =>
   z

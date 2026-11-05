@@ -53,3 +53,6 @@ next-env.d.ts
 /public/wasm/
 /public/ocr/
 /.e2e-fixtures/
+
+# tệp chứng từ tải lên (môi trường phát triển / tự quản)
+/data/

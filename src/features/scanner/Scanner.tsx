@@ -48,6 +48,8 @@ export interface ScannerProps {
   sampleLabelUrl?: string;
   /** Hiện thông tin danh mục của Part No. vừa đọc (cấu hình, cân nặng; mã lạ → gợi ý gán). Bản độc lập không có. */
   renderPartNumberInfo?: (partNumber: string) => ReactNode;
+  /** Gửi phiên quét về máy chủ (hộp chờ duyệt). Bản độc lập không có → không hiện nút. */
+  onSubmit?: (records: DeviceRecord[]) => Promise<{ ok: boolean; message: string }>;
 }
 
 const SOURCE_BADGE: Record<FieldSource, { label: string; cls: string }> = {
@@ -154,6 +156,7 @@ export function Scanner({
   liveCamera = true,
   sampleLabelUrl,
   renderPartNumberInfo,
+  onSubmit,
 }: ScannerProps) {
   // Component chỉ chạy phía trình duyệt (xem ScannerClient) nên đọc localStorage ngay được.
   const [session, setSession] = useState<StreamState>(() => loadSession(storageKey));
@@ -515,6 +518,21 @@ export function Scanner({
     }
   };
 
+  const [sending, setSending] = useState(false);
+  const submit = async () => {
+    if (!onSubmit || sending) return;
+    setSending(true);
+    try {
+      const r = await onSubmit(records);
+      notify(r.message);
+      if (r.ok) haptic("success");
+    } catch {
+      notify("Chưa gửi được — kiểm tra mạng rồi thử lại (phiên quét vẫn giữ trên máy)");
+    } finally {
+      setSending(false);
+    }
+  };
+
   const exportCsv = async () => {
     const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
     try {
@@ -675,6 +693,11 @@ export function Scanner({
       </section>
 
       <footer className="sc-actions">
+        {onSubmit && (
+          <button className="sc-btn sc-btn-primary" disabled={!records.length || sending} onClick={submit}>
+            {sending ? "Đang gửi…" : `Gửi vào hộp chờ duyệt (${records.length})`}
+          </button>
+        )}
         <button className="sc-btn" disabled={!records.length} onClick={copyTable}>
           Sao chép bảng
         </button>

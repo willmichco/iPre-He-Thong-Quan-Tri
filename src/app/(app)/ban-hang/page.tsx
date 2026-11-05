@@ -16,7 +16,10 @@ export default async function SalesPage() {
     <main className="mx-auto max-w-5xl p-4 md:p-8">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold">Bán hàng</h1>
-        <Link href="/ban-hang/moi" className="btn-primary ml-auto">
+        <Link href="/ban-hang/khach-hang" className="btn-secondary ml-auto">
+          Khách hàng
+        </Link>
+        <Link href="/ban-hang/moi" className="btn-primary">
           + Bán máy
         </Link>
       </div>

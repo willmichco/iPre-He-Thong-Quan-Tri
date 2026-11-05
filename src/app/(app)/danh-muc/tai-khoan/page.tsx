@@ -44,7 +44,7 @@ export default async function AccountsPage() {
           Thêm tài khoản tiền
         </h2>
         <p className="mt-1 text-sm text-muted">Nơi tiền ra vào: tiền mặt, ngân hàng, thẻ thanh toán đơn Mỹ, ví điện tử.</p>
-        <ActionForm action={saveAccountAction} resetOnSuccess label="Thêm tài khoản" className="mt-3 flex flex-wrap items-end gap-3">
+        <ActionForm action={saveAccountAction} resetOnSuccess label="Thêm tài khoản" className="mt-3 field-row">
           <AccountFields />
           <Submit>Thêm</Submit>
         </ActionForm>
@@ -63,7 +63,7 @@ export default async function AccountsPage() {
               </div>
               <details className="mt-2">
                 <summary className="cursor-pointer text-sm text-muted">Sửa / xoá</summary>
-                <ActionForm action={saveAccountAction} label={`Sửa ${a.name}`} className="mt-3 flex flex-wrap items-end gap-3">
+                <ActionForm action={saveAccountAction} label={`Sửa ${a.name}`} className="mt-3 field-row">
                   <input type="hidden" name="id" value={a.id} />
                   <AccountFields a={a} />
                   <Submit variant="secondary">Lưu</Submit>

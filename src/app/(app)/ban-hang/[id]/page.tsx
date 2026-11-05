@@ -5,7 +5,9 @@ import { CHANNEL_LABEL, SALE_STATUS_LABEL, type Channel } from "@/domain/sales";
 import { getSale } from "@/server/sales/service";
 import { ActionForm, Checkbox, Input, Select, Submit } from "../../_components/form";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
-import { addPaymentAction, cancelDepositAction, completeSaleAction, returnItemAction } from "../actions";
+import { addPaymentAction, cancelDepositAction, completeSaleAction, returnItemAction, setEinvoiceAction } from "../actions";
+import { listAttachments } from "@/server/attachments/service";
+import { Attachments } from "../../_components/Attachments";
 
 export const metadata = { title: "Đơn bán" };
 
@@ -37,9 +39,10 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const sale = await getSale(db, id);
   if (!sale) notFound();
-  const accounts = await db<
-    { id: string; name: string }[]
-  >`SELECT id::text, name FROM accounts WHERE is_active AND currency = 'VND' ORDER BY kind <> 'BANK', name`;
+  const [accounts, docs] = await Promise.all([
+    db<{ id: string; name: string }[]>`SELECT id::text, name FROM accounts WHERE is_active AND currency = 'VND' ORDER BY kind <> 'BANK', name`,
+    listAttachments(db, "SALE", [sale.id]),
+  ]);
   const accountOptions = [["", "— chọn —"] as const, ...accounts.map((a) => [a.id, a.name] as const)];
   const active = sale.lines.filter((l) => !l.voidedAt);
   const profits = active.map((l) => itemProfit({ netRevenueVnd: l.priceVnd - l.discountAllocVnd, expenseAllocVnd: l.expenseAllocVnd }, l.costVnd));
@@ -60,7 +63,17 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
           {dmyHm(sale.soldAt)} · {CHANNEL_LABEL[sale.channel as Channel] ?? sale.channel}
         </span>
       </div>
-      <p className="mt-1 text-sm">Khách: {sale.customer ? `${sale.customer.name}${sale.customer.phone ? ` · ${sale.customer.phone}` : ""}` : "Khách lẻ"}</p>
+      <p className="mt-1 text-sm">
+        Khách:{" "}
+        {sale.customer ? (
+          <Link href={`/ban-hang/khach-hang/${sale.customer.id}`} className="underline">
+            {sale.customer.name}
+            {sale.customer.phone ? ` · ${sale.customer.phone}` : ""}
+          </Link>
+        ) : (
+          "Khách lẻ"
+        )}
+      </p>
 
       <section className="card mt-4 p-4" aria-label="Tổng đơn">
         <dl className="grid grid-cols-2 gap-1 text-sm">
@@ -81,6 +94,24 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
             </>
           )}
         </dl>
+      </section>
+
+      <section className="card mt-4 flex flex-col gap-4 p-4" aria-label="Hoá đơn và chứng từ">
+        {sale.status !== "CANCELLED" && (
+          <ActionForm action={setEinvoiceAction} label="Số hoá đơn điện tử" className="field-row">
+            <input type="hidden" name="id" value={sale.id} />
+            <Input
+              label="Số hoá đơn điện tử"
+              name="einvoiceNo"
+              defaultValue={sale.einvoiceNo ?? ""}
+              placeholder="Chưa xuất"
+              hint="Doanh thu năm vượt ngưỡng → phải xuất hoá đơn điện tử có mã của cơ quan thuế"
+              className="grow min-w-48"
+            />
+            <Submit variant="secondary">Lưu</Submit>
+          </ActionForm>
+        )}
+        <Attachments entityType="SALE" entityId={sale.id} docs={docs} title="Chứng từ đơn bán" hint="hoá đơn, phiếu bán / bảo hành đã gửi khách" />
       </section>
 
       <section className="mt-4" aria-label="Máy trong đơn">
@@ -119,7 +150,7 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
                       action={returnItemAction}
                       label={`Khách trả lại ${l.serial ?? l.imei1}`}
                       confirm="Ghi nhận khách trả lại máy này?"
-                      className="mt-2 flex flex-wrap items-end gap-3"
+                      className="mt-2 field-row"
                     >
                       <input type="hidden" name="saleItemId" value={l.id} />
                       <Input label="Lý do *" name="reason" className="min-w-48" />
@@ -145,7 +176,7 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
         {sale.status === "DEPOSITED" && (
           <div className="card p-4">
             <h2 className="font-semibold">Hoàn tất đơn (giao máy)</h2>
-            <ActionForm action={completeSaleAction} label="Hoàn tất đơn" className="mt-2 flex flex-wrap items-end gap-3">
+            <ActionForm action={completeSaleAction} label="Hoàn tất đơn" className="mt-2 field-row">
               <input type="hidden" name="id" value={sale.id} />
               <Input label="Thu nốt" name="paidAmount" inputMode="decimal" defaultValue={formatVnd(sale.balanceVnd)} className="w-36" />
               <Select label="Vào tài khoản" name="accountId" options={accountOptions} defaultValue={accounts[0]?.id} />
@@ -158,7 +189,7 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
         {sale.status !== "CANCELLED" && sale.balanceVnd > 0n && sale.status === "COMPLETED" && (
           <div className="card p-4">
             <h2 className="font-semibold">Thu thêm tiền</h2>
-            <ActionForm action={addPaymentAction} label="Thu thêm tiền" className="mt-2 flex flex-wrap items-end gap-3">
+            <ActionForm action={addPaymentAction} label="Thu thêm tiền" className="mt-2 field-row">
               <input type="hidden" name="id" value={sale.id} />
               <Input label="Số tiền" name="amount" inputMode="decimal" defaultValue={formatVnd(sale.balanceVnd)} className="w-36" />
               <Select label="Vào tài khoản" name="accountId" options={accountOptions} defaultValue={accounts[0]?.id} />
@@ -169,7 +200,7 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
         {sale.status === "DEPOSITED" && (
           <details className="card p-4">
             <summary className="cursor-pointer text-sm text-danger">Huỷ đơn cọc</summary>
-            <ActionForm action={cancelDepositAction} label="Huỷ đơn cọc" confirm="Huỷ đơn cọc này?" className="mt-2 flex flex-wrap items-end gap-3">
+            <ActionForm action={cancelDepositAction} label="Huỷ đơn cọc" confirm="Huỷ đơn cọc này?" className="mt-2 field-row">
               <input type="hidden" name="id" value={sale.id} />
               <Input label="Lý do *" name="reason" className="min-w-48" />
               <Input label="Hoàn cọc" name="refund" inputMode="decimal" defaultValue={formatVnd(sale.paidVnd)} className="w-32" hint="0 = giữ cọc" />

@@ -9,6 +9,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // tải chứng từ (ảnh / PDF) qua Server Action: tối đa 30 MB mỗi lần (xem src/domain/attachments.ts) + phần đầu multipart
+    serverActions: { bodySizeLimit: "32mb" },
+  },
   // Dashboard một người dùng, mọi trang là dữ liệu động theo phiên → dùng mô hình render động
   // truyền thống, không bật Cache Components (xem docs/02-kien-truc.md).
   turbopack: {
@@ -22,6 +26,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      {
+        // service worker: luôn lấy bản mới nhất, chỉ chạy mã cùng nguồn
+        source: "/sw.js",
+        headers: [
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self'" },
+        ],
+      },
       {
         source: "/:dir(wasm|ocr)/:file*",
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],

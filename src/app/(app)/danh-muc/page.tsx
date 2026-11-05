@@ -23,7 +23,7 @@ export default async function ModelsPage() {
         <h2 id="them-mau" className="font-semibold">
           Thêm mẫu máy
         </h2>
-        <ActionForm action={saveModelAction} resetOnSuccess label="Thêm mẫu máy" className="mt-3 flex flex-wrap items-end gap-3">
+        <ActionForm action={saveModelAction} resetOnSuccess label="Thêm mẫu máy" className="mt-3 field-row">
           <Select label="Dòng sản phẩm" name="category" options={CATEGORY_OPTIONS} />
           <Input label="Tên mẫu máy *" name="name" placeholder="vd: iPhone 17 Pro Max" className="grow min-w-56" />
           <Input label="Năm ra mắt" name="releaseYear" inputMode="numeric" placeholder="2026" className="w-28" />
@@ -66,7 +66,7 @@ function ModelCard({ model }: { model: ModelRow }) {
 
       <details className="mt-3">
         <summary className="cursor-pointer text-sm text-primary">+ Thêm cấu hình</summary>
-        <ActionForm action={saveVariantAction} resetOnSuccess label={`Thêm cấu hình cho ${model.name}`} className="mt-3 flex flex-wrap items-end gap-3">
+        <ActionForm action={saveVariantAction} resetOnSuccess label={`Thêm cấu hình cho ${model.name}`} className="mt-3 field-row">
           <input type="hidden" name="modelId" value={model.id} />
           <VariantFields />
           <Submit>Thêm cấu hình</Submit>
@@ -75,7 +75,7 @@ function ModelCard({ model }: { model: ModelRow }) {
 
       <details className="mt-2">
         <summary className="cursor-pointer text-sm text-muted">Sửa / xoá mẫu máy</summary>
-        <ActionForm action={saveModelAction} label={`Sửa mẫu máy ${model.name}`} className="mt-3 flex flex-wrap items-end gap-3">
+        <ActionForm action={saveModelAction} label={`Sửa mẫu máy ${model.name}`} className="mt-3 field-row">
           <input type="hidden" name="id" value={model.id} />
           <Select label="Dòng sản phẩm" name="category" options={CATEGORY_OPTIONS} defaultValue={model.category} />
           <Input label="Tên mẫu máy *" name="name" defaultValue={model.name} className="grow min-w-56" />
@@ -156,13 +156,13 @@ function VariantItem({ variant: v, modelId }: { variant: VariantRow; modelId: st
       </div>
       <details className="mt-2">
         <summary className="cursor-pointer text-sm text-muted">Sửa · gán mã · xoá</summary>
-        <ActionForm action={addCodeAction} resetOnSuccess label={`Gán mã cho ${v.sku}`} className="mt-3 flex flex-wrap items-end gap-3">
+        <ActionForm action={addCodeAction} resetOnSuccess label={`Gán mã cho ${v.sku}`} className="mt-3 field-row">
           <input type="hidden" name="variantId" value={v.id} />
           <Select label="Loại mã" name="codeType" options={CODE_OPTIONS} />
           <Input label="Mã trên hộp" name="code" placeholder="MDEM1LL/A" autoCapitalize="characters" autoComplete="off" spellCheck={false} className="w-44" />
           <Submit variant="secondary">Gán mã</Submit>
         </ActionForm>
-        <ActionForm action={saveVariantAction} label={`Sửa cấu hình ${v.sku}`} className="mt-3 flex flex-wrap items-end gap-3">
+        <ActionForm action={saveVariantAction} label={`Sửa cấu hình ${v.sku}`} className="mt-3 field-row">
           <input type="hidden" name="id" value={v.id} />
           <input type="hidden" name="modelId" value={modelId} />
           <VariantFields v={v} />

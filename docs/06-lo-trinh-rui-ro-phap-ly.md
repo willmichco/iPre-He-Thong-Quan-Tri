@@ -96,7 +96,50 @@ gantt
   - "Vốn đang nằm ở đâu" theo 7 chặng — máy khách đã cọc tính ở chỗ máy đang thật sự nằm; bấm chặng → Kho máy lọc `?chang=`
   - "Cần xử lý": kiện giữ hải quan (số ngày), kiện trễ ETA quá số ngày ân hạn, đơn mua sắp hết hạn đổi trả mà còn máy chưa kiểm, máy tồn quá N ngày, đơn cọc đã về SG cần giao, khách còn nợ, doanh thu năm chạm ngưỡng — ngưỡng đọc từ `app_settings`
   - biểu đồ doanh thu & lãi 12 tháng (kèm bảng số), lãi theo dòng máy, tuổi tồn kho, chuyến đang chạy (số máy theo chặng)
-- [ ] Nghiệm thu: nhập lại một chuyến thật từ Excel, giá vốn và lãi từng máy khớp 0 đồng
+- [ ] Nghiệm thu: nhập lại một chuyến thật từ Excel, giá vốn và lãi từng máy khớp 0 đồng — **dời sau GĐ2 theo yêu cầu chủ hàng (05/11/2026)**
+
+### Tiến độ GĐ2 (cập nhật 05/11/2026)
+
+- [x] **Thu chi + công nợ** (`/thu-chi`, `src/server/ledger/service.ts`, `src/domain/ledger.ts`, migration `0005_so_quy.sql`):
+  - **bút toán tự sinh**: đơn mua đã trả, cước / chi phí chặng đã trả (số âm = hoàn phí → bút toán thu), chi phí bán hàng đã trả → đúng **một** bút toán liên kết về chứng từ gốc
+    (chỉ mục duy nhất chặn ghi trùng), đồng bộ trong cùng transaction khi sửa / bỏ ngày trả / xoá chứng từ; chỉ sửa ở chứng từ gốc. Dữ liệu cũ được ghi bổ sung (`ledger_backfill()`)
+  - nhập tay: chi phí vận hành, thu khác, góp / rút vốn, nộp thuế; chuyển tiền / đổi ngoại tệ = 2 bút toán cùng nhóm, không tính vào tổng thu chi toàn sổ
+  - tiền theo tiền tệ của tài khoản (tính bằng xu, không sai số), quy đổi VND để báo cáo; tài khoản USD dùng tỷ giá nhập hoặc tỷ giá gần nhất
+  - số dư từng tài khoản, sổ một tài khoản có số dư luỹ kế; **đối soát** với sao kê cuối ngày (lưu lịch sử, tuỳ chọn ghi bút toán điều chỉnh)
+  - tổng hợp: tiền hiện có, vốn trong hàng, phải thu, phải trả, tài sản lưu động ròng; dòng tiền 12 tuần (kèm bảng số)
+  - **công nợ**: phải thu (đơn bán còn nợ theo tuổi nợ, hoàn phí chưa nhận) · phải trả (đơn mua, cước, chi phí bán hàng chưa trả; nút "Đã trả" ghi thẳng vào sổ)
+  - danh mục thu chi tự tạo (đánh dấu "vận hành" để trừ vào lãi ròng); danh mục hệ thống không sửa / xoá được
+- [x] **Báo cáo + xuất Excel** (`/bao-cao`, `src/server/reports/`, `src/domain/reports.ts`):
+  - kỳ: tháng / quý / năm (này, trước) hoặc tự chọn ngày; luôn so với kỳ trước (trọn tháng → cùng số tháng liền trước, còn lại → cùng độ dài)
+  - **lãi lỗ** dạng báo cáo kết quả kinh doanh (doanh thu → giá vốn → lãi gộp → chi phí bán → vận hành → lãi ròng trước thuế, % doanh thu, thay đổi),
+    theo tháng, chi phí vận hành theo danh mục; đếm máy lãi "Tạm tính"
+  - **dòng máy**: số bán, doanh thu, lãi, biên lãi, số ngày bán trung bình (từ khi về SG), đang tồn, xếp loại "lãi cao / quay nhanh" theo trung vị
+  - **chuyến**: xếp hạng ROI, vốn còn đọng, chu kỳ vốn · **kênh bán** · **vận chuyển**: ngày đi TB / lâu nhất theo chặng × đơn vị, tỉ lệ trễ ETA, giữ hải quan
+  - **tồn kho**: phân bố tuổi tồn, danh sách máy cần xả · **doanh thu thuế**: theo tháng / quý, % ngưỡng doanh thu, đơn chưa ghi số hoá đơn điện tử,
+    chi phí có chứng từ hợp lệ
+  - **xuất Excel** mọi báo cáo (`/bao-cao/xuat`): tệp .xlsx tự đóng gói (không thêm thư viện), cột tiền / %, dòng tiêu đề cố định, lọc, dòng tổng;
+    kiểm bằng openpyxl và LibreOffice
+- [x] **Hồ sơ chứng từ nguồn gốc** (mục 3.2; `src/server/attachments/`, `src/domain/attachments.ts`):
+  - đính kèm ảnh / PDF vào đơn mua, chuyến, kiện, máy, đơn bán (chụp bằng camera điện thoại); nhận diện định dạng theo nội dung tệp, tối đa 15 MB/tệp;
+    khử trùng theo SHA-256; xoá mềm, ghi nhật ký; xem / tải qua `/chung-tu/<id>` (cần đăng nhập)
+  - trang máy: **hồ sơ nguồn gốc** gom mọi chứng từ theo hành trình (đơn mua → chuyến → các kiện → máy → đơn bán), báo thiếu hoá đơn mua /
+    vận đơn – chứng từ nhập khẩu; `/kho/thieu-chung-tu` liệt kê máy đang trong tay còn thiếu, cảnh báo ngay trên Kho máy
+  - kho tệp cục bộ (`ATTACHMENTS_DIR`); thay bằng R2 / S3 khi chốt nơi triển khai
+- [x] **Khách hàng** (`/ban-hang/khach-hang`): danh sách (số đơn, đã mua, còn nợ), hồ sơ (máy đã mua, bảo hành, đơn), thêm / sửa (số điện thoại chuẩn hoá, không trùng);
+  **ẩn danh hoá** theo yêu cầu (mục 3.3 — Luật 91/2025/QH15): xoá thông tin định danh, giữ giao dịch phục vụ nghĩa vụ thuế; nhật ký không lưu thông tin cá nhân
+- [x] **Cài đặt** (`/cai-dat`): ngưỡng cảnh báo, ngưỡng doanh thu thuế + tỷ lệ cảnh báo, chính sách máy trả người bán — chỉ những tham số hệ thống thật sự đọc;
+  **tải toàn bộ dữ liệu** (ZIP các CSV, một thời điểm nhất quán, ghi nhật ký)
+- [x] **Sổ thuế**: báo cáo doanh thu thuế (Báo cáo › Doanh thu thuế) + ghi / sửa số hoá đơn điện tử trên đơn bán
+- [x] **Sao lưu & khôi phục** (rủi ro #4; `npm run backup`, `src/server/backup/`): `pg_dump` + toàn bộ tệp chứng từ trong một gói mã hoá AES-256-GCM
+  (khoá `BACKUP_KEY`, sai khoá / tệp bị sửa → từ chối); giữ 30 bản ngày + 12 bản tháng; kiểm tra toàn vẹn; khôi phục trong một transaction, phải xác nhận ghi đè;
+  **diễn tập khôi phục tự động trong CI** (khôi phục vào CSDL mới, so từng bảng). Lịch chạy hằng ngày (cron) bật khi có máy chủ thật
+- [x] **PWA — cài lên điện thoại**: manifest (lối tắt Bán máy · Quét mã · Kho máy), biểu tượng (thường + maskable + iOS); service worker chỉ lưu đệm
+  tài nguyên tĩnh có mã băm và trang "mất kết nối" — **không bao giờ lưu đệm trang / số liệu tài chính**, mất mạng thì báo rõ, có mạng lại tự tải lại
+- [x] **Hộp chờ duyệt** (tài liệu 07 mục 5.2; `/quet-ma/hop-cho`, `src/server/scans/`): quét / chụp loạt trên điện thoại (mã vạch + đọc chữ OCR có sẵn
+  trong bộ quét) → **Gửi vào hộp chờ duyệt** (gửi lại phiên cũ không tạo trùng) → trên máy tính soát từng dòng (Luhn, Part No. chưa gán cấu hình,
+  không phải hàng LL/A, trùng trong hộp, đã có trong hệ thống; nhãn nguồn ▌▌▌ / Aa / ✍), sửa, bỏ, rồi **xác nhận vào đơn mua** (tạo máy — cùng kiểm tra
+  với lưới nhập máy, một dòng lỗi thì không tạo gì, giá vốn tự tính lại) hoặc **vào kiện** (nhận hàng theo Serial / IMEI)
+- [ ] Nhập dữ liệu cũ từ Excel — chờ file Excel thật của chủ hàng để dựng đúng cột (hiện đã dán được từ Excel vào lưới nhập máy của từng đơn mua)
 
 **Ưu tiên khi phải cắt giảm:** costing engine và mốc vận chuyển là **không thể cắt**. Có thể dời: biểu đồ nâng cao, Kanban kéo thả (dùng nút bấm thay thế), PWA ngoại tuyến, tracking API.
 

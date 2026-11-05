@@ -4,6 +4,9 @@ import { formatVnd } from "@/domain/costing";
 import { CONDITION_LABEL, ITEM_STATUS_LABEL, type Condition } from "@/domain/purchasing";
 import { LEG_RULES } from "@/domain/shipping";
 import { getItemProfile } from "@/server/sales/service";
+import { GAP_LABEL } from "@/domain/attachments";
+import { itemDossier } from "@/server/attachments/service";
+import { Attachments } from "../../_components/Attachments";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
 
 export const metadata = { title: "Hồ sơ máy" };
@@ -54,7 +57,7 @@ export default async function ItemProfilePage({ params }: PageProps<"/kho/[id]">
     );
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  const p = await getItemProfile(db, id);
+  const [p, dossier] = await Promise.all([getItemProfile(db, id), itemDossier(db, id)]);
   if (!p) notFound();
   const code = p.serial ?? p.imei1;
   const sellable = ["IN_STOCK", "ORDERED", "US_IN_TRANSIT", "AT_US_WAREHOUSE", "INTL_IN_TRANSIT", "AT_HN", "DOMESTIC_IN_TRANSIT"].includes(p.status);
@@ -110,6 +113,40 @@ export default async function ItemProfilePage({ params }: PageProps<"/kho/[id]">
           </dd>
         </div>
       </dl>
+
+      {dossier && (
+        <section className="card mt-5 p-4" aria-labelledby="ho-so" data-testid="dossier">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <h2 id="ho-so" className="font-semibold">
+              Hồ sơ nguồn gốc
+            </h2>
+            {dossier.gaps.length === 0 ? (
+              <span className="text-sm text-[var(--ok)]" data-testid="dossier-status">
+                ✓ đủ chứng từ mua và nhập khẩu
+              </span>
+            ) : (
+              <span className="text-sm text-[var(--warn)]" data-testid="dossier-status">
+                ⚠ {dossier.gaps.map((g) => GAP_LABEL[g]).join(", ")}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            Hàng nhập khẩu lưu thông phải có hoá đơn, chứng từ kèm theo. Khi bị kiểm tra, mở trang này để xuất trình toàn bộ chứng từ của máy.
+          </p>
+          <div className="mt-3 flex flex-col divide-y divide-[var(--border)]">
+            {dossier.sections.map((sec) => (
+              <div key={`${sec.entityType}-${sec.entityId}`} className="py-3 first:pt-0 last:pb-0">
+                <Attachments entityType={sec.entityType} entityId={sec.entityId} docs={sec.docs} title={sec.title} />
+                {sec.entityType !== "ITEM" && (
+                  <Link href={sec.href} className="text-xs text-muted underline">
+                    Mở {sec.title.split(" ")[0].toLowerCase()}
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="card mt-5 p-4" aria-labelledby="gia-von">
         <h2 id="gia-von" className="font-semibold">

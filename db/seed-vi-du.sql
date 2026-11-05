@@ -153,4 +153,7 @@ INSERT INTO cash_transactions (account_id, direction, amount, amount_vnd, occurr
 INSERT INTO cash_transactions (account_id, direction, amount, amount_vnd, occurred_at, category_code, note) VALUES
   ('50000000-0000-0000-0000-000000000002', 'OUT', 500000, 500000, '2026-10-25T09:00:00+07', 'OPEX_ADS', 'Chạy quảng cáo Facebook');
 
+-- Bút toán tự sinh cho đơn mua / chi phí / chi phí bán hàng đã trả (giống như lớp dịch vụ ghi khi nhập)
+SELECT ledger_backfill();
+
 COMMIT;

@@ -89,3 +89,11 @@ export async function returnItemAction(prev: FormState, fd: FormData) {
     return "Đã ghi nhận khách trả lại — máy về tồn kho";
   });
 }
+
+export async function setEinvoiceAction(prev: FormState, fd: FormData) {
+  return run(prev, async (db) => {
+    const no = String(fd.get("einvoiceNo") ?? "");
+    await svc.setEinvoiceNo(db, need(fd), no);
+    return no.trim() ? "Đã ghi số hoá đơn" : "Đã xoá số hoá đơn";
+  });
+}

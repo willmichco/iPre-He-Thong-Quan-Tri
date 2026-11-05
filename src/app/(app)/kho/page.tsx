@@ -4,6 +4,7 @@ import { ITEM_STATUS_LABEL } from "@/domain/purchasing";
 import { STAGES } from "@/domain/overview";
 import { listItemsAtStatuses } from "@/server/overview/service";
 import { searchItems } from "@/server/sales/service";
+import { missingDossiers } from "@/server/attachments/service";
 import { catalogDb, Empty, NoDatabase } from "../danh-muc/shared";
 
 export const metadata = { title: "Kho máy" };
@@ -18,11 +19,22 @@ export default async function StockPage({ searchParams }: PageProps<"/kho">) {
   const q = one(sp.q);
   // lọc theo chặng (bấm từ thanh "Vốn đang nằm ở đâu" ở Tổng quan)
   const stage = q ? undefined : STAGES.find((s) => s.key === one(sp.chang));
-  const items = db ? (stage ? await listItemsAtStatuses(db, stage.statuses) : await searchItems(db, q)) : [];
+  const [items, missing] = db ? await Promise.all([stage ? listItemsAtStatuses(db, stage.statuses) : searchItems(db, q), missingDossiers(db)]) : [[], []];
   const total = items.reduce((a, i) => a + BigInt(i.cost), 0n);
   return (
     <main className="mx-auto max-w-5xl p-4 md:p-8">
-      <h1 className="text-2xl font-bold">Kho máy</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-2xl font-bold">Kho máy</h1>
+        {db && (
+          <Link
+            href="/kho/thieu-chung-tu"
+            className={`ml-auto text-sm underline ${missing.length ? "text-[var(--warn)]" : "text-muted"}`}
+            data-testid="missing-docs-link"
+          >
+            {missing.length ? `⚠ ${missing.length} máy thiếu chứng từ nguồn gốc` : "✓ Hồ sơ chứng từ đủ"}
+          </Link>
+        )}
+      </div>
       <form method="get" role="search" className="mt-3 flex gap-2">
         <label className="flex grow flex-col gap-1 text-sm">
           <span className="text-muted">Tìm theo Serial / IMEI / Part No. / tên máy — trống: máy đang tồn ở SG</span>
