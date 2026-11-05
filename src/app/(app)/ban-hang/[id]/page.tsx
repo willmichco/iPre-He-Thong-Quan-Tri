@@ -63,7 +63,17 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
           {dmyHm(sale.soldAt)} · {CHANNEL_LABEL[sale.channel as Channel] ?? sale.channel}
         </span>
       </div>
-      <p className="mt-1 text-sm">Khách: {sale.customer ? `${sale.customer.name}${sale.customer.phone ? ` · ${sale.customer.phone}` : ""}` : "Khách lẻ"}</p>
+      <p className="mt-1 text-sm">
+        Khách:{" "}
+        {sale.customer ? (
+          <Link href={`/ban-hang/khach-hang/${sale.customer.id}`} className="underline">
+            {sale.customer.name}
+            {sale.customer.phone ? ` · ${sale.customer.phone}` : ""}
+          </Link>
+        ) : (
+          "Khách lẻ"
+        )}
+      </p>
 
       <section className="card mt-4 p-4" aria-label="Tổng đơn">
         <dl className="grid grid-cols-2 gap-1 text-sm">

@@ -58,6 +58,8 @@ npm run auth:setup -- --email ban@example.com
 
 Lệnh hỏi mật khẩu (tối thiểu 12 ký tự), in mã QR để quét bằng ứng dụng Authenticator trên điện thoại, và in 4 biến môi trường `OWNER_EMAIL`, `OWNER_PASSWORD_HASH`, `OWNER_TOTP_SECRET`, `SESSION_SECRET` để dán vào `.env.local` hoặc phần Environment Variables của nơi triển khai. Đăng nhập cần đủ **email + mật khẩu + mã 6 số**; sai 5 lần trong 15 phút sẽ bị khoá 15 phút.
 
+**Chứng từ đính kèm** (hoá đơn, vận đơn… dạng ảnh / PDF) được lưu trong thư mục `ATTACHMENTS_DIR` (mặc định `./data/chung-tu`, đã bỏ qua trong git). Khi triển khai lên dịch vụ không có ổ đĩa bền vững (vd Vercel), cần chuyển sang kho đối tượng (R2 / S3) — xem `src/server/attachments/storage.ts`. Sao lưu: trang **Cài đặt › Tải toàn bộ dữ liệu** xuất mọi bảng ra CSV (không kèm tệp chứng từ — sao lưu riêng thư mục `ATTACHMENTS_DIR`).
+
 ## Lệnh thường dùng
 
 | Lệnh | Việc |

@@ -119,7 +119,17 @@ gantt
     chi phí có chứng từ hợp lệ
   - **xuất Excel** mọi báo cáo (`/bao-cao/xuat`): tệp .xlsx tự đóng gói (không thêm thư viện), cột tiền / %, dòng tiêu đề cố định, lọc, dòng tổng;
     kiểm bằng openpyxl và LibreOffice
-- [ ] Cài đặt, khách hàng, chứng từ đính kèm (hồ sơ nguồn gốc), sổ thuế
+- [x] **Hồ sơ chứng từ nguồn gốc** (mục 3.2; `src/server/attachments/`, `src/domain/attachments.ts`):
+  - đính kèm ảnh / PDF vào đơn mua, chuyến, kiện, máy, đơn bán (chụp bằng camera điện thoại); nhận diện định dạng theo nội dung tệp, tối đa 15 MB/tệp;
+    khử trùng theo SHA-256; xoá mềm, ghi nhật ký; xem / tải qua `/chung-tu/<id>` (cần đăng nhập)
+  - trang máy: **hồ sơ nguồn gốc** gom mọi chứng từ theo hành trình (đơn mua → chuyến → các kiện → máy → đơn bán), báo thiếu hoá đơn mua /
+    vận đơn – chứng từ nhập khẩu; `/kho/thieu-chung-tu` liệt kê máy đang trong tay còn thiếu, cảnh báo ngay trên Kho máy
+  - kho tệp cục bộ (`ATTACHMENTS_DIR`); thay bằng R2 / S3 khi chốt nơi triển khai
+- [x] **Khách hàng** (`/ban-hang/khach-hang`): danh sách (số đơn, đã mua, còn nợ), hồ sơ (máy đã mua, bảo hành, đơn), thêm / sửa (số điện thoại chuẩn hoá, không trùng);
+  **ẩn danh hoá** theo yêu cầu (mục 3.3 — Luật 91/2025/QH15): xoá thông tin định danh, giữ giao dịch phục vụ nghĩa vụ thuế; nhật ký không lưu thông tin cá nhân
+- [x] **Cài đặt** (`/cai-dat`): ngưỡng cảnh báo, ngưỡng doanh thu thuế + tỷ lệ cảnh báo, chính sách máy trả người bán — chỉ những tham số hệ thống thật sự đọc;
+  **tải toàn bộ dữ liệu** (ZIP các CSV, một thời điểm nhất quán, ghi nhật ký)
+- [x] **Sổ thuế**: báo cáo doanh thu thuế (Báo cáo › Doanh thu thuế) + ghi / sửa số hoá đơn điện tử trên đơn bán
 - [ ] PWA, OCR, hộp chờ duyệt · nhập dữ liệu cũ · sao lưu hằng ngày
 
 **Ưu tiên khi phải cắt giảm:** costing engine và mốc vận chuyển là **không thể cắt**. Có thể dời: biểu đồ nâng cao, Kanban kéo thả (dùng nút bấm thay thế), PWA ngoại tuyến, tracking API.

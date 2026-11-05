@@ -14,6 +14,8 @@ import { CostError } from "@/server/costs/service";
 import { SaleError } from "@/server/sales/service";
 import { LedgerError } from "@/server/ledger/service";
 import { AttachmentError } from "@/server/attachments/service";
+import { CustomerError } from "@/server/customers/service";
+import { SettingsError } from "@/server/settings/service";
 
 export type Db = NonNullable<ReturnType<typeof getSql>>;
 
@@ -32,6 +34,7 @@ export function parse<S extends z.ZodType>(schema: S, data: unknown): z.output<S
 
 /** Lỗi nghiệp vụ → thông điệp tiếng Việt cho người dùng; lỗi lạ → ghi log, trả câu chung. */
 export function describeError(e: unknown, scope: string): { error: string; fieldErrors?: Record<string, string> } {
+  if (e instanceof SettingsError) return { error: `Kiểm tra lại: ${e.message}`, fieldErrors: e.errors };
   if (e instanceof FormError) return { error: `Kiểm tra lại: ${[...new Set(Object.values(e.errors))].join("; ")}`, fieldErrors: e.errors };
   if (
     e instanceof CatalogError ||
@@ -40,7 +43,8 @@ export function describeError(e: unknown, scope: string): { error: string; field
     e instanceof CostError ||
     e instanceof SaleError ||
     e instanceof LedgerError ||
-    e instanceof AttachmentError
+    e instanceof AttachmentError ||
+    e instanceof CustomerError
   )
     return { error: e.message, fieldErrors: e.field ? { [e.field]: e.message } : undefined };
   if (e instanceof CostingServiceError || e instanceof CostingError) return { error: e.message };
