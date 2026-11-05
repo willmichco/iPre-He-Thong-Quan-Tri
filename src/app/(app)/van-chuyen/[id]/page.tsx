@@ -6,6 +6,8 @@ import { daysLate, isMainLeg, isoToVnLocal, LEG_RULES, SHIPMENT_STATUS_LABEL, tr
 import { KINDS_BY_LEG } from "@/domain/costs";
 import { listCosts } from "@/server/costs/service";
 import { getShipment, shippingOptions } from "@/server/shipping/service";
+import { listAttachments } from "@/server/attachments/service";
+import { Attachments } from "../../_components/Attachments";
 import { CostSection } from "../../_components/CostSection";
 import { ActionForm, Input, Submit } from "../../_components/form";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
@@ -33,10 +35,11 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const s = await getShipment(db, id);
   if (!s) notFound();
-  const [opts, costs, accounts] = await Promise.all([
+  const [opts, costs, accounts, docs] = await Promise.all([
     shippingOptions(db),
     listCosts(db, { shipmentId: s.id }),
     db<{ id: string; name: string; currency: string }[]>`SELECT id::text, name, currency::text FROM accounts WHERE is_active ORDER BY name`,
+    listAttachments(db, "SHIPMENT", [s.id]),
   ]);
   const accountOptions = [["", "— chưa chọn —"] as const, ...accounts.map((a) => [a.id, `${a.name} (${a.currency})`] as const)];
   const carriers = [["", "— chọn —"] as const, ...opts.carriers.filter((c) => c.legTypes.includes(s.legType)).map((c) => [c.id, c.name] as const)];
@@ -154,6 +157,16 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
           {s.status !== "PLANNED" && <p className="mt-2 text-xs text-muted">Kiện đã gửi: máy thêm vào sẽ nhận luôn mốc gửi đi của kiện.</p>}
         </section>
       )}
+
+      <section className="card mt-5 p-4" aria-label="Chứng từ kiện">
+        <Attachments
+          entityType="SHIPMENT"
+          entityId={s.id}
+          docs={docs}
+          title="Chứng từ vận chuyển"
+          hint={s.legType === "US_TO_VN" ? "vận đơn / AWB, chứng từ thông quan — xuất trình khi bị kiểm tra trên đường" : "phiếu gửi / giao nhận"}
+        />
+      </section>
 
       <section className="mt-5" aria-labelledby="ds-may">
         <h2 id="ds-may" className="text-lg font-semibold">

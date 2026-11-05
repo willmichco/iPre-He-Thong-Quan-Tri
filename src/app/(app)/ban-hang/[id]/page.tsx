@@ -5,7 +5,9 @@ import { CHANNEL_LABEL, SALE_STATUS_LABEL, type Channel } from "@/domain/sales";
 import { getSale } from "@/server/sales/service";
 import { ActionForm, Checkbox, Input, Select, Submit } from "../../_components/form";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
-import { addPaymentAction, cancelDepositAction, completeSaleAction, returnItemAction } from "../actions";
+import { addPaymentAction, cancelDepositAction, completeSaleAction, returnItemAction, setEinvoiceAction } from "../actions";
+import { listAttachments } from "@/server/attachments/service";
+import { Attachments } from "../../_components/Attachments";
 
 export const metadata = { title: "Đơn bán" };
 
@@ -37,9 +39,10 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const sale = await getSale(db, id);
   if (!sale) notFound();
-  const accounts = await db<
-    { id: string; name: string }[]
-  >`SELECT id::text, name FROM accounts WHERE is_active AND currency = 'VND' ORDER BY kind <> 'BANK', name`;
+  const [accounts, docs] = await Promise.all([
+    db<{ id: string; name: string }[]>`SELECT id::text, name FROM accounts WHERE is_active AND currency = 'VND' ORDER BY kind <> 'BANK', name`,
+    listAttachments(db, "SALE", [sale.id]),
+  ]);
   const accountOptions = [["", "— chọn —"] as const, ...accounts.map((a) => [a.id, a.name] as const)];
   const active = sale.lines.filter((l) => !l.voidedAt);
   const profits = active.map((l) => itemProfit({ netRevenueVnd: l.priceVnd - l.discountAllocVnd, expenseAllocVnd: l.expenseAllocVnd }, l.costVnd));
@@ -81,6 +84,24 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
             </>
           )}
         </dl>
+      </section>
+
+      <section className="card mt-4 flex flex-col gap-4 p-4" aria-label="Hoá đơn và chứng từ">
+        {sale.status !== "CANCELLED" && (
+          <ActionForm action={setEinvoiceAction} label="Số hoá đơn điện tử" className="field-row">
+            <input type="hidden" name="id" value={sale.id} />
+            <Input
+              label="Số hoá đơn điện tử"
+              name="einvoiceNo"
+              defaultValue={sale.einvoiceNo ?? ""}
+              placeholder="Chưa xuất"
+              hint="Doanh thu năm vượt ngưỡng → phải xuất hoá đơn điện tử có mã của cơ quan thuế"
+              className="grow min-w-48"
+            />
+            <Submit variant="secondary">Lưu</Submit>
+          </ActionForm>
+        )}
+        <Attachments entityType="SALE" entityId={sale.id} docs={docs} title="Chứng từ đơn bán" hint="hoá đơn, phiếu bán / bảo hành đã gửi khách" />
       </section>
 
       <section className="mt-4" aria-label="Máy trong đơn">

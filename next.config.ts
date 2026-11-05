@@ -9,6 +9,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // tải chứng từ (ảnh / PDF) qua Server Action: tối đa 30 MB mỗi lần (xem src/domain/attachments.ts) + phần đầu multipart
+    serverActions: { bodySizeLimit: "32mb" },
+  },
   // Dashboard một người dùng, mọi trang là dữ liệu động theo phiên → dùng mô hình render động
   // truyền thống, không bật Cache Components (xem docs/02-kien-truc.md).
   turbopack: {

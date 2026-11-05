@@ -13,6 +13,7 @@ import { ShippingError } from "@/server/shipping/service";
 import { CostError } from "@/server/costs/service";
 import { SaleError } from "@/server/sales/service";
 import { LedgerError } from "@/server/ledger/service";
+import { AttachmentError } from "@/server/attachments/service";
 
 export type Db = NonNullable<ReturnType<typeof getSql>>;
 
@@ -38,7 +39,8 @@ export function describeError(e: unknown, scope: string): { error: string; field
     e instanceof ShippingError ||
     e instanceof CostError ||
     e instanceof SaleError ||
-    e instanceof LedgerError
+    e instanceof LedgerError ||
+    e instanceof AttachmentError
   )
     return { error: e.message, fieldErrors: e.field ? { [e.field]: e.message } : undefined };
   if (e instanceof CostingServiceError || e instanceof CostingError) return { error: e.message };
