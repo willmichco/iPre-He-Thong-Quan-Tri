@@ -55,7 +55,12 @@ jobs:
       - name: Bộ máy tính giá vốn đọc CSDL phải ra đúng giá vốn đang lưu
         run: npm run costing:check
       - name: Công cụ PostgreSQL 16 (pg_dump / pg_restore cùng phiên bản máy chủ — cho sao lưu / khôi phục)
+        # kho apt chính thức của PostgreSQL (PGDG): có postgresql-client-16 cho mọi bản Ubuntu
         run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-16
           echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
