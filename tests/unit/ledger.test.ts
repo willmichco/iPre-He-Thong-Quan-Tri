@@ -154,6 +154,10 @@ describe("Kiểm tra form", () => {
     expect(bad.ok).toBe(false);
     if (!bad.ok) expect(Object.keys(bad.errors).sort()).toEqual(["accountId", "amount", "categoryCode", "fxRate", "occurredAt"]);
     expect(checkManualEntry({ accountId: ACC, categoryCode: "X", amount: "1", occurredAt: "2026-11-05", note: "x".repeat(501) }).ok).toBe(false);
+    expect(checkManualEntry({ accountId: ACC, categoryCode: "X", amount: "1", occurredAt: "2026-02-30" })).toMatchObject({
+      ok: false,
+      errors: { occurredAt: "Chọn ngày" },
+    });
   });
   it("chuyển tiền: hai tài khoản khác nhau", () => {
     expect(checkTransfer({ fromAccountId: ACC, toAccountId: ACC, amountFrom: "1tr", occurredAt: "2026-11-05" })).toMatchObject({

@@ -19,7 +19,7 @@ export const NAV: NavItem[] = [
   { href: "/kho", label: "Kho máy", icon: "stock", phase: "GĐ1", ready: true, description: "Tồn kho, tuổi tồn, hồ sơ từng máy." },
   { href: "/ban-hang", label: "Bán hàng", icon: "sale", phase: "GĐ1", ready: true, description: "Bán nhanh, đặt cọc, công nợ, bảo hành." },
   { href: "/thu-chi", label: "Thu chi", icon: "cash", phase: "GĐ2", ready: true, description: "Sổ quỹ nhiều tài khoản, chuyển tiền, đối soát." },
-  { href: "/bao-cao", label: "Báo cáo", icon: "report", phase: "GĐ2", description: "Lãi lỗ theo kỳ, dòng máy, chuyến, kênh, vận chuyển, thuế." },
+  { href: "/bao-cao", label: "Báo cáo", icon: "report", phase: "GĐ2", ready: true, description: "Lãi lỗ theo kỳ, dòng máy, chuyến, kênh, vận chuyển, thuế." },
   {
     href: "/danh-muc",
     label: "Danh mục",

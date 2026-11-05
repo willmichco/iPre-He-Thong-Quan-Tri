@@ -109,7 +109,16 @@ gantt
   - tổng hợp: tiền hiện có, vốn trong hàng, phải thu, phải trả, tài sản lưu động ròng; dòng tiền 12 tuần (kèm bảng số)
   - **công nợ**: phải thu (đơn bán còn nợ theo tuổi nợ, hoàn phí chưa nhận) · phải trả (đơn mua, cước, chi phí bán hàng chưa trả; nút "Đã trả" ghi thẳng vào sổ)
   - danh mục thu chi tự tạo (đánh dấu "vận hành" để trừ vào lãi ròng); danh mục hệ thống không sửa / xoá được
-- [ ] Báo cáo + xuất Excel
+- [x] **Báo cáo + xuất Excel** (`/bao-cao`, `src/server/reports/`, `src/domain/reports.ts`):
+  - kỳ: tháng / quý / năm (này, trước) hoặc tự chọn ngày; luôn so với kỳ trước (trọn tháng → cùng số tháng liền trước, còn lại → cùng độ dài)
+  - **lãi lỗ** dạng báo cáo kết quả kinh doanh (doanh thu → giá vốn → lãi gộp → chi phí bán → vận hành → lãi ròng trước thuế, % doanh thu, thay đổi),
+    theo tháng, chi phí vận hành theo danh mục; đếm máy lãi "Tạm tính"
+  - **dòng máy**: số bán, doanh thu, lãi, biên lãi, số ngày bán trung bình (từ khi về SG), đang tồn, xếp loại "lãi cao / quay nhanh" theo trung vị
+  - **chuyến**: xếp hạng ROI, vốn còn đọng, chu kỳ vốn · **kênh bán** · **vận chuyển**: ngày đi TB / lâu nhất theo chặng × đơn vị, tỉ lệ trễ ETA, giữ hải quan
+  - **tồn kho**: phân bố tuổi tồn, danh sách máy cần xả · **doanh thu thuế**: theo tháng / quý, % ngưỡng doanh thu, đơn chưa ghi số hoá đơn điện tử,
+    chi phí có chứng từ hợp lệ
+  - **xuất Excel** mọi báo cáo (`/bao-cao/xuat`): tệp .xlsx tự đóng gói (không thêm thư viện), cột tiền / %, dòng tiêu đề cố định, lọc, dòng tổng;
+    kiểm bằng openpyxl và LibreOffice
 - [ ] Cài đặt, khách hàng, chứng từ đính kèm (hồ sơ nguồn gốc), sổ thuế
 - [ ] PWA, OCR, hộp chờ duyệt · nhập dữ liệu cũ · sao lưu hằng ngày
 

@@ -225,7 +225,8 @@ export function debtAgeBucket(days: number): "0-30" | "31-60" | "61-90" | "90+" 
 // ---- Kiểm tra form --------------------------------------------------------------------------------------
 
 export type FieldErrors = Record<string, string>;
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+/** Ngày thật "YYYY-MM-DD" (30/02 bị từ chối). */
+const DATE_RE = { test: (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && fmtDay(parseDay(s)) === s };
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface ManualEntryForm {
