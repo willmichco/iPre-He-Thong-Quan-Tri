@@ -114,7 +114,7 @@ export function CostSection({
                     </div>
                     <details className="mt-1">
                       <summary className="cursor-pointer text-xs text-muted">Sửa / xoá</summary>
-                      <ActionForm action={saveCostAction} label={`Sửa chi phí ${COST_KIND_LABEL[c.kind]}`} className="mt-2 flex flex-wrap items-end gap-3">
+                      <ActionForm action={saveCostAction} label={`Sửa chi phí ${COST_KIND_LABEL[c.kind]}`} className="mt-2 field-row">
                         <input type="hidden" name="id" value={c.id} />
                         <CostFields targets={targets} kinds={ordered} accounts={accounts} c={c} />
                         <Submit variant="secondary">Lưu chi phí</Submit>
@@ -159,7 +159,7 @@ export function CostSection({
           {METHOD_LABEL[DEFAULT_METHOD.INTL_SHIPPING].toLowerCase()} · bảo hiểm, thuế: {METHOD_LABEL[DEFAULT_METHOD.INSURANCE].toLowerCase()}. Lưu xong giá vốn
           tự tính lại.
         </p>
-        <ActionForm action={saveCostAction} resetOnSuccess label="Thêm chi phí" className="mt-3 flex flex-wrap items-end gap-3">
+        <ActionForm action={saveCostAction} resetOnSuccess label="Thêm chi phí" className="mt-3 field-row">
           <CostFields targets={targets} kinds={ordered} accounts={accounts} defaultTarget={defaultTarget} />
           <Submit>Thêm chi phí</Submit>
         </ActionForm>

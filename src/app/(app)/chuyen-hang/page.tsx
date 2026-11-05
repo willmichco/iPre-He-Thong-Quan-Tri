@@ -26,10 +26,10 @@ export default async function BatchesPage() {
         <h2 id="tao-chuyen" className="font-semibold">
           Tạo chuyến mới
         </h2>
-        <ActionForm action={createBatchAction} resetOnSuccess label="Tạo chuyến" className="mt-3 flex flex-wrap items-end gap-3">
-          <Input label="Mã chuyến" name="code" placeholder={nextCode} autoCapitalize="characters" className="w-40" hint="Để trống: tự cấp" />
-          <Input label="Tên / ghi nhớ" name="name" placeholder="vd: Black Friday" className="grow min-w-48" />
-          <Input label="Tỷ giá dự kiến" name="plannedFxRate" inputMode="decimal" placeholder="26.400" className="w-36" />
+        <ActionForm action={createBatchAction} resetOnSuccess label="Tạo chuyến" className="mt-3 field-row">
+          <Input label="Mã chuyến" name="code" placeholder={nextCode} autoCapitalize="characters" className="w-36" hint="Để trống: tự cấp" />
+          <Input label="Tên / ghi nhớ" name="name" placeholder="vd: Black Friday" className="grow min-w-40" />
+          <Input label="Tỷ giá dự kiến" name="plannedFxRate" inputMode="decimal" placeholder="26.400" className="w-32" />
           <Submit>Tạo chuyến</Submit>
         </ActionForm>
       </section>
@@ -45,27 +45,19 @@ export default async function BatchesPage() {
                   <div className="flex flex-wrap items-baseline gap-2">
                     <b>{b.code}</b>
                     {b.name && <span className="text-muted">{b.name}</span>}
-                    <span className="ml-auto text-xs rounded-full border border-border px-2 py-0.5">{BATCH_STATUS_LABEL[b.status] ?? b.status}</span>
+                    <span className="ml-auto rounded-full bg-[var(--fill)] px-2.5 py-0.5 text-xs font-medium">{BATCH_STATUS_LABEL[b.status] ?? b.status}</span>
                   </div>
-                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
-                    <span>
-                      <span className="text-muted">Máy </span>
-                      {b.itemCount} · đã bán {b.soldCount}
-                    </span>
-                    <span>
-                      <span className="text-muted">Tổng vốn </span>
-                      {formatVnd(b.totalLandedCostVnd)} ₫
-                    </span>
-                    <span>
-                      <span className="text-muted">Lãi đã bán </span>
-                      <span className={b.realizedProfitVnd < 0n ? "text-danger" : ""}>{formatVnd(b.realizedProfitVnd)} ₫</span>
-                      {b.roiOnSoldPct && <span className="text-muted"> · ROI {b.roiOnSoldPct.replace(".", ",")}%</span>}
-                    </span>
-                    <span>
-                      <span className="text-muted">Vốn đọng </span>
-                      {formatVnd(b.unsoldCostVnd)} ₫
-                    </span>
-                  </div>
+                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
+                    <Stat label="Máy" value={`${b.itemCount}`} note={`đã bán ${b.soldCount}`} />
+                    <Stat label="Tổng vốn" value={`${formatVnd(b.totalLandedCostVnd)} ₫`} />
+                    <Stat
+                      label="Lãi đã bán"
+                      value={`${formatVnd(b.realizedProfitVnd)} ₫`}
+                      danger={b.realizedProfitVnd < 0n}
+                      note={b.roiOnSoldPct ? `ROI ${b.roiOnSoldPct.replace(".", ",")}%` : undefined}
+                    />
+                    <Stat label="Vốn đọng" value={`${formatVnd(b.unsoldCostVnd)} ₫`} />
+                  </dl>
                 </Link>
               </li>
             ))}
@@ -73,5 +65,16 @@ export default async function BatchesPage() {
         )}
       </section>
     </main>
+  );
+}
+
+/** Một chỉ số trên thẻ chuyến: nhãn nhỏ ở trên, số ở dưới (không bao giờ chen chung một dòng → không rớt dòng lộn xộn). */
+function Stat({ label, value, note, danger = false }: { label: string; value: string; note?: string; danger?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd className={`mt-0.5 whitespace-nowrap font-semibold tabular-nums ${danger ? "text-danger" : ""}`}>{value}</dd>
+      {note && <dd className="text-xs text-muted">{note}</dd>}
+    </div>
   );
 }

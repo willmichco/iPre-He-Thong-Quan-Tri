@@ -119,7 +119,7 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
                       action={returnItemAction}
                       label={`Khách trả lại ${l.serial ?? l.imei1}`}
                       confirm="Ghi nhận khách trả lại máy này?"
-                      className="mt-2 flex flex-wrap items-end gap-3"
+                      className="mt-2 field-row"
                     >
                       <input type="hidden" name="saleItemId" value={l.id} />
                       <Input label="Lý do *" name="reason" className="min-w-48" />
@@ -145,7 +145,7 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
         {sale.status === "DEPOSITED" && (
           <div className="card p-4">
             <h2 className="font-semibold">Hoàn tất đơn (giao máy)</h2>
-            <ActionForm action={completeSaleAction} label="Hoàn tất đơn" className="mt-2 flex flex-wrap items-end gap-3">
+            <ActionForm action={completeSaleAction} label="Hoàn tất đơn" className="mt-2 field-row">
               <input type="hidden" name="id" value={sale.id} />
               <Input label="Thu nốt" name="paidAmount" inputMode="decimal" defaultValue={formatVnd(sale.balanceVnd)} className="w-36" />
               <Select label="Vào tài khoản" name="accountId" options={accountOptions} defaultValue={accounts[0]?.id} />
@@ -158,7 +158,7 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
         {sale.status !== "CANCELLED" && sale.balanceVnd > 0n && sale.status === "COMPLETED" && (
           <div className="card p-4">
             <h2 className="font-semibold">Thu thêm tiền</h2>
-            <ActionForm action={addPaymentAction} label="Thu thêm tiền" className="mt-2 flex flex-wrap items-end gap-3">
+            <ActionForm action={addPaymentAction} label="Thu thêm tiền" className="mt-2 field-row">
               <input type="hidden" name="id" value={sale.id} />
               <Input label="Số tiền" name="amount" inputMode="decimal" defaultValue={formatVnd(sale.balanceVnd)} className="w-36" />
               <Select label="Vào tài khoản" name="accountId" options={accountOptions} defaultValue={accounts[0]?.id} />
@@ -169,7 +169,7 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
         {sale.status === "DEPOSITED" && (
           <details className="card p-4">
             <summary className="cursor-pointer text-sm text-danger">Huỷ đơn cọc</summary>
-            <ActionForm action={cancelDepositAction} label="Huỷ đơn cọc" confirm="Huỷ đơn cọc này?" className="mt-2 flex flex-wrap items-end gap-3">
+            <ActionForm action={cancelDepositAction} label="Huỷ đơn cọc" confirm="Huỷ đơn cọc này?" className="mt-2 field-row">
               <input type="hidden" name="id" value={sale.id} />
               <Input label="Lý do *" name="reason" className="min-w-48" />
               <Input label="Hoàn cọc" name="refund" inputMode="decimal" defaultValue={formatVnd(sale.paidVnd)} className="w-32" hint="0 = giữ cọc" />

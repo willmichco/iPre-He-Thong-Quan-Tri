@@ -46,7 +46,7 @@ export default async function CarriersPage() {
         <h2 id="them-dvvc" className="font-semibold">
           Thêm đơn vị vận chuyển
         </h2>
-        <ActionForm action={saveCarrierAction} resetOnSuccess label="Thêm đơn vị vận chuyển" className="mt-3 flex flex-wrap items-end gap-3">
+        <ActionForm action={saveCarrierAction} resetOnSuccess label="Thêm đơn vị vận chuyển" className="mt-3 field-row">
           <CarrierFields />
           <Submit>Thêm</Submit>
         </ActionForm>
@@ -67,7 +67,7 @@ export default async function CarriersPage() {
               {c.contact && <p className="mt-1 text-sm text-muted">{c.contact}</p>}
               <details className="mt-2">
                 <summary className="cursor-pointer text-sm text-muted">Sửa / xoá</summary>
-                <ActionForm action={saveCarrierAction} label={`Sửa ${c.name}`} className="mt-3 flex flex-wrap items-end gap-3">
+                <ActionForm action={saveCarrierAction} label={`Sửa ${c.name}`} className="mt-3 field-row">
                   <input type="hidden" name="id" value={c.id} />
                   <CarrierFields c={c} />
                   <Submit variant="secondary">Lưu</Submit>

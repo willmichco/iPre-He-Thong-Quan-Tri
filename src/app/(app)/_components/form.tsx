@@ -139,7 +139,7 @@ export function Select({
 
 export function Checkbox({ label, name, defaultChecked, value = "on" }: { label: string; name: string; defaultChecked?: boolean; value?: string }) {
   return (
-    <label className="flex items-center gap-2 text-sm min-h-[44px]">
+    <label className="field-inline flex items-center gap-2 text-sm min-h-[44px]">
       <input type="checkbox" name={name} value={value} defaultChecked={defaultChecked} className="size-5" />
       {label}
     </label>

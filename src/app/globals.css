@@ -169,6 +169,33 @@ h3 {
     border-radius: 12px;
   }
 
+  /*
+   * Hàng form: căn theo ĐỈNH — nhãn thẳng hàng nhãn, ô thẳng hàng ô, dù ô nào có thêm dòng gợi ý / báo lỗi bên dưới.
+   * Nút bấm & ô tích (không có nhãn) hạ xuống đúng bằng chiều cao dòng nhãn (20px chữ + 4px khoảng cách).
+   */
+  .field-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .field-row > button,
+  .field-row > a,
+  .field-row > .field-inline {
+    margin-top: 24px;
+  }
+  .field-row > form {
+    margin-top: 0;
+  }
+  /* ô co giãn: xếp hàng theo độ rộng tối thiểu (min-w-*) rồi mới giãn — không đẩy nút xuống dòng vô cớ */
+  .field-row > .grow {
+    flex-basis: 0;
+  }
+  /* nút nằm riêng dòng sau ô rộng hết hàng (Ghi chú…): không cần hạ xuống */
+  .field-row > .basis-full + button,
+  .field-row > .basis-full + a {
+    margin-top: 0;
+  }
   /* ---- ô nhập ---- */
   .field {
     font-size: 16px;

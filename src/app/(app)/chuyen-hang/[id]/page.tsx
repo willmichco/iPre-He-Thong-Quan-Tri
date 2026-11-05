@@ -192,7 +192,7 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
 
       <section className="mt-4 flex flex-wrap items-start gap-3" aria-label="Chốt chi phí">
         {finalized ? (
-          <ActionForm action={reopenBatchAction} label="Mở lại chuyến" className="flex flex-wrap items-end gap-3">
+          <ActionForm action={reopenBatchAction} label="Mở lại chuyến" className="field-row">
             <input type="hidden" name="id" value={batch.id} />
             <Input label="Lý do mở lại *" name="reason" placeholder="vd: hoá đơn cước điều chỉnh" className="min-w-64" />
             <Submit variant="secondary">Mở lại chuyến</Submit>
@@ -209,7 +209,7 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
         )}
         <details className="grow">
           <summary className="cursor-pointer text-sm text-muted min-h-[44px] flex items-center">Sửa thông tin chuyến</summary>
-          <ActionForm action={updateBatchAction} label="Sửa thông tin chuyến" className="mt-2 flex flex-wrap items-end gap-3">
+          <ActionForm action={updateBatchAction} label="Sửa thông tin chuyến" className="mt-2 field-row">
             <input type="hidden" name="id" value={batch.id} />
             <Input label="Mã chuyến" name="code" defaultValue={batch.code} className="w-40" />
             <Input label="Tên / ghi nhớ" name="name" defaultValue={batch.name ?? ""} className="grow min-w-48" />
@@ -285,7 +285,7 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
               {po.returnDeadline && <div className="text-xs text-muted">Hạn đổi trả {dmy(po.returnDeadline)}</div>}
               <details className="mt-2">
                 <summary className="cursor-pointer text-sm text-muted">Sửa / xoá đơn mua</summary>
-                <ActionForm action={savePurchaseOrderAction} label={`Sửa đơn mua ${label}`} className="mt-2 flex flex-wrap items-end gap-3">
+                <ActionForm action={savePurchaseOrderAction} label={`Sửa đơn mua ${label}`} className="mt-2 field-row">
                   <PoFields po={po} batchId={batch.id} plannedFxRate={batch.plannedFxRate} suppliers={supplierOptions} accounts={accountOptions} />
                   <Submit variant="secondary">Lưu đơn mua</Submit>
                 </ActionForm>
@@ -314,7 +314,7 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
         <h3 id="them-don" className="font-semibold">
           + Thêm đơn mua
         </h3>
-        <ActionForm action={savePurchaseOrderAction} resetOnSuccess label="Thêm đơn mua" className="mt-3 flex flex-wrap items-end gap-3">
+        <ActionForm action={savePurchaseOrderAction} resetOnSuccess label="Thêm đơn mua" className="mt-3 field-row">
           <PoFields batchId={batch.id} plannedFxRate={batch.plannedFxRate} suppliers={supplierOptions} accounts={accountOptions} />
           <Submit>Thêm đơn mua</Submit>
         </ActionForm>

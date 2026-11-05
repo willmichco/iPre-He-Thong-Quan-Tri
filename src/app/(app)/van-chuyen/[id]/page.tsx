@@ -109,23 +109,23 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
         </div>
       </dl>
 
-      <section className="mt-5 flex flex-wrap items-end gap-4" aria-label="Thao tác kiện">
+      <section className="mt-5 field-row" aria-label="Thao tác kiện">
         {s.status === "PLANNED" && (
-          <ActionForm action={shipAction} label="Gửi đi" className="flex flex-wrap items-end gap-3">
+          <ActionForm action={shipAction} label="Gửi đi" className="field-row">
             <input type="hidden" name="id" value={s.id} />
             <Input label={`Ngày giờ gửi${rule ? ` — ${rule.departLabel}` : ""}`} name="at" type="datetime-local" defaultValue={now} className="w-56" />
             <Submit>Gửi đi</Submit>
           </ActionForm>
         )}
         {(s.status === "IN_TRANSIT" || s.status === "HOLD") && (
-          <ActionForm action={arriveAction} label="Đã nhận" className="flex flex-wrap items-end gap-3">
+          <ActionForm action={arriveAction} label="Đã nhận" className="field-row">
             <input type="hidden" name="id" value={s.id} />
             <Input label={`Ngày giờ nhận${rule ? ` — ${rule.arriveLabel}` : ""}`} name="at" type="datetime-local" defaultValue={now} className="w-56" />
             <Submit>Đã nhận</Submit>
           </ActionForm>
         )}
         {s.status === "IN_TRANSIT" && (
-          <ActionForm action={holdAction} label="Giữ hải quan" className="flex flex-wrap items-end gap-3">
+          <ActionForm action={holdAction} label="Giữ hải quan" className="field-row">
             <input type="hidden" name="id" value={s.id} />
             <input type="hidden" name="hold" value="1" />
             <Input label="Lý do giữ" name="note" className="w-48" />
@@ -146,7 +146,7 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
           <h2 id="quet-may" className="font-semibold">
             Quét máy vào kiện
           </h2>
-          <ActionForm action={assignAction} resetOnSuccess label="Quét máy vào kiện" className="mt-2 flex flex-wrap items-end gap-3">
+          <ActionForm action={assignAction} resetOnSuccess label="Quét máy vào kiện" className="mt-2 field-row">
             <input type="hidden" name="id" value={s.id} />
             <ScanBox label="Serial / IMEI (máy quét USB, camera điện thoại gõ vào, hoặc dán danh sách)" />
             <Submit>Thêm vào kiện</Submit>
@@ -222,7 +222,7 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
 
       <details className="mt-6">
         <summary className="cursor-pointer text-sm text-muted">Sửa thông tin kiện{s.status === "PLANNED" ? " / xoá kiện" : ""}</summary>
-        <ActionForm action={updateShipmentAction} label="Sửa thông tin kiện" className="mt-3 flex flex-wrap items-end gap-3">
+        <ActionForm action={updateShipmentAction} label="Sửa thông tin kiện" className="mt-3 field-row">
           <input type="hidden" name="id" value={s.id} />
           <input type="hidden" name="legType" value={s.legType} />
           <ShipmentFields carriers={carriers} batches={batches} withLeg={false} s={s} />
