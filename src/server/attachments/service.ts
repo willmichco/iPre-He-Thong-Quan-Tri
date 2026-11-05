@@ -128,9 +128,10 @@ export async function uploadAttachments(
       const [same] = await tx<{ file_key: string }[]>`SELECT file_key FROM attachments WHERE sha256 = ${f.sha} LIMIT 1`;
       const key = same?.file_key ?? f.key;
       if (!(await store.has(key))) await store.put(key, f.bytes);
+      // clock_timestamp(): mỗi tệp một thời điểm thật (now() là lúc bắt đầu transaction → các tệp cùng lượt trùng giờ, thứ tự ngẫu nhiên)
       const [row] = await tx<{ id: string }[]>`
-        INSERT INTO attachments (entity_type, entity_id, kind, file_key, file_name, mime_type, size_bytes, sha256)
-        VALUES (${target.entityType}, ${target.entityId}, ${target.kind}, ${key}, ${f.name}, ${f.mime}, ${f.bytes.length}, ${f.sha})
+        INSERT INTO attachments (entity_type, entity_id, kind, file_key, file_name, mime_type, size_bytes, sha256, uploaded_at)
+        VALUES (${target.entityType}, ${target.entityId}, ${target.kind}, ${key}, ${f.name}, ${f.mime}, ${f.bytes.length}, ${f.sha}, clock_timestamp())
         RETURNING id::text`;
       await tx`INSERT INTO audit_logs (action, entity_type, entity_id, after)
                VALUES ('CREATE', 'attachment', ${row.id}, ${tx.json({ ...target, fileName: f.name, sha256: f.sha })})`;
