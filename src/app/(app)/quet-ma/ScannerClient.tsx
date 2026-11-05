@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { submitScansAction } from "./actions";
 import { PartNumberInfo } from "./PartNumberInfo";
 
 // Bộ quét dùng camera, WebAssembly và localStorage → chỉ chạy trên trình duyệt.
@@ -13,5 +14,5 @@ const WASM = { url: "/wasm/zxing_reader.wasm" };
 const partInfo = (code: string) => <PartNumberInfo code={code} />;
 
 export function ScannerClient() {
-  return <Scanner wasm={WASM} ocrBase="/ocr" sampleLabelUrl="/nhan-mau.svg" renderPartNumberInfo={partInfo} />;
+  return <Scanner wasm={WASM} ocrBase="/ocr" sampleLabelUrl="/nhan-mau.svg" renderPartNumberInfo={partInfo} onSubmit={submitScansAction} />;
 }

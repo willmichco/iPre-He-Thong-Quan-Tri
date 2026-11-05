@@ -32,6 +32,7 @@ export function ActionForm({
   confirm,
   className = "",
   label,
+  id,
 }: {
   action: Action;
   children: ReactNode;
@@ -39,6 +40,8 @@ export function ActionForm({
   confirm?: string;
   className?: string;
   label?: string;
+  /** để ô ở ngoài form (vd ô chọn trong bảng) gắn vào bằng thuộc tính form="…" */
+  id?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, INITIAL_STATE);
   const ref = useRef<HTMLFormElement>(null);
@@ -49,13 +52,16 @@ export function ActionForm({
     <FormCtx.Provider value={{ pending, errors: state.ok ? {} : (state.fieldErrors ?? {}) }}>
       <form
         ref={ref}
+        id={id}
         aria-label={label}
         className={className}
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
           if (confirm && !window.confirm(confirm)) return;
-          const fd = new FormData(e.currentTarget);
+          // kèm giá trị của nút đã bấm (form nhiều thao tác: name="do" value="…")
+          const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+          const fd = new FormData(e.currentTarget, submitter?.form === e.currentTarget ? submitter : null);
           startTransition(() => formAction(fd));
         }}
       >

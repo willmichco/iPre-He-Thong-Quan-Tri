@@ -465,6 +465,50 @@ export async function deletePurchaseOrder(db: Db, id: string) {
 
 // ---- Lưới máy -------------------------------------------------------------------------------------------
 
+/**
+ * Thêm máy vào đơn mua mà GIỮ NGUYÊN các máy đã có (saveItems lưu cả lưới: máy vắng mặt bị xoá).
+ * Dùng cho hộp chờ duyệt / nhập hàng loạt. Cùng kiểm tra như lưới: trùng Serial/IMEI toàn hệ thống, Luhn, cấu hình…
+ */
+export async function appendItems(db: Db, purchaseOrderId: string, newRows: readonly GridRow[]): Promise<SaveItemsResult & { newIds: string[] }> {
+  return db.begin(async (tx) => {
+    const existing = await tx<
+      {
+        id: string;
+        variant_id: string;
+        unit_price: string;
+        serial_number: string | null;
+        imei1: string | null;
+        imei2: string | null;
+        part_number: string | null;
+        model_number: string | null;
+        condition: string;
+        weight_kg: string | null;
+        note: string | null;
+      }[]
+    >`
+      SELECT id::text, variant_id::text, unit_price::text, serial_number, imei1, imei2, part_number, model_number, condition::text, weight_kg::text, note
+        FROM items WHERE purchase_order_id = ${purchaseOrderId} AND deleted_at IS NULL ORDER BY created_at, id`;
+    const keep: GridRow[] = existing.map((e) => ({
+      id: e.id,
+      variantId: e.variant_id,
+      unitPrice: e.unit_price,
+      serial: e.serial_number ?? "",
+      imei1: e.imei1 ?? "",
+      imei2: e.imei2 ?? "",
+      partNumber: e.part_number ?? "",
+      modelNumber: e.model_number ?? "",
+      condition: e.condition,
+      weightKg: e.weight_kg ?? "",
+      note: e.note ?? "",
+    }));
+    const before = new Set(existing.map((e) => e.id));
+    const r = await saveItems(tx, purchaseOrderId, [...keep, ...newRows]);
+    const after = await tx<{ id: string; serial_number: string | null; imei1: string | null }[]>`
+      SELECT id::text, serial_number, imei1 FROM items WHERE purchase_order_id = ${purchaseOrderId} AND deleted_at IS NULL`;
+    return { ...r, newIds: after.filter((a) => !before.has(a.id)).map((a) => a.id) };
+  });
+}
+
 export interface SaveItemsResult {
   inserted: number;
   updated: number;

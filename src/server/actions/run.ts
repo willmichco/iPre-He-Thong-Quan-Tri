@@ -16,6 +16,7 @@ import { LedgerError } from "@/server/ledger/service";
 import { AttachmentError } from "@/server/attachments/service";
 import { CustomerError } from "@/server/customers/service";
 import { SettingsError } from "@/server/settings/service";
+import { ScanInboxError } from "@/server/scans/service";
 
 export type Db = NonNullable<ReturnType<typeof getSql>>;
 
@@ -34,6 +35,11 @@ export function parse<S extends z.ZodType>(schema: S, data: unknown): z.output<S
 
 /** Lỗi nghiệp vụ → thông điệp tiếng Việt cho người dùng; lỗi lạ → ghi log, trả câu chung. */
 export function describeError(e: unknown, scope: string): { error: string; fieldErrors?: Record<string, string> } {
+  if (e instanceof ScanInboxError)
+    return {
+      error: e.rowErrors?.length ? `${e.message}: ${e.rowErrors.map((r) => r.message).join("; ")}` : e.message,
+      fieldErrors: e.field ? { [e.field]: e.message } : undefined,
+    };
   if (e instanceof SettingsError) return { error: `Kiểm tra lại: ${e.message}`, fieldErrors: e.errors };
   if (e instanceof FormError) return { error: `Kiểm tra lại: ${[...new Set(Object.values(e.errors))].join("; ")}`, fieldErrors: e.errors };
   if (

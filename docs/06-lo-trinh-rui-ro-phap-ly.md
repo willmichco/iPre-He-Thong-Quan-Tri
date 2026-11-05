@@ -135,7 +135,11 @@ gantt
   **diễn tập khôi phục tự động trong CI** (khôi phục vào CSDL mới, so từng bảng). Lịch chạy hằng ngày (cron) bật khi có máy chủ thật
 - [x] **PWA — cài lên điện thoại**: manifest (lối tắt Bán máy · Quét mã · Kho máy), biểu tượng (thường + maskable + iOS); service worker chỉ lưu đệm
   tài nguyên tĩnh có mã băm và trang "mất kết nối" — **không bao giờ lưu đệm trang / số liệu tài chính**, mất mạng thì báo rõ, có mạng lại tự tải lại
-- [ ] OCR, hộp chờ duyệt · nhập dữ liệu cũ
+- [x] **Hộp chờ duyệt** (tài liệu 07 mục 5.2; `/quet-ma/hop-cho`, `src/server/scans/`): quét / chụp loạt trên điện thoại (mã vạch + đọc chữ OCR có sẵn
+  trong bộ quét) → **Gửi vào hộp chờ duyệt** (gửi lại phiên cũ không tạo trùng) → trên máy tính soát từng dòng (Luhn, Part No. chưa gán cấu hình,
+  không phải hàng LL/A, trùng trong hộp, đã có trong hệ thống; nhãn nguồn ▌▌▌ / Aa / ✍), sửa, bỏ, rồi **xác nhận vào đơn mua** (tạo máy — cùng kiểm tra
+  với lưới nhập máy, một dòng lỗi thì không tạo gì, giá vốn tự tính lại) hoặc **vào kiện** (nhận hàng theo Serial / IMEI)
+- [ ] Nhập dữ liệu cũ từ Excel — chờ file Excel thật của chủ hàng để dựng đúng cột (hiện đã dán được từ Excel vào lưới nhập máy của từng đơn mua)
 
 **Ưu tiên khi phải cắt giảm:** costing engine và mốc vận chuyển là **không thể cắt**. Có thể dời: biểu đồ nâng cao, Kanban kéo thả (dùng nút bấm thay thế), PWA ngoại tuyến, tracking API.
 
