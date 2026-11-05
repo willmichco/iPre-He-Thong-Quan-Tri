@@ -6,6 +6,7 @@ import type { Sql, TransactionSql } from "postgres";
 import type { AllocationMethod, CostKind } from "@/domain/costing";
 import { parseManualShares, type CostFormInput, type TargetType } from "@/domain/costs";
 import { recalculateBatches, type RecalcResult } from "@/server/costing/service";
+import { syncCostEntry } from "@/server/ledger/service";
 
 type Db = Sql | TransactionSql;
 
@@ -148,6 +149,7 @@ export async function saveCost(db: Db, id: string | null, input: CostFormInput):
     await tx`DELETE FROM cost_manual_shares WHERE cost_id = ${costId}`;
     if (shares.length)
       await tx`INSERT INTO cost_manual_shares ${tx(shares.map((s) => ({ cost_id: costId, item_id: s.itemId, amount_vnd: s.amountVnd.toString() })))}`;
+    await syncCostEntry(tx, costId); // đã trả → bút toán sổ quỹ khớp số tiền / tài khoản / ngày trả
     const recalc = await recalculateBatches(tx, [...affected]);
     return { id: costId, recalc };
   });
@@ -162,6 +164,7 @@ export async function deleteCost(db: Db, id: string): Promise<RecalcResult> {
       SELECT DISTINCT i.batch_id::text AS id FROM item_cost_allocations a JOIN items i ON i.id = a.item_id WHERE a.cost_id = ${id}`;
     await tx`UPDATE costs SET deleted_at = now(), updated_at = now() WHERE id = ${id}`;
     await audit(tx, "DELETE", id, c, null);
+    await syncCostEntry(tx, id);
     return recalculateBatches(
       tx,
       batches.map((b) => b.id),

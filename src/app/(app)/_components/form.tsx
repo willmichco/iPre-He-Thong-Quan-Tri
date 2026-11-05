@@ -182,12 +182,14 @@ export function Submit({ children, variant = "primary" }: { children: ReactNode;
   );
 }
 
-export function Tabs({ tabs }: { tabs: readonly { href: string; label: string }[] }) {
+/** Thẻ chuyển mục con. Thẻ đầu (trang gốc) chỉ sáng khi đúng trang gốc — hoặc trang con không thuộc thẻ nào khác. */
+export function Tabs({ tabs, label = "Mục danh mục" }: { tabs: readonly { href: string; label: string }[]; label?: string }) {
   const pathname = usePathname();
+  const other = tabs.slice(1).some((t) => pathname.startsWith(t.href));
   return (
-    <nav aria-label="Mục danh mục" className="segmented mt-4">
-      {tabs.map((t) => {
-        const active = t.href === "/danh-muc" ? pathname === t.href : pathname.startsWith(t.href);
+    <nav aria-label={label} className="segmented mt-4">
+      {tabs.map((t, k) => {
+        const active = k === 0 ? pathname === t.href || (!other && pathname.startsWith(`${t.href}/`)) : pathname.startsWith(t.href);
         return (
           <Link key={t.href} href={t.href} aria-current={active ? "page" : undefined}>
             {t.label}

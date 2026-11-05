@@ -19,6 +19,7 @@ import {
   type VariantRef,
 } from "@/domain/purchasing";
 import { recalculateBatch, type RecalcResult } from "@/server/costing/service";
+import { syncPurchaseOrderEntry } from "@/server/ledger/service";
 
 type Db = Sql | TransactionSql;
 
@@ -439,6 +440,7 @@ export async function savePurchaseOrder(db: Db, batchId: string, id: string | nu
           FROM items i WHERE e.item_id = i.id AND i.purchase_order_id = ${poId} AND e.event_type = 'ORDERED'`;
       await audit(tx, "UPDATE", "purchase_order", poId, before, values);
     }
+    await syncPurchaseOrderEntry(tx, poId); // đã trả → bút toán "Thanh toán đơn mua" trong sổ quỹ
     const recalc = await recalculateBatch(tx, batchId);
     return { id: poId, recalc };
   });
@@ -456,6 +458,7 @@ export async function deletePurchaseOrder(db: Db, id: string) {
     if (c.n) throw new PurchasingError("IN_USE", `Đơn có ${c.n} khoản chi phí gắn vào — chuyển hoặc xoá chi phí trước`);
     await tx`UPDATE purchase_orders SET deleted_at = now() WHERE id = ${id}`;
     await audit(tx, "DELETE", "purchase_order", id, { batchId: po.batch_id }, null);
+    await syncPurchaseOrderEntry(tx, id);
     await recalculateBatch(tx, po.batch_id);
   });
 }

@@ -96,7 +96,22 @@ gantt
   - "Vốn đang nằm ở đâu" theo 7 chặng — máy khách đã cọc tính ở chỗ máy đang thật sự nằm; bấm chặng → Kho máy lọc `?chang=`
   - "Cần xử lý": kiện giữ hải quan (số ngày), kiện trễ ETA quá số ngày ân hạn, đơn mua sắp hết hạn đổi trả mà còn máy chưa kiểm, máy tồn quá N ngày, đơn cọc đã về SG cần giao, khách còn nợ, doanh thu năm chạm ngưỡng — ngưỡng đọc từ `app_settings`
   - biểu đồ doanh thu & lãi 12 tháng (kèm bảng số), lãi theo dòng máy, tuổi tồn kho, chuyến đang chạy (số máy theo chặng)
-- [ ] Nghiệm thu: nhập lại một chuyến thật từ Excel, giá vốn và lãi từng máy khớp 0 đồng
+- [ ] Nghiệm thu: nhập lại một chuyến thật từ Excel, giá vốn và lãi từng máy khớp 0 đồng — **dời sau GĐ2 theo yêu cầu chủ hàng (05/11/2026)**
+
+### Tiến độ GĐ2 (cập nhật 05/11/2026)
+
+- [x] **Thu chi + công nợ** (`/thu-chi`, `src/server/ledger/service.ts`, `src/domain/ledger.ts`, migration `0005_so_quy.sql`):
+  - **bút toán tự sinh**: đơn mua đã trả, cước / chi phí chặng đã trả (số âm = hoàn phí → bút toán thu), chi phí bán hàng đã trả → đúng **một** bút toán liên kết về chứng từ gốc
+    (chỉ mục duy nhất chặn ghi trùng), đồng bộ trong cùng transaction khi sửa / bỏ ngày trả / xoá chứng từ; chỉ sửa ở chứng từ gốc. Dữ liệu cũ được ghi bổ sung (`ledger_backfill()`)
+  - nhập tay: chi phí vận hành, thu khác, góp / rút vốn, nộp thuế; chuyển tiền / đổi ngoại tệ = 2 bút toán cùng nhóm, không tính vào tổng thu chi toàn sổ
+  - tiền theo tiền tệ của tài khoản (tính bằng xu, không sai số), quy đổi VND để báo cáo; tài khoản USD dùng tỷ giá nhập hoặc tỷ giá gần nhất
+  - số dư từng tài khoản, sổ một tài khoản có số dư luỹ kế; **đối soát** với sao kê cuối ngày (lưu lịch sử, tuỳ chọn ghi bút toán điều chỉnh)
+  - tổng hợp: tiền hiện có, vốn trong hàng, phải thu, phải trả, tài sản lưu động ròng; dòng tiền 12 tuần (kèm bảng số)
+  - **công nợ**: phải thu (đơn bán còn nợ theo tuổi nợ, hoàn phí chưa nhận) · phải trả (đơn mua, cước, chi phí bán hàng chưa trả; nút "Đã trả" ghi thẳng vào sổ)
+  - danh mục thu chi tự tạo (đánh dấu "vận hành" để trừ vào lãi ròng); danh mục hệ thống không sửa / xoá được
+- [ ] Báo cáo + xuất Excel
+- [ ] Cài đặt, khách hàng, chứng từ đính kèm (hồ sơ nguồn gốc), sổ thuế
+- [ ] PWA, OCR, hộp chờ duyệt · nhập dữ liệu cũ · sao lưu hằng ngày
 
 **Ưu tiên khi phải cắt giảm:** costing engine và mốc vận chuyển là **không thể cắt**. Có thể dời: biểu đồ nâng cao, Kanban kéo thả (dùng nút bấm thay thế), PWA ngoại tuyến, tracking API.
 

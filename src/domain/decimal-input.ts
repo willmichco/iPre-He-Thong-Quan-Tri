@@ -42,3 +42,13 @@ export function parseDecimalInput(raw: string, scale: number): string | null {
   const out = scale ? `${int}.${frac.padEnd(scale, "0")}` : int;
   return neg ? `-${out}` : out;
 }
+
+/**
+ * Tỷ giá VND/USD: "26.350" / "26,350" là 26.350 đồng (dấu hàng nghìn kiểu Việt Nam), không phải 26,35.
+ * "26.350,5" / "26350.5" vẫn đọc phần lẻ bình thường. Tối đa 4 chữ số thập phân.
+ */
+export function parseFxRate(raw: string): string | null {
+  const s = raw.trim();
+  if (/^\d{1,3}([.,]\d{3})+$/.test(s)) return parseDecimalInput(s.replace(/[.,]/g, ""), 4);
+  return parseDecimalInput(s, 4);
+}

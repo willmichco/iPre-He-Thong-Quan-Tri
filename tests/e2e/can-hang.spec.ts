@@ -17,6 +17,10 @@ const PAGES = [
   "/danh-muc/noi-mua",
   "/danh-muc/van-chuyen",
   "/danh-muc/tai-khoan",
+  "/thu-chi",
+  "/thu-chi/tai-khoan/50000000-0000-0000-0000-000000000002",
+  "/thu-chi/cong-no",
+  "/thu-chi/danh-muc",
 ];
 
 test("mọi hàng form thẳng hàng (ô nhập, nút, ô tích)", async ({ page }) => {
