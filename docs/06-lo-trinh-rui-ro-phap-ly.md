@@ -133,7 +133,9 @@ gantt
 - [x] **Sao lưu & khôi phục** (rủi ro #4; `npm run backup`, `src/server/backup/`): `pg_dump` + toàn bộ tệp chứng từ trong một gói mã hoá AES-256-GCM
   (khoá `BACKUP_KEY`, sai khoá / tệp bị sửa → từ chối); giữ 30 bản ngày + 12 bản tháng; kiểm tra toàn vẹn; khôi phục trong một transaction, phải xác nhận ghi đè;
   **diễn tập khôi phục tự động trong CI** (khôi phục vào CSDL mới, so từng bảng). Lịch chạy hằng ngày (cron) bật khi có máy chủ thật
-- [ ] PWA, OCR, hộp chờ duyệt · nhập dữ liệu cũ
+- [x] **PWA — cài lên điện thoại**: manifest (lối tắt Bán máy · Quét mã · Kho máy), biểu tượng (thường + maskable + iOS); service worker chỉ lưu đệm
+  tài nguyên tĩnh có mã băm và trang "mất kết nối" — **không bao giờ lưu đệm trang / số liệu tài chính**, mất mạng thì báo rõ, có mạng lại tự tải lại
+- [ ] OCR, hộp chờ duyệt · nhập dữ liệu cũ
 
 **Ưu tiên khi phải cắt giảm:** costing engine và mốc vận chuyển là **không thể cắt**. Có thể dời: biểu đồ nâng cao, Kanban kéo thả (dùng nút bấm thay thế), PWA ngoại tuyến, tracking API.
 

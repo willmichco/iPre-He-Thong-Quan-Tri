@@ -76,6 +76,24 @@ export default async function SettingsPage() {
             </p>
           </section>
 
+          <section className="card p-4" aria-labelledby="cai-app">
+            <h2 id="cai-app" className="font-semibold">
+              Cài lên điện thoại
+            </h2>
+            <ul className="mt-2 list-disc pl-5 text-sm">
+              <li>
+                <b>iPhone (Safari):</b> bấm nút Chia sẻ → <i>Thêm vào MH chính</i>.
+              </li>
+              <li>
+                <b>Android (Chrome):</b> menu ⋮ → <i>Cài đặt ứng dụng</i> / <i>Thêm vào màn hình chính</i>.
+              </li>
+            </ul>
+            <p className="mt-2 text-xs text-muted">
+              Mở như một ứng dụng riêng, có lối tắt Bán máy · Quét mã · Kho máy (nhấn giữ biểu tượng). Số liệu luôn lấy mới từ máy chủ — mất mạng thì báo, không
+              hiện số cũ. Cần địa chỉ HTTPS (có khi triển khai thật).
+            </p>
+          </section>
+
           <section className="card p-4" aria-labelledby="bao-mat">
             <h2 id="bao-mat" className="font-semibold">
               Bảo mật

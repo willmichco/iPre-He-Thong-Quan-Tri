@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Mất kết nối — iPre</title>
+    <style>
+      :root { --bg: #eef1f7; --card: #fff; --text: #1d1d1f; --muted: #6e6e73; --primary: #0062d1; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #0a0c11; --card: #1c1e25; --text: #f5f5f7; --muted: #a1a1a6; --primary: #5aa9ff; } }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--bg); color: var(--text);
+             font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+      main { max-width: 420px; width: 100%; background: var(--card); border-radius: 22px; padding: 28px 24px; text-align: center;
+             box-shadow: 0 10px 30px rgba(16, 24, 40, 0.08); }
+      img { width: 64px; height: 64px; border-radius: 15px; }
+      h1 { font-size: 20px; margin: 16px 0 6px; }
+      p { margin: 0 0 18px; color: var(--muted); font-size: 15px; }
+      button { appearance: none; border: 0; border-radius: 999px; padding: 12px 22px; font: inherit; font-weight: 600; color: #fff; background: var(--primary); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icons/icon-192.png" alt="" />
+      <h1>Mất kết nối mạng</h1>
+      <p>Số liệu tài chính chỉ hiện khi có mạng để luôn là số mới nhất — iPre không dùng dữ liệu cũ đã lưu. Kiểm tra Wi-Fi / 4G rồi thử lại.</p>
+      <button type="button" onclick="location.reload()">Thử lại</button>
+    </main>
+    <script>
+      addEventListener("online", () => location.reload());
+    </script>
+  </body>
+</html>
