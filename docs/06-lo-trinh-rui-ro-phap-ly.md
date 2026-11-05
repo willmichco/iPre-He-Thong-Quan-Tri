@@ -139,6 +139,13 @@ gantt
   trong bộ quét) → **Gửi vào hộp chờ duyệt** (gửi lại phiên cũ không tạo trùng) → trên máy tính soát từng dòng (Luhn, Part No. chưa gán cấu hình,
   không phải hàng LL/A, trùng trong hộp, đã có trong hệ thống; nhãn nguồn ▌▌▌ / Aa / ✍), sửa, bỏ, rồi **xác nhận vào đơn mua** (tạo máy — cùng kiểm tra
   với lưới nhập máy, một dòng lỗi thì không tạo gì, giá vốn tự tính lại) hoặc **vào kiện** (nhận hàng theo Serial / IMEI)
+- [x] **Nhận kiện bằng quét đối chiếu** (tài liệu 07 mục 5.1; `/van-chuyen/<kiện>/nhan`, `src/domain/receiving.ts`): quét từng hộp khi kiện về, đối chiếu tức
+  thì ✓ khớp · ○ còn thiếu · ⚠ ngoài kiện (kèm lý do: thuộc kiện khác / chưa có trong hệ thống). Đủ → nhận; thiếu → phải xác nhận, máy ✓ nhận mốc về,
+  máy thiếu giữ trạng thái đang vận chuyển và kiện ghi **sự cố thiếu hàng**; trang kiện có "Đã tìm thấy — nhận bổ sung"; bảng Vận chuyển báo số máy thiếu.
+  Chưa làm: gán Serial vừa quét cho máy chưa có Serial cùng cấu hình; đánh dấu **thất lạc** (cần chốt cách ghi lỗ / bồi thường — tài liệu 01 mục 6)
+- [x] **Nhật ký thay đổi** (`/cai-dat/nhat-ky`, migration `0006_nhat_ky_chi_them.sql`): mọi thao tác ghi, giá trị trước → sau, lọc theo đối tượng /
+  thao tác / ngày, tìm theo Serial / IMEI / mã; "Lịch sử thay đổi" ở trang chuyến, kiện, máy, đơn bán, khách. Nhật ký **chỉ thêm**: CSDL từ chối
+  sửa / xoá / truncate. Nhật ký không còn ghi tên, SĐT khách (chỉ mã khách) — dòng cũ đã được làm sạch — để ẩn danh hoá khách theo Luật 91/2025/QH15 trọn vẹn
 - [ ] Nhập dữ liệu cũ từ Excel — chờ file Excel thật của chủ hàng để dựng đúng cột (hiện đã dán được từ Excel vào lưới nhập máy của từng đơn mua)
 
 **Ưu tiên khi phải cắt giảm:** costing engine và mốc vận chuyển là **không thể cắt**. Có thể dời: biểu đồ nâng cao, Kanban kéo thả (dùng nút bấm thay thế), PWA ngoại tuyến, tracking API.

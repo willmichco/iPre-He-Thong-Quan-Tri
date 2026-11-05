@@ -243,7 +243,11 @@ export async function createSale(db: Db, input: SaleInput, now = new Date()): Pr
     const paid = input.payment === "UNPAID" ? input.paidAmount : input.paidAmount > 0n ? input.paidAmount : deposit ? 0n : total;
     if (paid > total) throw new SaleError("INVALID_INPUT", `Số tiền nhận (${paid}) lớn hơn tổng đơn (${total})`, "paidAmount");
     if (paid > 0n) await receive(tx, sale.id, input.accountId!, paid, deposit ? "SALE_DEPOSIT" : "SALE_RECEIPT", at);
-    await audit(tx, "CREATE", sale.id, null, { code, ...input });
+    // Không ghi tên / SĐT khách vào nhật ký (nhật ký chỉ-thêm, không ẩn danh hoá được) — chỉ ghi mã khách.
+    const logged: Record<string, unknown> = { code, ...input, customerId };
+    delete logged.customerName;
+    delete logged.customerPhone;
+    await audit(tx, "CREATE", sale.id, null, logged);
     return { id: sale.id, code, status };
   });
 }
