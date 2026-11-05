@@ -84,3 +84,28 @@ export async function holdAction(prev: FormState, fd: FormData) {
     return hold ? "Đã đánh dấu giữ hải quan" : "Đã bỏ giữ hải quan";
   });
 }
+
+/** Nhận kiện theo kết quả quét đối chiếu (trang /van-chuyen/[id]/nhan). Xong → về trang kiện. */
+export async function receiveScanAction(prev: FormState, fd: FormData) {
+  let id: string | null = null;
+  const state = await run(prev, async (db) => {
+    id = need(fd);
+    const codes = parseScanList(String(fd.get("codes") ?? ""));
+    if (codes.length > 1000) throw new svc.ShippingError("INVALID_INPUT", "Tối đa 1000 mã mỗi lần", "codes");
+    const r = await svc.receiveByScan(db, id, codes, when(fd), fd.get("acceptShortage") === "on");
+    const parts = [`Đã nhận ${r.received} máy`];
+    if (r.missing.length) parts.push(`ghi sự cố thiếu ${r.missing.length} máy`);
+    for (const x of r.outside) parts.push(`⚠ ${x.code}: ${x.reason}`);
+    return parts.join(" · ");
+  });
+  if (state.ok && id) redirect(`/van-chuyen/${id}?nhan=1`);
+  return state;
+}
+
+/** Máy thiếu đã về sau → nhận bổ sung. */
+export async function receiveLateAction(prev: FormState, fd: FormData) {
+  return run(prev, async (db) => {
+    await svc.receiveLateItem(db, need(fd), need(fd, "itemId"), when(fd));
+    return "Đã nhận bổ sung — đóng sự cố cho máy này";
+  });
+}

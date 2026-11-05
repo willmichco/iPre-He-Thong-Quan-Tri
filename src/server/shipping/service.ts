@@ -8,6 +8,7 @@
  */
 import type { Sql, TransactionSql } from "postgres";
 import { variantLabel } from "@/domain/catalog";
+import { checkReceipt, shortageNote } from "@/domain/receiving";
 import { etaFrom, isMainLeg, LEG_RULES, nextItemStatus, OUT_OF_FLOW, type ShipmentInput } from "@/domain/shipping";
 import { recalculateBatches, type RecalcResult } from "@/server/costing/service";
 
@@ -126,6 +127,7 @@ export interface ShipmentItem {
   label: string;
   serial: string | null;
   imei1: string | null;
+  imei2: string | null;
   status: string;
   batchId: string;
   batchCode: string;
@@ -146,13 +148,14 @@ export async function getShipment(db: Db, id: string): Promise<(ShipmentRow & { 
       connectivity: string | null;
       serial_number: string | null;
       imei1: string | null;
+      imei2: string | null;
       status: string;
       batch_id: string;
       batch_code: string;
       landed: string;
     }[]
   >`
-    SELECT i.id::text, m.name AS model, v.storage, v.color, v.chip, v.memory, v.connectivity, i.serial_number, i.imei1,
+    SELECT i.id::text, m.name AS model, v.storage, v.color, v.chip, v.memory, v.connectivity, i.serial_number, i.imei1, i.imei2,
            i.status::text, i.batch_id::text, b.code AS batch_code, lc.landed_cost_vnd::text AS landed
       FROM shipment_items si JOIN items i ON i.id = si.item_id AND i.deleted_at IS NULL
       JOIN product_variants v ON v.id = i.variant_id JOIN product_models m ON m.id = v.model_id
@@ -166,6 +169,7 @@ export async function getShipment(db: Db, id: string): Promise<(ShipmentRow & { 
       label: variantLabel(i.model, i),
       serial: i.serial_number,
       imei1: i.imei1,
+      imei2: i.imei2,
       status: i.status,
       batchId: i.batch_id,
       batchCode: i.batch_code,
@@ -370,6 +374,161 @@ export async function setHold(db: Db, id: string, hold: boolean, note?: string) 
       INSERT INTO shipment_tracking_events (shipment_id, occurred_at, description)
       VALUES (${id}, now(), ${hold ? `Bị giữ hải quan${note ? `: ${note}` : ""}` : "Hết giữ hải quan"})`;
     await audit(tx, "UPDATE", id, { status: s.status }, { status: next, note: note ?? null });
+  });
+}
+
+// ---- Nhận kiện bằng quét đối chiếu (tài liệu 07 mục 5.1) -----------------------------------------------
+
+export interface ReceiveResult {
+  received: number;
+  missing: { id: string; code: string }[];
+  /** mã quét không thuộc kiện + máy đó đang ở đâu (nếu có trong hệ thống) */
+  outside: { code: string; reason: string }[];
+}
+
+/**
+ * "Xác nhận nhận" sau khi quét: máy ✓ nhận mốc về (M3/M5/M7) và trạng thái tới; máy chưa quét GIỮ NGUYÊN trạng thái
+ * đang vận chuyển và kiện ghi sự cố thiếu hàng. Kiện chuyển "Đã nhận". Còn thiếu mà chưa xác nhận `acceptShortage` → chặn,
+ * không ghi gì (tránh bấm nhầm khi mới quét được một phần).
+ */
+export async function receiveByScan(db: Db, id: string, codes: readonly string[], at: string, acceptShortage: boolean): Promise<ReceiveResult> {
+  return db.begin(async (tx) => {
+    const s = await lockShipment(tx, id);
+    if (s.status !== "IN_TRANSIT" && s.status !== "HOLD") throw new ShippingError("INVALID_STATE", 'Chỉ kiện đang đi mới nhận được — bấm "Gửi đi" trước');
+    if (s.shipped_ms && Date.parse(at) < Number(s.shipped_ms)) throw new ShippingError("INVALID_INPUT", "Ngày nhận không được trước ngày gửi", "at");
+    const expected = await tx<{ id: string; label: string; serial: string | null; imei1: string | null; imei2: string | null }[]>`
+      SELECT i.id::text, i.id::text AS label, i.serial_number AS serial, i.imei1, i.imei2
+        FROM shipment_items si JOIN items i ON i.id = si.item_id AND i.deleted_at IS NULL
+       WHERE si.shipment_id = ${id} ORDER BY i.created_at, i.id`;
+    if (!expected.length) throw new ShippingError("INVALID_STATE", "Kiện không có máy nào");
+    const chk = checkReceipt(expected, codes);
+    if (!chk.matched.length) throw new ShippingError("INVALID_INPUT", "Chưa quét được máy nào thuộc kiện này", "codes");
+    if (chk.missing.length && !acceptShortage)
+      throw new ShippingError(
+        "INVALID_STATE",
+        `Còn thiếu ${chk.missing.length} máy chưa quét — quét tiếp, hoặc tích "Nhận phần đã quét, ghi sự cố thiếu hàng" rồi xác nhận lại`,
+        "acceptShortage",
+      );
+    await tx`UPDATE shipments SET status = 'ARRIVED', arrived_at = ${at}, updated_at = now() WHERE id = ${id}`;
+    if (isMainLeg(s.leg_type))
+      await applyEvent(
+        tx,
+        s.leg_type,
+        "arrive",
+        id,
+        at,
+        chk.matched.map((m) => m.id),
+      );
+    const missing = chk.missing.map((m) => ({ id: m.id, code: m.serial ?? m.imei1 ?? m.imei2 ?? m.id }));
+    if (missing.length) {
+      const note = shortageNote(chk.missing.map((m) => ({ ...m, label: m.serial ?? m.imei1 ?? "máy chưa có mã" })));
+      await tx`INSERT INTO shipment_tracking_events (shipment_id, occurred_at, description) VALUES (${id}, ${at}, ${note})`;
+      for (const m of missing)
+        await tx`INSERT INTO item_events (item_id, event_type, occurred_at, shipment_id, note)
+                 VALUES (${m.id}, 'NOTE', ${at}, ${id}, 'Thiếu khi nhận kiện — chưa về tới nơi')`;
+    }
+    const outside = await whereAre(tx, s.leg_type, id, chk.outside);
+    await audit(
+      tx,
+      "UPDATE",
+      id,
+      { status: s.status },
+      { status: "ARRIVED", arrivedAt: at, byScan: true, received: chk.matched.length, missing: missing.map((m) => m.code), outside: chk.outside },
+    );
+    await syncBatchStatus(tx, await batchesOf(tx, id));
+    return { received: chk.matched.length, missing, outside };
+  });
+}
+
+/** Mã quét ngoài kiện → lý do dễ hiểu (máy nằm kiện khác cùng chặng / không thuộc kiện nào / chưa có trong hệ thống). */
+async function whereAre(tx: TransactionSql, leg: string, shipmentId: string, codes: string[]) {
+  if (!codes.length) return [];
+  const rows = await tx<{ serial_number: string | null; imei1: string | null; imei2: string | null; tracking: string | null; sid: string | null }[]>`
+    SELECT i.serial_number, i.imei1, i.imei2, COALESCE(sh.tracking_number, sh.reference_code) AS tracking, sh.id::text AS sid
+      FROM items i
+      LEFT JOIN shipment_items si ON si.item_id = i.id AND si.leg_type = ${leg}
+      LEFT JOIN shipments sh ON sh.id = si.shipment_id
+     WHERE i.deleted_at IS NULL AND (i.serial_number = ANY(${codes}) OR i.imei1 = ANY(${codes}) OR i.imei2 = ANY(${codes}))`;
+  return codes.map((code) => {
+    const r = rows.find((x) => x.serial_number === code || x.imei1 === code || x.imei2 === code);
+    if (!r) return { code, reason: "Chưa có trong hệ thống (máy chưa nhập, hoặc mã đọc sai)" };
+    if (r.sid && r.sid !== shipmentId) return { code, reason: `Thuộc kiện ${r.tracking ?? "khác"} cùng chặng — có thể gửi nhầm kiện` };
+    return { code, reason: "Không nằm trong kiện nào của chặng này" };
+  });
+}
+
+export interface ShortageRow {
+  itemId: string;
+  label: string;
+  serial: string | null;
+  imei1: string | null;
+  status: string;
+  shipmentId: string;
+  tracking: string | null;
+  arrivedAt: string | null;
+}
+
+/**
+ * Sự cố thiếu hàng còn mở: máy nằm trong kiện ĐÃ NHẬN (3 chặng chính) nhưng chưa có mốc về của kiện đó
+ * và vẫn đang trên đường (chưa bán / thất lạc / …). `shipmentId` = chỉ của 1 kiện.
+ */
+export async function listShortages(db: Db, shipmentId?: string): Promise<ShortageRow[]> {
+  const rows = await db<
+    {
+      item_id: string;
+      model: string;
+      storage: string | null;
+      color: string | null;
+      chip: string | null;
+      memory: string | null;
+      connectivity: string | null;
+      serial_number: string | null;
+      imei1: string | null;
+      status: string;
+      shipment_id: string;
+      tracking: string | null;
+      arrived_at: string | null;
+    }[]
+  >`
+    SELECT i.id::text AS item_id, m.name AS model, v.storage, v.color, v.chip, v.memory, v.connectivity, i.serial_number, i.imei1, i.status::text,
+           s.id::text AS shipment_id, COALESCE(s.tracking_number, s.reference_code) AS tracking, s.arrived_at::text
+      FROM shipments s
+      JOIN shipment_items si ON si.shipment_id = s.id
+      JOIN items i ON i.id = si.item_id AND i.deleted_at IS NULL
+      JOIN product_variants v ON v.id = i.variant_id JOIN product_models m ON m.id = v.model_id
+     WHERE s.status = 'ARRIVED' AND s.leg_type IN ('US_DOMESTIC', 'US_TO_VN', 'HN_TO_SG')
+       AND (${shipmentId ?? null}::uuid IS NULL OR s.id = ${shipmentId ?? null}::uuid)
+       AND i.status::text <> ALL(${[...OUT_OF_FLOW]}::text[])
+       AND NOT EXISTS (
+         SELECT 1 FROM item_events e
+          WHERE e.item_id = i.id AND e.shipment_id = s.id
+            AND e.event_type::text = CASE s.leg_type WHEN 'US_DOMESTIC' THEN 'US_WAREHOUSE_RECEIVED' WHEN 'US_TO_VN' THEN 'HN_ARRIVED' ELSE 'SG_RECEIVED' END)
+     ORDER BY s.arrived_at DESC, i.created_at, i.id`;
+  return rows.map((r) => ({
+    itemId: r.item_id,
+    label: variantLabel(r.model, r),
+    serial: r.serial_number,
+    imei1: r.imei1,
+    status: r.status,
+    shipmentId: r.shipment_id,
+    tracking: r.tracking,
+    arrivedAt: r.arrived_at,
+  }));
+}
+
+/** Máy thiếu đã tìm thấy / về sau → nhận bổ sung: mốc về của kiện cho riêng máy đó, đóng sự cố. */
+export async function receiveLateItem(db: Db, shipmentId: string, itemId: string, at: string) {
+  return db.begin(async (tx) => {
+    const s = await lockShipment(tx, shipmentId);
+    if (s.status !== "ARRIVED" || !isMainLeg(s.leg_type)) throw new ShippingError("INVALID_STATE", "Kiện chưa nhận — dùng nút nhận kiện");
+    const open = await listShortages(tx, shipmentId);
+    if (!open.some((o) => o.itemId === itemId)) throw new ShippingError("NOT_FOUND", "Máy không nằm trong danh sách thiếu của kiện này");
+    if (s.shipped_ms && Date.parse(at) < Number(s.shipped_ms)) throw new ShippingError("INVALID_INPUT", "Ngày nhận không được trước ngày gửi", "at");
+    await applyEvent(tx, s.leg_type, "arrive", shipmentId, at, [itemId]);
+    await tx`INSERT INTO shipment_tracking_events (shipment_id, occurred_at, description)
+             SELECT ${shipmentId}, ${at}, 'Nhận bổ sung máy thiếu: ' || COALESCE(serial_number, imei1, id::text) FROM items WHERE id = ${itemId}`;
+    await audit(tx, "UPDATE", shipmentId, null, { receivedLate: itemId, at });
+    await syncBatchStatus(tx, await batchesOf(tx, shipmentId));
   });
 }
 

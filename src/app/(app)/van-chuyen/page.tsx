@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LEG_LABEL, type LegType } from "@/domain/catalog";
 import { BOARD_COLUMNS, boardColumn, daysLate } from "@/domain/shipping";
-import { listShipments, shippingOptions } from "@/server/shipping/service";
+import { listShipments, listShortages, shippingOptions } from "@/server/shipping/service";
 import { ActionForm, Submit } from "../_components/form";
 import { catalogDb, NoDatabase } from "../danh-muc/shared";
 import { createShipmentAction } from "./actions";
@@ -17,11 +17,13 @@ export default async function ShippingBoard() {
         <NoDatabase />
       </main>
     );
-  const [shipments, opts] = await Promise.all([listShipments(db), shippingOptions(db)]);
+  const [shipments, opts, shortages] = await Promise.all([listShipments(db), shippingOptions(db), listShortages(db)]);
   const today = todayVn();
   const carriers = [["", "— chọn —"] as const, ...opts.carriers.map((c) => [c.id, c.name] as const)];
   const batches = [["", "— không / nhiều chuyến —"] as const, ...opts.batches.map((b) => [b.id, b.code] as const)];
   const lateCount = shipments.filter((s) => daysLate(s.eta, today, s.status) > 0).length;
+  const shortBy = new Map<string, { tracking: string | null; n: number }>();
+  for (const m of shortages) shortBy.set(m.shipmentId, { tracking: m.tracking, n: (shortBy.get(m.shipmentId)?.n ?? 0) + 1 });
 
   return (
     <main className="mx-auto max-w-[1400px] p-4 md:p-8">
@@ -29,6 +31,19 @@ export default async function ShippingBoard() {
         <h1 className="text-2xl font-bold">Vận chuyển</h1>
         {lateCount > 0 && <span className="text-sm text-danger">⚠ {lateCount} kiện quá ngày dự kiến</span>}
       </div>
+      {shortBy.size > 0 && (
+        <p className="mt-2 text-sm text-danger" role="note">
+          ⚠ Sự cố thiếu hàng: {shortages.length} máy chưa về —{" "}
+          {[...shortBy].map(([id, x], k) => (
+            <span key={id}>
+              {k > 0 && ", "}
+              <Link href={`/van-chuyen/${id}`} className="underline">
+                kiện {x.tracking ?? "chưa có mã"} ({x.n})
+              </Link>
+            </span>
+          ))}
+        </p>
+      )}
       <p className="mt-1 text-sm text-muted">
         Mỗi thẻ là một kiện. Bấm &quot;Gửi đi&quot; / &quot;Đã nhận&quot; trong kiện — hệ thống tự ghi mốc cho mọi máy bên trong.
       </p>

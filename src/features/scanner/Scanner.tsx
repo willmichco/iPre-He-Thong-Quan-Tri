@@ -50,6 +50,8 @@ export interface ScannerProps {
   renderPartNumberInfo?: (partNumber: string) => ReactNode;
   /** Gửi phiên quét về máy chủ (hộp chờ duyệt). Bản độc lập không có → không hiện nút. */
   onSubmit?: (records: DeviceRecord[]) => Promise<{ ok: boolean; message: string }>;
+  /** Báo danh sách máy đã quét mỗi khi phiên đổi (vd trang nhận kiện đối chiếu ngay). */
+  onRecordsChange?: (records: DeviceRecord[]) => void;
 }
 
 const SOURCE_BADGE: Record<FieldSource, { label: string; cls: string }> = {
@@ -157,6 +159,7 @@ export function Scanner({
   sampleLabelUrl,
   renderPartNumberInfo,
   onSubmit,
+  onRecordsChange,
 }: ScannerProps) {
   // Component chỉ chạy phía trình duyệt (xem ScannerClient) nên đọc localStorage ngay được.
   const [session, setSession] = useState<StreamState>(() => loadSession(storageKey));
@@ -486,6 +489,7 @@ export function Scanner({
   const onWarmOcr = useMemo(() => (ocrBase ? () => void warmOcr(ocrBase) : undefined), [ocrBase]);
 
   const records = session.records;
+  useEffect(() => onRecordsChange?.(records), [records, onRecordsChange]);
   const issuesById = useMemo(() => Object.fromEntries(records.map((r) => [r.id, validateRecord(r, records, expectedRegion)])), [records, expectedRegion]);
   const errorCount = Object.values(issuesById).reduce((n, list) => n + list.filter((i) => i.severity === "error").length, 0);
 

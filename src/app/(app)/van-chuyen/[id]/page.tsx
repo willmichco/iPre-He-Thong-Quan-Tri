@@ -5,14 +5,24 @@ import { ITEM_STATUS_LABEL } from "@/domain/purchasing";
 import { daysLate, isMainLeg, isoToVnLocal, LEG_RULES, SHIPMENT_STATUS_LABEL, trackingUrl } from "@/domain/shipping";
 import { KINDS_BY_LEG } from "@/domain/costs";
 import { listCosts } from "@/server/costs/service";
-import { getShipment, shippingOptions } from "@/server/shipping/service";
+import { getShipment, listShortages, shippingOptions } from "@/server/shipping/service";
 import { listAttachments } from "@/server/attachments/service";
 import { Attachments } from "../../_components/Attachments";
 import { CostSection } from "../../_components/CostSection";
 import { ActionForm, Input, Submit } from "../../_components/form";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
-import { arriveAction, assignAction, deleteShipmentAction, holdAction, removeItemAction, shipAction, updateShipmentAction } from "../actions";
+import {
+  arriveAction,
+  assignAction,
+  deleteShipmentAction,
+  holdAction,
+  receiveLateAction,
+  removeItemAction,
+  shipAction,
+  updateShipmentAction,
+} from "../actions";
 import { dmy, ShipmentFields, todayVn, vnd } from "../shared";
+import { ClearReceiveSession } from "./nhan/ReceiveClient";
 import { ScanBox } from "./ScanBox";
 
 export const metadata = { title: "Kiện vận chuyển" };
@@ -23,7 +33,7 @@ const dmyHm = (ts: string | null) => {
   return `${dmy(vn.slice(0, 10))} ${vn.slice(11, 16)}`;
 };
 
-export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[id]">) {
+export default async function ShipmentPage({ params, searchParams }: PageProps<"/van-chuyen/[id]">) {
   const db = await catalogDb();
   if (!db)
     return (
@@ -35,11 +45,13 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const s = await getShipment(db, id);
   if (!s) notFound();
-  const [opts, costs, accounts, docs] = await Promise.all([
+  const justReceived = (await searchParams).nhan === "1";
+  const [opts, costs, accounts, docs, shortages] = await Promise.all([
     shippingOptions(db),
     listCosts(db, { shipmentId: s.id }),
     db<{ id: string; name: string; currency: string }[]>`SELECT id::text, name, currency::text FROM accounts WHERE is_active ORDER BY name`,
     listAttachments(db, "SHIPMENT", [s.id]),
+    s.status === "ARRIVED" ? listShortages(db, s.id) : Promise.resolve([]),
   ]);
   const accountOptions = [["", "— chưa chọn —"] as const, ...accounts.map((a) => [a.id, `${a.name} (${a.currency})`] as const)];
   const carriers = [["", "— chọn —"] as const, ...opts.carriers.filter((c) => c.legTypes.includes(s.legType)).map((c) => [c.id, c.name] as const)];
@@ -112,6 +124,48 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
         </div>
       </dl>
 
+      {justReceived && s.status === "ARRIVED" && (
+        <p role="status" className="card mt-4 p-3 text-sm text-[var(--ok)]">
+          ✓ Đã nhận kiện theo kết quả quét{shortages.length ? ` — ghi sự cố thiếu ${shortages.length} máy (xem bên dưới)` : " — đủ máy"}.
+          <ClearReceiveSession shipmentId={s.id} />
+        </p>
+      )}
+
+      {shortages.length > 0 && (
+        <section className="card mt-4 border border-[var(--danger)] p-4" aria-labelledby="su-co">
+          <h2 id="su-co" className="font-semibold text-danger">
+            ⚠ Sự cố thiếu hàng · {shortages.length} máy chưa về
+          </h2>
+          <p className="mt-1 text-xs text-muted">
+            Máy có trong kiện nhưng không quét được khi nhận — vẫn tính là đang vận chuyển. Tìm thấy / về sau thì nhận bổ sung; hỏi đơn vị vận chuyển kèm vận
+            đơn ở phần chứng từ.
+          </p>
+          <ul className="mt-2 flex flex-col gap-2">
+            {shortages.map((m) => (
+              <li
+                key={m.itemId}
+                className="flex flex-wrap items-end justify-between gap-2 border-t border-border pt-2"
+                aria-label={`Thiếu ${m.serial ?? m.imei1 ?? m.itemId}`}
+              >
+                <span className="text-sm">
+                  <Link href={`/kho/${m.itemId}`} className="underline">
+                    {m.label}
+                  </Link>{" "}
+                  <span className="font-mono text-xs text-muted">{m.serial ?? m.imei1 ?? ""}</span>
+                  <span className="text-xs text-muted"> · {ITEM_STATUS_LABEL[m.status] ?? m.status}</span>
+                </span>
+                <ActionForm action={receiveLateAction} label={`Nhận bổ sung ${m.serial ?? m.imei1 ?? m.itemId}`} className="field-row">
+                  <input type="hidden" name="id" value={s.id} />
+                  <input type="hidden" name="itemId" value={m.itemId} />
+                  <Input label="Ngày giờ nhận" name="at" type="datetime-local" defaultValue={now} className="w-56" />
+                  <Submit variant="secondary">Đã tìm thấy — nhận bổ sung</Submit>
+                </ActionForm>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="mt-5 field-row" aria-label="Thao tác kiện">
         {s.status === "PLANNED" && (
           <ActionForm action={shipAction} label="Gửi đi" className="field-row">
@@ -120,11 +174,16 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
             <Submit>Gửi đi</Submit>
           </ActionForm>
         )}
+        {(s.status === "IN_TRANSIT" || s.status === "HOLD") && s.items.length > 0 && (
+          <Link href={`/van-chuyen/${s.id}/nhan`} className="btn-primary self-end">
+            ▌▌▌ Nhận bằng quét đối chiếu
+          </Link>
+        )}
         {(s.status === "IN_TRANSIT" || s.status === "HOLD") && (
           <ActionForm action={arriveAction} label="Đã nhận" className="field-row">
             <input type="hidden" name="id" value={s.id} />
             <Input label={`Ngày giờ nhận${rule ? ` — ${rule.arriveLabel}` : ""}`} name="at" type="datetime-local" defaultValue={now} className="w-56" />
-            <Submit>Đã nhận</Submit>
+            <Submit variant="secondary">Đã nhận cả kiện</Submit>
           </ActionForm>
         )}
         {s.status === "IN_TRANSIT" && (
