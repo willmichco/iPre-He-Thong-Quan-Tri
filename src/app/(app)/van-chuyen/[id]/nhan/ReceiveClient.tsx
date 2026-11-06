@@ -6,12 +6,13 @@ import { checkReceipt, scannable, type ExpectedItem } from "@/domain/receiving";
 import type { DeviceRecord } from "@/domain/scan-session";
 import { TIME_ZONES } from "@/domain/tracking";
 import { ActionForm, Checkbox, Input, Select, Submit } from "../../../_components/form";
+import { ScannerSkeleton } from "../../../quet-ma/ScannerSkeleton";
 import { receiveScanAction } from "../../actions";
 
 // Bộ quét dùng camera, WebAssembly và localStorage → chỉ chạy trên trình duyệt.
 const Scanner = dynamic(() => import("@/features/scanner/Scanner").then((m) => m.Scanner), {
   ssr: false,
-  loading: () => <p className="p-6 text-muted">Đang tải bộ quét…</p>,
+  loading: () => <ScannerSkeleton embedded />,
 });
 const WASM = { url: "/wasm/zxing_reader.wasm" };
 
@@ -65,7 +66,7 @@ export function ReceiveClient({
       </p>
 
       <div className="card overflow-hidden">
-        <Scanner wasm={WASM} ocrBase="/ocr" storageKey={sessionKey(shipmentId)} onRecordsChange={onRecords} />
+        <Scanner wasm={WASM} ocrBase="/ocr" storageKey={sessionKey(shipmentId)} onRecordsChange={onRecords} embedded />
       </div>
 
       <section className="card p-4" aria-label="Đối chiếu">

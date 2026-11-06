@@ -98,7 +98,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
       </div>
 
       {/* Thẻ KPI */}
-      <section aria-label="Chỉ số chính" className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <section aria-label="Chỉ số chính" className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5 [&>:last-child]:col-span-2 lg:[&>:last-child]:col-span-1">
         <Kpi
           testid="kpi-capital"
           label="Vốn trong hàng"

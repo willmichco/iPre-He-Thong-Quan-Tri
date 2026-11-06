@@ -88,6 +88,30 @@ export async function decodePhoto(file: Blob): Promise<PhotoDecodeResult> {
 let frameCounter = 0;
 
 /**
+ * Canvas dùng lại cho quét trực tiếp — một cái cho toàn khung, một cái cho vùng khung ngắm. Trước đây mỗi khung
+ * hình tạo canvas mới (~13 MB ở 2.400 px), ~6 lần/giây: bộ nhớ rác liên tục, bộ dọn rác chạy là giật hình trên
+ * điện thoại. Giờ chỉ cấp phát lại khi kích thước đổi (xoay máy, đổi camera).
+ */
+const liveCanvases: Record<"full" | "reticle", { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null> = { full: null, reticle: null };
+
+function liveImageData(video: HTMLVideoElement, kind: "full" | "reticle", region: Region, maxSide: number) {
+  const scale = Math.min(1, maxSide / Math.max(region.sw, region.sh));
+  const cw = Math.max(1, Math.round(region.sw * scale));
+  const ch = Math.max(1, Math.round(region.sh * scale));
+  let slot = liveCanvases[kind];
+  if (!slot) {
+    const canvas = document.createElement("canvas");
+    slot = liveCanvases[kind] = { canvas, ctx: canvas.getContext("2d", { willReadFrequently: true })! };
+  }
+  if (slot.canvas.width !== cw || slot.canvas.height !== ch) {
+    slot.canvas.width = cw;
+    slot.canvas.height = ch;
+  }
+  slot.ctx.drawImage(video, region.sx, region.sy, region.sw, region.sh, 0, 0, cw, ch);
+  return { data: slot.ctx.getImageData(0, 0, cw, ch), scale };
+}
+
+/**
  * Đọc một khung hình camera. Mặc định giải mã vùng khung ngắm ở ĐỘ PHÂN GIẢI GỐC
  * (mã trên nhãn Apple rất mảnh, thu nhỏ là mất), xen kẽ với toàn khung hình (nhãn lệch khỏi khung ngắm).
  */
@@ -97,11 +121,11 @@ export async function decodeVideoFrame(video: HTMLVideoElement): Promise<Positio
   const W = video.videoWidth;
   const H = video.videoHeight;
   frameCounter++;
-  const region =
-    frameCounter % 2 === 0
-      ? { sx: 0, sy: 0, sw: W, sh: H }
-      : { sx: Math.round(W * RETICLE.x), sy: Math.round(H * RETICLE.y), sw: Math.round(W * RETICLE.w), sh: Math.round(H * RETICLE.h) };
-  const { data, scale } = regionToImageData(video, region, 2400);
+  const full = frameCounter % 2 === 0;
+  const region = full
+    ? { sx: 0, sy: 0, sw: W, sh: H }
+    : { sx: Math.round(W * RETICLE.x), sy: Math.round(H * RETICLE.y), sw: Math.round(W * RETICLE.w), sh: Math.round(H * RETICLE.h) };
+  const { data, scale } = liveImageData(video, full ? "full" : "reticle", region, 2400);
   return toPositioned(await readBarcodes(data, LIVE_OPTIONS), 1 / scale, region.sx, region.sy);
 }
 
