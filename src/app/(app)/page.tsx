@@ -6,10 +6,11 @@ import { BATCH_STATUS_LABEL } from "@/domain/purchasing";
 import { getOverview } from "@/server/overview/service";
 import { HBars, MonthBars } from "./_overview/charts";
 import { catalogDb, NoDatabase } from "./danh-muc/shared";
-import { nextBotRun, TRACK_CARRIER_LABEL, TRACK_STATUS_LABEL, vnShort, type TrackStatus } from "@/domain/tracking";
+import { nextBotRun, TRACK_CARRIER_LABEL, vnShort } from "@/domain/tracking";
 import { ActionForm, Submit } from "./_components/form";
+import { Glyph } from "./_components/Glyph";
 import { runBotAction } from "./van-chuyen/actions";
-import { dmy, todayVn, TrackLinkForm } from "./van-chuyen/shared";
+import { dmy, todayVn, TrackBadge, TrackLinkForm } from "./van-chuyen/shared";
 
 export const metadata = { title: "Tổng quan" };
 
@@ -98,7 +99,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
       </div>
 
       {/* Thẻ KPI */}
-      <section aria-label="Chỉ số chính" className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <section aria-label="Chỉ số chính" className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5 [&>:last-child]:col-span-2 lg:[&>:last-child]:col-span-1">
         <Kpi
           testid="kpi-capital"
           label="Vốn trong hàng"
@@ -250,67 +251,80 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
       </div>
 
       {/* Bot theo dõi vận đơn */}
-      <section className="card mt-5 p-4" aria-labelledby="bot-van-don" data-testid="bot-card">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <h2 id="bot-van-don" className="font-semibold">
-              🤖 Bot theo dõi vận đơn <span className="text-sm font-normal text-muted">· {o.bot.rows.length} kiện</span>
-            </h2>
-            <p className="text-xs text-muted" data-testid="bot-run">
-              Kiểm tra 07:00 và 19:00 mỗi ngày · lần cuối {o.bot.lastRun ? `${vnShort(o.bot.lastRun.at)}` : "chưa chạy"} · lần tới{" "}
-              {vnShort(nextBotRun(new Date()))}
-            </p>
+      <section className="card mt-5 p-4 md:p-5" aria-labelledby="bot-van-don" data-testid="bot-card">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="icon-tile">
+              <Glyph name="bot" size={20} />
+            </span>
+            <div className="min-w-0">
+              <h2 id="bot-van-don" className="font-semibold">
+                Bot theo dõi vận đơn <span className="text-sm font-normal text-muted">· {o.bot.rows.length} kiện</span>
+              </h2>
+              <p className="mt-0.5 text-xs text-muted" data-testid="bot-run">
+                Kiểm tra 07:00 và 19:00 mỗi ngày · lần cuối {o.bot.lastRun ? `${vnShort(o.bot.lastRun.at)}` : "chưa chạy"} · lần tới{" "}
+                {vnShort(nextBotRun(new Date()))}
+              </p>
+            </div>
           </div>
           <ActionForm action={runBotAction} label="Bot kiểm tra ngay">
-            <Submit variant="secondary">Kiểm tra ngay</Submit>
+            <Submit variant="secondary">
+              <Glyph name="refresh" size={16} />
+              Kiểm tra ngay
+            </Submit>
           </ActionForm>
         </div>
         {o.bot.configured.length === 0 ? (
-          <p className="mt-2 rounded-xl bg-[var(--fill)] p-2.5 text-xs" role="note" data-testid="bot-unconfigured">
-            ⚠ Chưa có khoá API của hãng nên bot chưa đọc được vận đơn. Cần một trong hai: <strong>UPS_CLIENT_ID + UPS_CLIENT_SECRET</strong> (miễn phí ở
-            developer.ups.com) hoặc <strong>TRACK17_API_KEY</strong> (17track.net — UPS, USPS, FedEx, DHL). Đặt vào biến môi trường của máy chủ.
-          </p>
+          <div className="callout mt-3" data-tone="warn" role="note" data-testid="bot-unconfigured">
+            <Glyph name="warn" size={17} />
+            <p>
+              Chưa có khoá API của hãng nên bot chưa đọc được vận đơn. Cần một trong hai: <strong>UPS_CLIENT_ID + UPS_CLIENT_SECRET</strong> (miễn phí ở
+              developer.ups.com) hoặc <strong>TRACK17_API_KEY</strong> (17track.net — UPS, USPS, FedEx, DHL). Đặt vào biến môi trường của máy chủ.
+            </p>
+          </div>
         ) : (
-          <p className="mt-1 text-xs text-muted">Đang đọc được: {o.bot.configured.map((c) => TRACK_CARRIER_LABEL[c]).join(", ")}</p>
+          <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+            Đang đọc được:
+            {o.bot.configured.map((c) => (
+              <span key={c} className="badge" data-tone="ok">
+                {TRACK_CARRIER_LABEL[c]}
+              </span>
+            ))}
+          </p>
         )}
         <div className="mt-3">
           <TrackLinkForm compact />
         </div>
         {o.bot.rows.length > 0 && (
-          <ul className="mt-3 flex flex-col gap-2" aria-label="Kiện bot đang theo dõi">
-            {o.bot.rows.map((r) => {
-              const st = r.trackStatus as TrackStatus | null;
-              const bad = st === "DELAYED" || st === "EXCEPTION";
-              return (
-                <li key={r.id}>
-                  <Link
-                    href={`/van-chuyen/${r.id}`}
-                    className="grid gap-x-3 rounded-2xl bg-[var(--fill)] px-3 py-2 text-sm hover:bg-[var(--fill-strong)] md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto]"
-                    data-testid="bot-row"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate font-mono text-xs">{r.trackingNumber}</span>
-                      <span className="text-xs text-muted">{r.carrierName ?? "—"}</span>
-                    </span>
-                    <span className="min-w-0">
-                      <span className={`font-medium ${bad ? "text-danger" : st === "DELIVERED" ? "text-[var(--ok)]" : ""}`}>
-                        {st ? (TRACK_STATUS_LABEL[st] ?? st) : r.error ? "Chưa đọc được" : "Chờ lần kiểm tra đầu"}
+          <ul className="mt-3 flex flex-col gap-1.5" aria-label="Kiện bot đang theo dõi">
+            {o.bot.rows.map((r) => (
+              <li key={r.id}>
+                <Link
+                  href={`/van-chuyen/${r.id}`}
+                  className="group grid items-center gap-x-4 gap-y-1.5 rounded-2xl bg-[var(--fill)] px-3.5 py-2.5 text-sm transition-colors hover:bg-[var(--fill-strong)] md:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_auto]"
+                  data-testid="bot-row"
+                >
+                  <span className="flex min-w-0 items-baseline justify-between gap-2 md:block">
+                    <span className="block truncate font-mono text-[13px] font-medium">{r.trackingNumber}</span>
+                    <span className="shrink-0 text-xs text-muted">{r.carrierName ?? "—"}</span>
+                  </span>
+                  <span className="flex min-w-0 flex-col items-start gap-1">
+                    <TrackBadge status={r.trackStatus} error={r.error} />
+                    {(r.lastEvent || r.error) && (
+                      <span className="block w-full truncate text-xs text-muted">
+                        {r.lastEvent
+                          ? `${r.lastEvent}${r.lastLocation ? ` · ${r.lastLocation}` : ""}${r.lastEventAt ? ` · ${vnShort(r.lastEventAt)}` : ""}`
+                          : r.error}
                       </span>
-                      {(r.lastEvent || r.error) && (
-                        <span className="block truncate text-xs text-muted">
-                          {r.lastEvent
-                            ? `${r.lastEvent}${r.lastLocation ? ` · ${r.lastLocation}` : ""}${r.lastEventAt ? ` · ${vnShort(r.lastEventAt)}` : ""}`
-                            : r.error}
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-xs text-muted md:text-right">
-                      {r.trackEta ? `hãng hẹn ${dmy(r.trackEta)}${r.trackEtaWindow ? ` ${r.trackEtaWindow}` : ""}` : r.eta ? `dự kiến ${dmy(r.eta)}` : ""}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
+                    )}
+                  </span>
+                  <span className="flex items-center gap-2 text-xs text-muted md:justify-end md:text-right">
+                    {r.trackEta ? `hãng hẹn ${dmy(r.trackEta)}${r.trackEtaWindow ? ` ${r.trackEtaWindow}` : ""}` : r.eta ? `dự kiến ${dmy(r.eta)}` : ""}
+                    <Glyph name="arrow" size={15} className="hidden opacity-40 transition-transform group-hover:translate-x-0.5 md:block" />
+                  </span>
+                </Link>
+              </li>
+            ))}
           </ul>
         )}
       </section>

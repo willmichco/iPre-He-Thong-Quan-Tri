@@ -7,6 +7,7 @@ import { getItemProfile } from "@/server/sales/service";
 import { GAP_LABEL } from "@/domain/attachments";
 import { itemDossier } from "@/server/attachments/service";
 import { Attachments } from "../../_components/Attachments";
+import { HistoryLink } from "../../_components/HistoryLink";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
 
 export const metadata = { title: "Hồ sơ máy" };
@@ -209,11 +210,7 @@ export default async function ItemProfilePage({ params }: PageProps<"/kho/[id]">
           </ul>
         </section>
       )}
-      <p className="mt-6 text-right text-xs">
-        <Link href={`/cai-dat/nhat-ky?id=${id}`} className="text-muted underline hover:text-text">
-          Lịch sử thay đổi
-        </Link>
-      </p>
+      <HistoryLink id={id} />
     </main>
   );
 }

@@ -5,6 +5,7 @@ import { warrantyState } from "@/domain/customers";
 import { SALE_STATUS_LABEL } from "@/domain/sales-core";
 import { getCustomer } from "@/server/customers/service";
 import { ActionForm, Input, Submit } from "../../../_components/form";
+import { HistoryLink } from "../../../_components/HistoryLink";
 import { catalogDb, Empty, NoDatabase } from "../../../danh-muc/shared";
 import { todayVn } from "../../../van-chuyen/shared";
 import { anonymizeCustomerAction, saveCustomerAction } from "../actions";
@@ -169,11 +170,7 @@ export default async function CustomerPage({ params }: PageProps<"/ban-hang/khac
           </details>
         </>
       )}
-      <p className="mt-6 text-right text-xs">
-        <Link href={`/cai-dat/nhat-ky?id=${id}`} className="text-muted underline hover:text-text">
-          Lịch sử thay đổi
-        </Link>
-      </p>
+      <HistoryLink id={id} />
     </main>
   );
 }

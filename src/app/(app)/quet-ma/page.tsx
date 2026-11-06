@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { requireOwner } from "@/server/auth/session";
 import { getSql } from "@/server/db/client";
 import { inboxCount } from "@/server/scans/service";
@@ -12,13 +11,8 @@ export default async function ScanPage() {
   const db = getSql();
   const pending = db ? await inboxCount(db) : 0;
   return (
-    <>
-      <p className="mx-auto flex max-w-5xl justify-end px-4 pt-3 text-sm md:px-8">
-        <Link href="/quet-ma/hop-cho" className="underline" data-testid="inbox-link">
-          Hộp chờ duyệt{pending ? ` (${pending})` : ""} →
-        </Link>
-      </p>
-      <ScannerClient />
-    </>
+    <main className="md:px-4 md:pt-4">
+      <ScannerClient pending={pending} />
+    </main>
   );
 }

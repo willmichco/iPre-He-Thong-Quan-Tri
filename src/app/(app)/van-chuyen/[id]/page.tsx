@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { LEG_LABEL, type LegType } from "@/domain/catalog";
 import { ITEM_STATUS_LABEL } from "@/domain/purchasing";
 import { daysLate, isMainLeg, isoToVnLocal, LEG_RULES, SHIPMENT_STATUS_LABEL, trackingUrl } from "@/domain/shipping";
-import { humanDuration, TRACK_STATUS_LABEL, vnShort, type TrackStatus } from "@/domain/tracking";
+import { humanDuration, vnShort, type TrackStatus } from "@/domain/tracking";
 import { listTrackingEvents } from "@/server/tracking/service";
 import { KINDS_BY_LEG } from "@/domain/costs";
 import { listCosts } from "@/server/costs/service";
@@ -12,6 +12,8 @@ import { listAttachments } from "@/server/attachments/service";
 import { Attachments } from "../../_components/Attachments";
 import { CostSection } from "../../_components/CostSection";
 import { ActionForm, Input, Submit } from "../../_components/form";
+import { Glyph } from "../../_components/Glyph";
+import { HistoryLink } from "../../_components/HistoryLink";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
 import {
   arriveAction,
@@ -26,11 +28,13 @@ import {
   shipAction,
   updateShipmentAction,
 } from "../actions";
-import { dmy, ShipmentFields, todayVn, TzSelect, vnd } from "../shared";
+import { dmy, ShipmentFields, todayVn, TrackBadge, TzSelect, vnd } from "../shared";
 import { ClearReceiveSession } from "./nhan/ReceiveClient";
 import { ScanBox } from "./ScanBox";
 
 export const metadata = { title: "Kiện vận chuyển" };
+
+const STATUS_TONE: Record<string, string> = { PLANNED: "muted", IN_TRANSIT: "info", HOLD: "solid-danger", ARRIVED: "ok", LOST: "danger", CANCELLED: "muted" };
 
 const dmyHm = (ts: string | null) => {
   if (!ts) return "—";
@@ -80,19 +84,20 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
       <Link href="/van-chuyen" className="text-sm text-muted hover:text-text">
         ← Vận chuyển
       </Link>
-      <div className="mt-1 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold font-mono">{title}</h1>
-        <span className="text-sm">{LEG_LABEL[s.legType as LegType]}</span>
-        <span
-          data-testid="shipment-status"
-          className={`text-xs rounded-full px-2 py-0.5 ${s.status === "HOLD" ? "bg-[var(--danger)] text-[var(--surface-solid)]" : s.status === "ARRIVED" ? "bg-primary text-[var(--primary-text)]" : "bg-[var(--fill)]"}`}
-        >
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h1 className="break-all font-mono text-2xl font-bold tracking-tight">{title}</h1>
+        <span className="text-sm text-muted">{LEG_LABEL[s.legType as LegType]}</span>
+        <span data-testid="shipment-status" className="badge" data-tone={STATUS_TONE[s.status] ?? "muted"}>
           {SHIPMENT_STATUS_LABEL[s.status] ?? s.status}
         </span>
-        {late > 0 && <span className="text-sm font-semibold text-danger">⚠ trễ {late} ngày so với dự kiến</span>}
+        {late > 0 && (
+          <span className="badge" data-tone="danger">
+            trễ {late} ngày so với dự kiến
+          </span>
+        )}
       </div>
 
-      <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm md:grid-cols-4">
+      <dl className="card mt-4 grid grid-cols-2 gap-x-6 gap-y-3 p-4 text-sm md:grid-cols-4 md:p-5 [&_dt]:text-xs [&_dt]:text-muted [&_dd]:mt-0.5 [&_dd]:font-medium">
         <div>
           <dt className="text-muted">Đơn vị</dt>
           <dd>{s.carrierName ?? "—"}</dd>
@@ -101,7 +106,7 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
           <dt className="text-muted">Người bán tạo nhãn</dt>
           <dd data-testid="label-created">
             {s.labelCreatedAt ? vnShort(s.labelCreatedAt) : "—"}
-            {sellerWait && <span className="block text-xs text-muted">chờ {sellerWait} mới gửi</span>}
+            {sellerWait && <span className="block text-xs font-normal text-muted">chờ {sellerWait} mới gửi</span>}
           </dd>
         </div>
         <div>
@@ -113,7 +118,7 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
           <dd>
             {dmy(s.eta)}
             {s.trackEta && (
-              <span className="block text-xs text-muted">
+              <span className="block text-xs font-normal text-muted">
                 hãng hẹn {dmy(s.trackEta)}
                 {s.trackEtaWindow ? ` ${s.trackEtaWindow}` : ""} (giờ nơi nhận)
               </span>
@@ -142,8 +147,9 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
           <dt className="text-muted">Tra cứu</dt>
           <dd>
             {link ? (
-              <a href={link} target="_blank" rel="noreferrer noopener" className="underline">
-                Mở trang vận đơn ↗
+              <a href={link} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-primary hover:underline">
+                Mở trang vận đơn
+                <Glyph name="external" size={14} />
               </a>
             ) : (
               "—"
@@ -153,34 +159,46 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
       </dl>
 
       {justReceived && s.status === "ARRIVED" && (
-        <p role="status" className="card mt-4 p-3 text-sm text-[var(--ok)]">
-          ✓ Đã nhận kiện theo kết quả quét{shortages.length ? ` — ghi sự cố thiếu ${shortages.length} máy (xem bên dưới)` : " — đủ máy"}.
+        <div role="status" className="callout mt-4" data-tone={shortages.length ? "warn" : "ok"}>
+          <Glyph name="checkCircle" size={18} />
+          <p className="font-medium">
+            Đã nhận kiện theo kết quả quét{shortages.length ? ` — ghi sự cố thiếu ${shortages.length} máy (xem bên dưới)` : " — đủ máy"}.
+          </p>
           <ClearReceiveSession shipmentId={s.id} />
-        </p>
+        </div>
       )}
 
       {shortages.length > 0 && (
-        <section className="card mt-4 border border-[var(--danger)] p-4" aria-labelledby="su-co">
-          <h2 id="su-co" className="font-semibold text-danger">
-            ⚠ Sự cố thiếu hàng · {shortages.length} máy chưa về
-          </h2>
-          <p className="mt-1 text-xs text-muted">
-            Máy có trong kiện nhưng không quét được khi nhận — vẫn tính là đang vận chuyển. Tìm thấy / về sau thì nhận bổ sung; hỏi đơn vị vận chuyển kèm vận
-            đơn ở phần chứng từ.
-          </p>
-          <ul className="mt-2 flex flex-col gap-2">
+        <section className="card mt-4 border-[color-mix(in_srgb,var(--danger)_45%,transparent)] p-4 md:p-5" aria-labelledby="su-co">
+          <div className="flex items-start gap-3">
+            <span className="icon-tile" data-tone="danger">
+              <Glyph name="warn" size={20} />
+            </span>
+            <div className="min-w-0">
+              <h2 id="su-co" className="font-semibold text-danger">
+                Sự cố thiếu hàng · {shortages.length} máy chưa về
+              </h2>
+              <p className="mt-0.5 text-xs text-muted">
+                Máy có trong kiện nhưng không quét được khi nhận — vẫn tính là đang vận chuyển. Tìm thấy / về sau thì nhận bổ sung; hỏi đơn vị vận chuyển kèm
+                vận đơn ở phần chứng từ.
+              </p>
+            </div>
+          </div>
+          <ul className="mt-3 flex flex-col gap-2">
             {shortages.map((m) => (
               <li
                 key={m.itemId}
-                className="flex flex-wrap items-end justify-between gap-2 border-t border-border pt-2"
+                className="flex flex-wrap items-end justify-between gap-3 rounded-2xl bg-[var(--fill)] p-3"
                 aria-label={`Thiếu ${m.serial ?? m.imei1 ?? m.itemId}`}
               >
-                <span className="text-sm">
-                  <Link href={`/kho/${m.itemId}`} className="underline">
+                <span className="min-w-0 text-sm">
+                  <Link href={`/kho/${m.itemId}`} className="font-medium hover:underline">
                     {m.label}
-                  </Link>{" "}
-                  <span className="font-mono text-xs text-muted">{m.serial ?? m.imei1 ?? ""}</span>
-                  <span className="text-xs text-muted"> · {ITEM_STATUS_LABEL[m.status] ?? m.status}</span>
+                  </Link>
+                  <span className="mt-0.5 flex flex-wrap items-center gap-2">
+                    <span className="chip">{m.serial ?? m.imei1 ?? "—"}</span>
+                    <span className="text-xs text-muted">{ITEM_STATUS_LABEL[m.status] ?? m.status}</span>
+                  </span>
                 </span>
                 <ActionForm action={receiveLateAction} label={`Nhận bổ sung ${m.serial ?? m.imei1 ?? m.itemId}`} className="field-row">
                   <input type="hidden" name="id" value={s.id} />
@@ -195,65 +213,77 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
         </section>
       )}
 
-      <section className="mt-5 field-row" aria-label="Thao tác kiện">
-        {s.status === "PLANNED" && (
-          <ActionForm action={shipAction} label="Gửi đi" className="field-row">
-            <input type="hidden" name="id" value={s.id} />
-            <Input
-              label={`Ngày giờ gửi${rule ? ` — ${rule.departLabel}` : ""}`}
-              name="at"
-              type="datetime-local"
-              defaultValue={shipDefault}
-              className="w-56"
-              hint={s.trackPickedUpAt ? "Giờ VN lúc hãng nhận hàng (bot)" : undefined}
-            />
-            <TzSelect />
-            <Submit>Gửi đi</Submit>
-          </ActionForm>
-        )}
-        {(s.status === "IN_TRANSIT" || s.status === "HOLD") && s.items.length > 0 && (
-          <Link href={`/van-chuyen/${s.id}/nhan`} className="btn-primary self-end">
-            ▌▌▌ Nhận bằng quét đối chiếu
-          </Link>
-        )}
-        {(s.status === "IN_TRANSIT" || s.status === "HOLD") && (
-          <ActionForm action={arriveAction} label="Đã nhận" className="field-row">
-            <input type="hidden" name="id" value={s.id} />
-            <Input
-              label={`Ngày giờ nhận${rule ? ` — ${rule.arriveLabel}` : ""}`}
-              name="at"
-              type="datetime-local"
-              defaultValue={arriveDefault}
-              className="w-56"
-              hint={s.trackDeliveredAt ? "Giờ VN lúc hãng giao (bot)" : undefined}
-            />
-            <TzSelect />
-            <Submit variant="secondary">Đã nhận cả kiện</Submit>
-          </ActionForm>
-        )}
-        {s.status === "IN_TRANSIT" && (
-          <ActionForm action={holdAction} label="Giữ hải quan" className="field-row">
-            <input type="hidden" name="id" value={s.id} />
-            <input type="hidden" name="hold" value="1" />
-            <Input label="Lý do giữ" name="note" className="w-48" />
-            <Submit variant="secondary">Giữ hải quan</Submit>
-          </ActionForm>
-        )}
-        {s.status === "HOLD" && (
-          <ActionForm action={holdAction} label="Hết giữ hải quan">
-            <input type="hidden" name="id" value={s.id} />
-            <input type="hidden" name="hold" value="0" />
-            <Submit variant="secondary">Hết giữ hải quan</Submit>
-          </ActionForm>
-        )}
-      </section>
+      {(s.status === "PLANNED" || s.status === "IN_TRANSIT" || s.status === "HOLD") && (
+        <section className="card mt-4 field-row p-4 md:p-5" aria-label="Thao tác kiện">
+          <h2 className="basis-full font-semibold">Cập nhật kiện</h2>
+          {s.status === "PLANNED" && (
+            <ActionForm action={shipAction} label="Gửi đi" className="field-row">
+              <input type="hidden" name="id" value={s.id} />
+              <Input
+                label={`Ngày giờ gửi${rule ? ` — ${rule.departLabel}` : ""}`}
+                name="at"
+                type="datetime-local"
+                defaultValue={shipDefault}
+                className="w-56"
+                hint={s.trackPickedUpAt ? "Giờ VN lúc hãng nhận hàng (bot)" : undefined}
+              />
+              <TzSelect />
+              <Submit>Gửi đi</Submit>
+            </ActionForm>
+          )}
+          {(s.status === "IN_TRANSIT" || s.status === "HOLD") && s.items.length > 0 && (
+            <Link href={`/van-chuyen/${s.id}/nhan`} className="btn-primary self-end">
+              <Glyph name="barcode" size={18} />
+              Nhận bằng quét đối chiếu
+            </Link>
+          )}
+          {(s.status === "IN_TRANSIT" || s.status === "HOLD") && (
+            <ActionForm action={arriveAction} label="Đã nhận" className="field-row">
+              <input type="hidden" name="id" value={s.id} />
+              <Input
+                label={`Ngày giờ nhận${rule ? ` — ${rule.arriveLabel}` : ""}`}
+                name="at"
+                type="datetime-local"
+                defaultValue={arriveDefault}
+                className="w-56"
+                hint={s.trackDeliveredAt ? "Giờ VN lúc hãng giao (bot)" : undefined}
+              />
+              <TzSelect />
+              <Submit variant="secondary">Đã nhận cả kiện</Submit>
+            </ActionForm>
+          )}
+          {s.status === "IN_TRANSIT" && (
+            <ActionForm action={holdAction} label="Giữ hải quan" className="field-row">
+              <input type="hidden" name="id" value={s.id} />
+              <input type="hidden" name="hold" value="1" />
+              <Input label="Lý do giữ" name="note" className="w-48" />
+              <Submit variant="secondary">Giữ hải quan</Submit>
+            </ActionForm>
+          )}
+          {s.status === "HOLD" && (
+            <ActionForm action={holdAction} label="Hết giữ hải quan">
+              <input type="hidden" name="id" value={s.id} />
+              <input type="hidden" name="hold" value="0" />
+              <Submit variant="secondary">Hết giữ hải quan</Submit>
+            </ActionForm>
+          )}
+        </section>
+      )}
 
       {s.trackingNumber && (
-        <section className="card mt-5 p-4" aria-labelledby="bot-theo-doi" data-testid="bot-panel">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="bot-theo-doi" className="font-semibold">
-              🤖 Bot theo dõi vận đơn <span className="text-sm font-normal text-muted">· {s.trackEnabled ? "07:00 và 19:00 mỗi ngày" : "đang tắt"}</span>
-            </h2>
+        <section className="card mt-5 p-4 md:p-5" aria-labelledby="bot-theo-doi" data-testid="bot-panel">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="icon-tile">
+                <Glyph name="bot" size={20} />
+              </span>
+              <div className="min-w-0">
+                <h2 id="bot-theo-doi" className="font-semibold">
+                  Bot theo dõi vận đơn
+                </h2>
+                <p className="mt-0.5 text-xs text-muted">{s.trackEnabled ? "Tự kiểm tra 07:00 và 19:00 mỗi ngày" : "Đang tắt cho kiện này"}</p>
+              </div>
+            </div>
             <div className="flex flex-wrap gap-2">
               {s.trackEnabled && (s.status === "PLANNED" || s.status === "IN_TRANSIT" || s.status === "HOLD") && (
                 <ActionForm action={checkOneAction} label="Kiểm tra ngay">
@@ -268,38 +298,40 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
               </ActionForm>
             </div>
           </div>
-          <p className="mt-2 text-sm" data-testid="bot-status">
-            {track ? (
-              <strong className={track === "DELAYED" || track === "EXCEPTION" ? "text-danger" : track === "DELIVERED" ? "text-[var(--ok)]" : ""}>
-                {TRACK_STATUS_LABEL[track] ?? track}
-              </strong>
-            ) : (
-              <span className="text-muted">Chưa kiểm tra</span>
-            )}
-            {s.trackStatusText && <span className="text-muted"> · {s.trackStatusText}</span>}
-            {s.trackCheckedAt && <span className="block text-xs text-muted">Kiểm tra lần cuối {vnShort(s.trackCheckedAt)} (giờ VN)</span>}
-          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-2xl bg-[var(--fill)] px-3.5 py-3 text-sm" data-testid="bot-status">
+            {track ? <TrackBadge status={track} /> : <span className="badge" data-tone="muted">Chưa kiểm tra</span>}
+            {s.trackStatusText && <span className="text-muted">{s.trackStatusText}</span>}
+            {s.trackCheckedAt && <span className="w-full text-xs text-muted">Kiểm tra lần cuối {vnShort(s.trackCheckedAt)} (giờ VN)</span>}
+          </div>
           {s.trackError && (
-            <p className="mt-1 text-xs text-[var(--warn)]" role="note">
-              ⚠ {s.trackError}
-            </p>
+            <div className="callout mt-2" data-tone="warn" role="note">
+              <Glyph name="warn" size={16} />
+              <p>{s.trackError}</p>
+            </div>
           )}
           {track === "DELIVERED" && (s.status === "IN_TRANSIT" || s.status === "HOLD") && (
-            <p className="mt-2 text-sm font-medium" role="note">
-              Hãng báo đã giao{s.trackDeliveredAt ? ` lúc ${vnShort(s.trackDeliveredAt)}` : ""} — kiểm hàng rồi{" "}
-              <Link href={`/van-chuyen/${s.id}/nhan`} className="underline">
-                nhận kiện bằng quét đối chiếu
-              </Link>
-              .
-            </p>
+            <div className="callout mt-2" data-tone="ok" role="note">
+              <Glyph name="checkCircle" size={16} />
+              <p className="font-medium">
+                Hãng báo đã giao{s.trackDeliveredAt ? ` lúc ${vnShort(s.trackDeliveredAt)}` : ""} — kiểm hàng rồi{" "}
+                <Link href={`/van-chuyen/${s.id}/nhan`} className="underline">
+                  nhận kiện bằng quét đối chiếu
+                </Link>
+                .
+              </p>
+            </div>
           )}
           {s.status === "PLANNED" && track && track !== "LABEL_CREATED" && track !== "NOT_FOUND" && (
-            <p className="mt-2 text-sm font-medium" role="note">
-              Hãng đã nhận hàng{s.trackPickedUpAt ? ` lúc ${vnShort(s.trackPickedUpAt)}` : ""} — bấm “Gửi đi” ở trên (giờ đã điền sẵn).
-            </p>
+            <div className="callout mt-2" data-tone="info" role="note">
+              <Glyph name="info" size={16} />
+              <p className="font-medium">
+                Hãng đã nhận hàng{s.trackPickedUpAt ? ` lúc ${vnShort(s.trackPickedUpAt)}` : ""} — bấm “Gửi đi” ở trên (giờ đã điền sẵn).
+              </p>
+            </div>
           )}
           <details className="mt-3">
             <summary className="cursor-pointer text-sm text-muted">
+              <Glyph name="tag" size={15} className="mr-1.5 inline-block align-[-2px]" />
               Giờ người bán tạo nhãn {s.labelCreatedAt ? `· ${vnShort(s.labelCreatedAt)}` : "· nhập tay"}
             </summary>
             <ActionForm action={labelCreatedAction} label="Giờ tạo nhãn" className="mt-2 field-row">
@@ -324,19 +356,26 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
       )}
 
       {events.length > 0 && (
-        <section className="card mt-5 p-4" aria-labelledby="hanh-trinh">
+        <section className="card mt-5 p-4 md:p-5" aria-labelledby="hanh-trinh">
           <h2 id="hanh-trinh" className="font-semibold">
             Hành trình kiện <span className="text-sm font-normal text-muted">· giờ VN · {events.length} sự kiện</span>
           </h2>
-          <ol className="mt-2 flex flex-col gap-1.5 text-sm" aria-label="Hành trình kiện">
+          <ol className="timeline mt-3 text-sm" aria-label="Hành trình kiện">
             {events.map((e, k) => (
-              <li key={k} className="grid grid-cols-[6.5rem_1fr] gap-2 border-t border-border pt-1.5 first:border-0 first:pt-0">
-                <span className="tabular-nums text-muted">{vnShort(e.at)}</span>
-                <span>
-                  {e.description}
-                  {e.location && <span className="text-muted"> · {e.location}</span>}
-                  <span className="ml-1 text-xs text-muted">{e.source === "API" ? "· hãng" : "· ghi tay"}</span>
-                </span>
+              <li key={k}>
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                  <span className={k === 0 ? "font-semibold" : ""}>{e.description}</span>
+                  <span className="shrink-0 text-xs tabular-nums text-muted">{vnShort(e.at)}</span>
+                </div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
+                  {e.location && (
+                    <span className="inline-flex items-center gap-1">
+                      <Glyph name="pin" size={13} />
+                      {e.location}
+                    </span>
+                  )}
+                  <span>{e.source === "API" ? "hãng báo" : "ghi tay"}</span>
+                </div>
               </li>
             ))}
           </ol>
@@ -447,11 +486,7 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
           </ActionForm>
         )}
       </details>
-      <p className="mt-6 text-right text-xs">
-        <Link href={`/cai-dat/nhat-ky?id=${id}`} className="text-muted underline hover:text-text">
-          Lịch sử thay đổi
-        </Link>
-      </p>
+      <HistoryLink id={id} />
     </main>
   );
 }
