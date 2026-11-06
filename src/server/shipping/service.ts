@@ -54,6 +54,16 @@ export interface ShipmentRow {
   itemCount: number;
   valueVnd: bigint;
   costCount: number;
+  labelCreatedAt: string | null;
+  trackEnabled: boolean;
+  trackStatus: string | null;
+  trackStatusText: string | null;
+  trackEta: string | null;
+  trackEtaWindow: string | null;
+  trackPickedUpAt: string | null;
+  trackDeliveredAt: string | null;
+  trackCheckedAt: string | null;
+  trackError: string | null;
 }
 
 const SHIPMENT_SELECT = (db: Db) => db`
@@ -61,7 +71,10 @@ const SHIPMENT_SELECT = (db: Db) => db`
          c.tracking_url_template AS tpl, s.tracking_number, s.reference_code, s.batch_id::text,
          s.shipped_at::text, s.eta::text, s.arrived_at::text, s.chargeable_weight_kg::text AS weight, s.note,
          COALESCE(x.n, 0)::int AS item_count, COALESCE(x.value, 0)::text AS value, COALESCE(x.batches, '{}') AS batch_codes,
-         (SELECT COUNT(*)::int FROM costs k WHERE k.shipment_id = s.id AND k.deleted_at IS NULL) AS cost_count
+         (SELECT COUNT(*)::int FROM costs k WHERE k.shipment_id = s.id AND k.deleted_at IS NULL) AS cost_count,
+         to_json(s.label_created_at)#>>'{}' AS label_created_at, s.track_enabled, s.track_status, s.track_status_text, s.track_eta::text,
+         s.track_eta_window, to_json(s.track_picked_up_at)#>>'{}' AS track_picked_up_at, to_json(s.track_delivered_at)#>>'{}' AS track_delivered_at,
+         to_json(s.track_checked_at)#>>'{}' AS track_checked_at, s.track_error
     FROM shipments s
     LEFT JOIN carriers c ON c.id = s.carrier_id
     LEFT JOIN LATERAL (
@@ -90,6 +103,16 @@ type RawShipment = {
   value: string;
   batch_codes: string[];
   cost_count: number;
+  label_created_at: string | null;
+  track_enabled: boolean;
+  track_status: string | null;
+  track_status_text: string | null;
+  track_eta: string | null;
+  track_eta_window: string | null;
+  track_picked_up_at: string | null;
+  track_delivered_at: string | null;
+  track_checked_at: string | null;
+  track_error: string | null;
 };
 
 const toRow = (r: RawShipment): ShipmentRow => ({
@@ -111,6 +134,16 @@ const toRow = (r: RawShipment): ShipmentRow => ({
   itemCount: r.item_count,
   valueVnd: BigInt(r.value),
   costCount: r.cost_count,
+  labelCreatedAt: r.label_created_at,
+  trackEnabled: r.track_enabled,
+  trackStatus: r.track_status,
+  trackStatusText: r.track_status_text,
+  trackEta: r.track_eta,
+  trackEtaWindow: r.track_eta_window,
+  trackPickedUpAt: r.track_picked_up_at,
+  trackDeliveredAt: r.track_delivered_at,
+  trackCheckedAt: r.track_checked_at,
+  trackError: r.track_error,
 });
 
 /** Kiện cho bảng tiến độ: chưa nhận + đã nhận trong `arrivedWithinDays` ngày gần đây. */
@@ -338,6 +371,7 @@ export async function markShipped(db: Db, id: string, at: string) {
     if (s.status !== "PLANNED") throw new ShippingError("INVALID_STATE", `Kiện đang ở trạng thái "${s.status}" — chỉ kiện chờ gửi mới bấm "Gửi đi"`);
     const items = await itemIds(tx, id);
     if (!items.length) throw new ShippingError("INVALID_STATE", "Kiện chưa có máy nào — quét máy vào kiện trước");
+    if (s.label_ms && Date.parse(at) < Number(s.label_ms)) throw new ShippingError("INVALID_INPUT", "Giờ gửi đi không được trước giờ người bán tạo nhãn", "at");
     const eta = s.eta ?? etaFrom(at, s.lead_days);
     await tx`UPDATE shipments SET status = 'IN_TRANSIT', shipped_at = ${at}, eta = ${eta}, updated_at = now() WHERE id = ${id}`;
     if (isMainLeg(s.leg_type)) await applyEvent(tx, s.leg_type, "depart", id, at, items);
@@ -536,9 +570,18 @@ export async function receiveLateItem(db: Db, shipmentId: string, itemId: string
 
 async function lockShipment(tx: TransactionSql, id: string) {
   const [s] = await tx<
-    { status: string; leg_type: string; shipped_at: string | null; shipped_ms: string | null; eta: string | null; lead_days: number | null }[]
+    {
+      status: string;
+      leg_type: string;
+      shipped_at: string | null;
+      shipped_ms: string | null;
+      label_ms: string | null;
+      eta: string | null;
+      lead_days: number | null;
+    }[]
   >`
-    SELECT s.status::text, s.leg_type::text, s.shipped_at::text, (extract(epoch FROM s.shipped_at) * 1000)::bigint::text AS shipped_ms, s.eta::text,
+    SELECT s.status::text, s.leg_type::text, s.shipped_at::text, (extract(epoch FROM s.shipped_at) * 1000)::bigint::text AS shipped_ms,
+           (extract(epoch FROM s.label_created_at) * 1000)::bigint::text AS label_ms, s.eta::text,
            c.default_lead_days AS lead_days
       FROM shipments s LEFT JOIN carriers c ON c.id = s.carrier_id WHERE s.id = ${id} FOR UPDATE OF s`;
   if (!s) throw new ShippingError("NOT_FOUND", "Không tìm thấy kiện");

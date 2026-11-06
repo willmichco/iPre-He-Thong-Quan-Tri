@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { LEG_LABEL, type LegType } from "@/domain/catalog";
 import { ITEM_STATUS_LABEL } from "@/domain/purchasing";
 import { daysLate, isMainLeg, isoToVnLocal, LEG_RULES, SHIPMENT_STATUS_LABEL, trackingUrl } from "@/domain/shipping";
+import { humanDuration, TRACK_STATUS_LABEL, vnShort, type TrackStatus } from "@/domain/tracking";
+import { listTrackingEvents } from "@/server/tracking/service";
 import { KINDS_BY_LEG } from "@/domain/costs";
 import { listCosts } from "@/server/costs/service";
 import { getShipment, listShortages, shippingOptions } from "@/server/shipping/service";
@@ -14,6 +16,9 @@ import { catalogDb, NoDatabase } from "../../danh-muc/shared";
 import {
   arriveAction,
   assignAction,
+  checkOneAction,
+  labelCreatedAction,
+  toggleTrackAction,
   deleteShipmentAction,
   holdAction,
   receiveLateAction,
@@ -21,7 +26,7 @@ import {
   shipAction,
   updateShipmentAction,
 } from "../actions";
-import { dmy, ShipmentFields, todayVn, vnd } from "../shared";
+import { dmy, ShipmentFields, todayVn, TzSelect, vnd } from "../shared";
 import { ClearReceiveSession } from "./nhan/ReceiveClient";
 import { ScanBox } from "./ScanBox";
 
@@ -46,12 +51,13 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
   const s = await getShipment(db, id);
   if (!s) notFound();
   const justReceived = (await searchParams).nhan === "1";
-  const [opts, costs, accounts, docs, shortages] = await Promise.all([
+  const [opts, costs, accounts, docs, shortages, events] = await Promise.all([
     shippingOptions(db),
     listCosts(db, { shipmentId: s.id }),
     db<{ id: string; name: string; currency: string }[]>`SELECT id::text, name, currency::text FROM accounts WHERE is_active ORDER BY name`,
     listAttachments(db, "SHIPMENT", [s.id]),
     s.status === "ARRIVED" ? listShortages(db, s.id) : Promise.resolve([]),
+    listTrackingEvents(db, s.id),
   ]);
   const accountOptions = [["", "— chưa chọn —"] as const, ...accounts.map((a) => [a.id, `${a.name} (${a.currency})`] as const)];
   const carriers = [["", "— chọn —"] as const, ...opts.carriers.filter((c) => c.legTypes.includes(s.legType)).map((c) => [c.id, c.name] as const)];
@@ -61,6 +67,13 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
   const link = trackingUrl(s.trackingTemplate, s.trackingNumber);
   const now = isoToVnLocal(new Date());
   const title = s.trackingNumber ?? s.referenceCode ?? "Kiện chưa có mã";
+  const vnIso = (ts: string | null) => (ts ? new Date(ts).toISOString() : null);
+  const sellerWait =
+    s.labelCreatedAt && s.shippedAt ? humanDuration(vnIso(s.labelCreatedAt)!, vnIso(s.shippedAt.replace(" ", "T").replace(/([+-]\d{2})$/, "$1:00"))!) : null;
+  // gợi ý giờ theo hãng báo (bot): gửi đi = lúc hãng nhận hàng, đã nhận = lúc hãng giao
+  const shipDefault = s.trackPickedUpAt ? isoToVnLocal(new Date(s.trackPickedUpAt)) : now;
+  const arriveDefault = s.trackDeliveredAt ? isoToVnLocal(new Date(s.trackDeliveredAt)) : now;
+  const track = s.trackStatus as TrackStatus | null;
 
   return (
     <main className="mx-auto max-w-5xl p-4 md:p-8">
@@ -85,12 +98,27 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
           <dd>{s.carrierName ?? "—"}</dd>
         </div>
         <div>
+          <dt className="text-muted">Người bán tạo nhãn</dt>
+          <dd data-testid="label-created">
+            {s.labelCreatedAt ? vnShort(s.labelCreatedAt) : "—"}
+            {sellerWait && <span className="block text-xs text-muted">chờ {sellerWait} mới gửi</span>}
+          </dd>
+        </div>
+        <div>
           <dt className="text-muted">Gửi đi{rule ? ` (${rule.departMilestone})` : ""}</dt>
           <dd>{dmyHm(s.shippedAt)}</dd>
         </div>
         <div>
           <dt className="text-muted">Dự kiến nhận</dt>
-          <dd>{dmy(s.eta)}</dd>
+          <dd>
+            {dmy(s.eta)}
+            {s.trackEta && (
+              <span className="block text-xs text-muted">
+                hãng hẹn {dmy(s.trackEta)}
+                {s.trackEtaWindow ? ` ${s.trackEtaWindow}` : ""} (giờ nơi nhận)
+              </span>
+            )}
+          </dd>
         </div>
         <div>
           <dt className="text-muted">Đã nhận{rule ? ` (${rule.arriveMilestone})` : ""}</dt>
@@ -158,6 +186,7 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
                   <input type="hidden" name="id" value={s.id} />
                   <input type="hidden" name="itemId" value={m.itemId} />
                   <Input label="Ngày giờ nhận" name="at" type="datetime-local" defaultValue={now} className="w-56" />
+                  <TzSelect />
                   <Submit variant="secondary">Đã tìm thấy — nhận bổ sung</Submit>
                 </ActionForm>
               </li>
@@ -170,7 +199,15 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
         {s.status === "PLANNED" && (
           <ActionForm action={shipAction} label="Gửi đi" className="field-row">
             <input type="hidden" name="id" value={s.id} />
-            <Input label={`Ngày giờ gửi${rule ? ` — ${rule.departLabel}` : ""}`} name="at" type="datetime-local" defaultValue={now} className="w-56" />
+            <Input
+              label={`Ngày giờ gửi${rule ? ` — ${rule.departLabel}` : ""}`}
+              name="at"
+              type="datetime-local"
+              defaultValue={shipDefault}
+              className="w-56"
+              hint={s.trackPickedUpAt ? "Giờ VN lúc hãng nhận hàng (bot)" : undefined}
+            />
+            <TzSelect />
             <Submit>Gửi đi</Submit>
           </ActionForm>
         )}
@@ -182,7 +219,15 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
         {(s.status === "IN_TRANSIT" || s.status === "HOLD") && (
           <ActionForm action={arriveAction} label="Đã nhận" className="field-row">
             <input type="hidden" name="id" value={s.id} />
-            <Input label={`Ngày giờ nhận${rule ? ` — ${rule.arriveLabel}` : ""}`} name="at" type="datetime-local" defaultValue={now} className="w-56" />
+            <Input
+              label={`Ngày giờ nhận${rule ? ` — ${rule.arriveLabel}` : ""}`}
+              name="at"
+              type="datetime-local"
+              defaultValue={arriveDefault}
+              className="w-56"
+              hint={s.trackDeliveredAt ? "Giờ VN lúc hãng giao (bot)" : undefined}
+            />
+            <TzSelect />
             <Submit variant="secondary">Đã nhận cả kiện</Submit>
           </ActionForm>
         )}
@@ -202,6 +247,101 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
           </ActionForm>
         )}
       </section>
+
+      {s.trackingNumber && (
+        <section className="card mt-5 p-4" aria-labelledby="bot-theo-doi" data-testid="bot-panel">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="bot-theo-doi" className="font-semibold">
+              🤖 Bot theo dõi vận đơn <span className="text-sm font-normal text-muted">· {s.trackEnabled ? "07:00 và 19:00 mỗi ngày" : "đang tắt"}</span>
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {s.trackEnabled && (s.status === "PLANNED" || s.status === "IN_TRANSIT" || s.status === "HOLD") && (
+                <ActionForm action={checkOneAction} label="Kiểm tra ngay">
+                  <input type="hidden" name="id" value={s.id} />
+                  <Submit variant="secondary">Kiểm tra ngay</Submit>
+                </ActionForm>
+              )}
+              <ActionForm action={toggleTrackAction} label={s.trackEnabled ? "Tắt bot" : "Bật bot"}>
+                <input type="hidden" name="id" value={s.id} />
+                <input type="hidden" name="on" value={s.trackEnabled ? "0" : "1"} />
+                <Submit variant="secondary">{s.trackEnabled ? "Tắt bot cho kiện này" : "Bật bot cho kiện này"}</Submit>
+              </ActionForm>
+            </div>
+          </div>
+          <p className="mt-2 text-sm" data-testid="bot-status">
+            {track ? (
+              <strong className={track === "DELAYED" || track === "EXCEPTION" ? "text-danger" : track === "DELIVERED" ? "text-[var(--ok)]" : ""}>
+                {TRACK_STATUS_LABEL[track] ?? track}
+              </strong>
+            ) : (
+              <span className="text-muted">Chưa kiểm tra</span>
+            )}
+            {s.trackStatusText && <span className="text-muted"> · {s.trackStatusText}</span>}
+            {s.trackCheckedAt && <span className="block text-xs text-muted">Kiểm tra lần cuối {vnShort(s.trackCheckedAt)} (giờ VN)</span>}
+          </p>
+          {s.trackError && (
+            <p className="mt-1 text-xs text-[var(--warn)]" role="note">
+              ⚠ {s.trackError}
+            </p>
+          )}
+          {track === "DELIVERED" && (s.status === "IN_TRANSIT" || s.status === "HOLD") && (
+            <p className="mt-2 text-sm font-medium" role="note">
+              Hãng báo đã giao{s.trackDeliveredAt ? ` lúc ${vnShort(s.trackDeliveredAt)}` : ""} — kiểm hàng rồi{" "}
+              <Link href={`/van-chuyen/${s.id}/nhan`} className="underline">
+                nhận kiện bằng quét đối chiếu
+              </Link>
+              .
+            </p>
+          )}
+          {s.status === "PLANNED" && track && track !== "LABEL_CREATED" && track !== "NOT_FOUND" && (
+            <p className="mt-2 text-sm font-medium" role="note">
+              Hãng đã nhận hàng{s.trackPickedUpAt ? ` lúc ${vnShort(s.trackPickedUpAt)}` : ""} — bấm “Gửi đi” ở trên (giờ đã điền sẵn).
+            </p>
+          )}
+          <details className="mt-3">
+            <summary className="cursor-pointer text-sm text-muted">
+              Giờ người bán tạo nhãn {s.labelCreatedAt ? `· ${vnShort(s.labelCreatedAt)}` : "· nhập tay"}
+            </summary>
+            <ActionForm action={labelCreatedAction} label="Giờ tạo nhãn" className="mt-2 field-row">
+              <input type="hidden" name="id" value={s.id} />
+              <Input
+                label="Người bán tạo nhãn lúc"
+                name="at"
+                type="datetime-local"
+                defaultValue={s.labelCreatedAt ? isoToVnLocal(new Date(s.labelCreatedAt)) : ""}
+                className="w-56"
+              />
+              <TzSelect />
+              <Submit variant="secondary">Lưu</Submit>
+              {s.labelCreatedAt && (
+                <button type="submit" name="do" value="clear" className="btn-secondary">
+                  Xoá
+                </button>
+              )}
+            </ActionForm>
+          </details>
+        </section>
+      )}
+
+      {events.length > 0 && (
+        <section className="card mt-5 p-4" aria-labelledby="hanh-trinh">
+          <h2 id="hanh-trinh" className="font-semibold">
+            Hành trình kiện <span className="text-sm font-normal text-muted">· giờ VN · {events.length} sự kiện</span>
+          </h2>
+          <ol className="mt-2 flex flex-col gap-1.5 text-sm" aria-label="Hành trình kiện">
+            {events.map((e, k) => (
+              <li key={k} className="grid grid-cols-[6.5rem_1fr] gap-2 border-t border-border pt-1.5 first:border-0 first:pt-0">
+                <span className="tabular-nums text-muted">{vnShort(e.at)}</span>
+                <span>
+                  {e.description}
+                  {e.location && <span className="text-muted"> · {e.location}</span>}
+                  <span className="ml-1 text-xs text-muted">{e.source === "API" ? "· hãng" : "· ghi tay"}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       {s.status !== "ARRIVED" && s.status !== "CANCELLED" && (
         <section className="card mt-5 p-4" aria-labelledby="quet-may">

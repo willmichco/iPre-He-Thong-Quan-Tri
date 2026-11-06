@@ -3,6 +3,7 @@
  * kỳ báo cáo, vốn theo chặng, chuỗi 12 tháng, số gọn "412,5 tr", bộ quy tắc "Cần xử lý".
  */
 import { percentBp } from "./costing";
+import type { TrackAlert } from "./tracking";
 
 // ---- Kỳ báo cáo -----------------------------------------------------------------------------------------
 
@@ -203,7 +204,7 @@ export const ALERT_LEVEL_LABEL: Record<AlertLevel, string> = { critical: "Gấp"
 export const ALERT_LEVEL_ICON: Record<AlertLevel, string> = { critical: "!", warning: "!", info: "i" };
 
 export interface Alert {
-  kind: "SHIPMENT_LATE" | "SHIPMENT_HOLD" | "AGED_STOCK" | "RETURN_DEADLINE" | "RECEIVABLE" | "TAX_THRESHOLD" | "DEPOSIT_READY";
+  kind: "SHIPMENT_LATE" | "SHIPMENT_HOLD" | "AGED_STOCK" | "RETURN_DEADLINE" | "RECEIVABLE" | "TAX_THRESHOLD" | "DEPOSIT_READY" | TrackAlert["kind"];
   level: AlertLevel;
   title: string;
   detail?: string;
@@ -224,6 +225,8 @@ export interface AlertInput {
   depositsReady: readonly { id: string; code: string; customer: string | null }[];
   yearRevenueVnd: bigint;
   year: number;
+  /** việc cần làm do bot theo dõi vận đơn phát hiện (domain/tracking) */
+  trackAlerts?: readonly TrackAlert[];
 }
 
 const days = (a: string, b: string) => Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000);
@@ -231,7 +234,7 @@ const list = (xs: readonly string[], max = 3) => (xs.length > max ? `${xs.slice(
 
 /** Bộ quy tắc cảnh báo (tài liệu 04 mục 7) — thứ tự: gấp → chú ý → nhắc. */
 export function buildAlerts(input: AlertInput, cfg: AlertSettings = DEFAULT_ALERT_SETTINGS): Alert[] {
-  const out: Alert[] = [];
+  const out: Alert[] = [...(input.trackAlerts ?? [])];
   const { today } = input;
 
   for (const s of input.shipments) {

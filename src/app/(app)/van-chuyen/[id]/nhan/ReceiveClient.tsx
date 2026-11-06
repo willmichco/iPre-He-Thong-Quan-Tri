@@ -4,7 +4,8 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { checkReceipt, scannable, type ExpectedItem } from "@/domain/receiving";
 import type { DeviceRecord } from "@/domain/scan-session";
-import { ActionForm, Checkbox, Input, Submit } from "../../../_components/form";
+import { TIME_ZONES } from "@/domain/tracking";
+import { ActionForm, Checkbox, Input, Select, Submit } from "../../../_components/form";
 import { receiveScanAction } from "../../actions";
 
 // Bộ quét dùng camera, WebAssembly và localStorage → chỉ chạy trên trình duyệt.
@@ -97,6 +98,7 @@ export function ReceiveClient({
           <input type="hidden" name="codes" value={codes.join("\n")} />
           <div className="field-row">
             <Input label={`Ngày giờ nhận — ${arriveLabel}`} name="at" type="datetime-local" defaultValue={defaultAt} className="w-56" />
+            <Select label="Theo giờ" name="tz" options={TIME_ZONES} defaultValue="Asia/Ho_Chi_Minh" className="w-60" />
           </div>
           {chk.missing.length > 0 && (
             <Checkbox

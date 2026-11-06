@@ -1,6 +1,8 @@
 import { LEG_LABEL, LEG_TYPES } from "@/domain/catalog";
 import type { ShipmentInput } from "@/domain/shipping";
-import { Input, Select } from "../_components/form";
+import { TIME_ZONES } from "@/domain/tracking";
+import { ActionForm, Input, Select, Submit } from "../_components/form";
+import { trackLinkAction } from "./actions";
 
 type Opt = readonly (readonly [string, string])[];
 
@@ -34,3 +36,27 @@ export function ShipmentFields({
 export const vnd = (n: bigint) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 export const dmy = (d: string | null) => (d ? d.slice(0, 10).split("-").reverse().join("/") : "—");
 export const todayVn = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
+
+/** Ô múi giờ đi kèm ô ngày giờ: mốc ở Mỹ nhập theo giờ địa phương in trên trang hãng, hệ thống tự đổi sang giờ VN. */
+export function TzSelect({ defaultValue = "Asia/Ho_Chi_Minh" }: { defaultValue?: string }) {
+  return <Select label="Theo giờ" name="tz" options={TIME_ZONES} defaultValue={defaultValue} className="w-60" />;
+}
+
+/** Dán link tra cứu (UPS, USPS, FedEx, DHL) hoặc mã vận đơn → bot nhận hãng, tạo kiện và theo dõi 2 lần / ngày. */
+export function TrackLinkForm({ compact = false }: { compact?: boolean }) {
+  return (
+    <ActionForm action={trackLinkAction} resetOnSuccess label="Theo dõi vận đơn" className="field-row">
+      <Input
+        label="Link tra cứu hoặc mã vận đơn"
+        name="link"
+        placeholder="https://www.ups.com/track?…trackNums=1Z…  hoặc  1Z…"
+        autoCapitalize="none"
+        autoComplete="off"
+        spellCheck={false}
+        className={compact ? "grow basis-64" : "grow basis-80"}
+        hint={compact ? undefined : "Dán nhiều mã cách nhau bởi dấu phẩy / xuống dòng cũng được. Mã đã có kiện → bật theo dõi cho kiện đó."}
+      />
+      <Submit>Theo dõi</Submit>
+    </ActionForm>
+  );
+}

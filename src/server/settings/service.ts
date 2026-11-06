@@ -84,6 +84,7 @@ export const EXPORT_TABLES = [
   "attachments",
   "scan_captures",
   "app_settings",
+  "tracking_runs",
   "audit_logs",
 ] as const;
 

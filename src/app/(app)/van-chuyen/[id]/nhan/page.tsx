@@ -41,7 +41,7 @@ export default async function ReceivePage({ params }: PageProps<"/van-chuyen/[id
         <ReceiveClient
           shipmentId={s.id}
           items={s.items.map((i) => ({ id: i.id, label: i.label, serial: i.serial, imei1: i.imei1, imei2: i.imei2, batchCode: i.batchCode }))}
-          defaultAt={isoToVnLocal(new Date())}
+          defaultAt={isoToVnLocal(s.trackDeliveredAt ? new Date(s.trackDeliveredAt) : new Date())}
           arriveLabel={rule?.arriveLabel ?? "Đã nhận"}
         />
       ) : (

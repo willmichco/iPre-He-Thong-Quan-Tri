@@ -22,7 +22,8 @@
     "test:db": "vitest run --project db",
     "costing:check": "tsx scripts/costing.ts check",
     "costing:recalc": "tsx scripts/costing.ts recalc",
-    "backup": "tsx scripts/backup.ts"
+    "backup": "tsx scripts/backup.ts",
+    "tracking": "tsx scripts/tracking.ts"
   },
   "dependencies": {
     "@tesseract.js-data/eng": "^1.0.0",

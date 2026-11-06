@@ -25,7 +25,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Bỏ qua: trang đăng nhập, kiểm tra sức khoẻ, file tĩnh, bộ giải mã wasm, biểu tượng, tệp PWA (manifest, service worker, trang mất kết nối)
-    "/((?!dang-nhap|api/health|_next/static|_next/image|wasm/|ocr/|icons/|favicon.ico|nhan-mau|manifest.webmanifest|sw.js|offline.html|.*\\.(?:svg|png|jpg|webp|ico)$).*)",
+    // Bỏ qua: trang đăng nhập, kiểm tra sức khoẻ, cron (tự xác thực bằng CRON_SECRET), file tĩnh, bộ giải mã wasm, biểu tượng, tệp PWA (manifest, service worker, trang mất kết nối)
+    "/((?!dang-nhap|api/health|api/cron/|_next/static|_next/image|wasm/|ocr/|icons/|favicon.ico|nhan-mau|manifest.webmanifest|sw.js|offline.html|.*\\.(?:svg|png|jpg|webp|ico)$).*)",
   ],
 };

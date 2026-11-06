@@ -2,8 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { parseScanList, shipmentSchema, vnLocalToIso } from "@/domain/shipping";
+import { isTimeZone, zonedLocalToIso } from "@/domain/tracking";
 import { formFields, optionalId, parse, runFormAction, type Db } from "@/server/actions/run";
 import * as svc from "@/server/shipping/service";
+import * as bot from "@/server/tracking/service";
 import type { FormState } from "../_components/form-state";
 
 const run = (prev: FormState, fn: (db: Db) => Promise<string | void>) => runFormAction(prev, "van-chuyen", fn);
@@ -12,8 +14,11 @@ const need = (fd: FormData, key = "id") => {
   if (!v) throw new svc.ShippingError("NOT_FOUND", "Thiếu mã đối tượng");
   return v;
 };
+/** Ô ngày giờ + ô múi giờ (`tz`, mặc định giờ VN) → ISO. Mốc ở Mỹ nhập theo giờ địa phương, hệ thống tự đổi. */
 const when = (fd: FormData) => {
-  const iso = vnLocalToIso(String(fd.get("at") ?? ""));
+  const local = String(fd.get("at") ?? "");
+  const tz = String(fd.get("tz") ?? "Asia/Ho_Chi_Minh");
+  const iso = tz === "Asia/Ho_Chi_Minh" || !isTimeZone(tz) ? vnLocalToIso(local) : zonedLocalToIso(local, tz);
   if (!iso) throw new svc.ShippingError("INVALID_INPUT", "Chọn ngày giờ", "at");
   return iso;
 };
@@ -107,5 +112,57 @@ export async function receiveLateAction(prev: FormState, fd: FormData) {
   return run(prev, async (db) => {
     await svc.receiveLateItem(db, need(fd), need(fd, "itemId"), when(fd));
     return "Đã nhận bổ sung — đóng sự cố cho máy này";
+  });
+}
+
+// ---- Bot theo dõi vận đơn ------------------------------------------------------------------------------
+
+/** Dán link tra cứu / mã vận đơn → bot nhận hãng, tạo kiện (nếu chưa có) và theo dõi. Một kiện → mở trang kiện. */
+export async function trackLinkAction(prev: FormState, fd: FormData) {
+  let go: string | null = null;
+  const state = await run(prev, async (db) => {
+    const r = await bot.trackFromText(db, String(fd.get("link") ?? "").slice(0, 4000));
+    if (r.added.length === 1) go = `/van-chuyen/${r.added[0].id}`;
+    const made = r.added.filter((a) => a.created).length;
+    const parts = [
+      made ? `Đã tạo ${made} kiện` : null,
+      r.added.length - made ? `${r.added.length - made} vận đơn đã có kiện — bật theo dõi` : null,
+      r.run?.unconfigured ? "chưa có khoá API của hãng nên bot chưa kiểm tra được (xem thẻ Bot theo dõi ở Tổng quan)" : null,
+    ].filter(Boolean);
+    return `${r.added.map((a) => a.number).join(", ")}: ${parts.join(" · ")}`;
+  });
+  if (state.ok && go) redirect(go);
+  return state;
+}
+
+export async function runBotAction(prev: FormState) {
+  return run(prev, async (db) => {
+    const r = await bot.runTrackingBot(db, { trigger: "MANUAL" });
+    if (r.skipped) return "Bot đang chạy — đợi vài phút rồi xem lại";
+    return `Đã kiểm tra ${r.checked} kiện · ${r.changed} có cập nhật mới${r.failed ? ` · ${r.failed} lỗi` : ""}${r.unconfigured ? ` · ${r.unconfigured} kiện chưa có nguồn dữ liệu` : ""}`;
+  });
+}
+
+export async function checkOneAction(prev: FormState, fd: FormData) {
+  return run(prev, async (db) => {
+    const r = await bot.runTrackingBot(db, { trigger: "MANUAL", shipmentIds: [need(fd)] });
+    if (r.unconfigured) return "Chưa có nguồn dữ liệu cho hãng này — xem dòng báo lỗi của bot";
+    return r.failed ? "Hãng trả lỗi — xem dòng báo lỗi của bot" : r.changed ? "Có cập nhật mới từ hãng" : "Không có gì mới";
+  });
+}
+
+export async function toggleTrackAction(prev: FormState, fd: FormData) {
+  return run(prev, async (db) => {
+    const on = fd.get("on") === "1";
+    await bot.setTrackEnabled(db, need(fd), on);
+    return on ? "Đã bật bot theo dõi cho kiện" : "Đã tắt bot theo dõi cho kiện";
+  });
+}
+
+export async function labelCreatedAction(prev: FormState, fd: FormData) {
+  return run(prev, async (db) => {
+    const clear = fd.get("do") === "clear";
+    await bot.setLabelCreated(db, need(fd), clear ? null : when(fd));
+    return clear ? "Đã xoá giờ tạo nhãn" : "Đã lưu giờ người bán tạo nhãn";
   });
 }

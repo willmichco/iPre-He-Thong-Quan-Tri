@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { LEG_LABEL, type LegType } from "@/domain/catalog";
 import { BOARD_COLUMNS, boardColumn, daysLate } from "@/domain/shipping";
+import { TRACK_STATUS_LABEL, type TrackStatus } from "@/domain/tracking";
 import { listShipments, listShortages, shippingOptions } from "@/server/shipping/service";
 import { ActionForm, Submit } from "../_components/form";
 import { catalogDb, NoDatabase } from "../danh-muc/shared";
 import { createShipmentAction } from "./actions";
-import { dmy, ShipmentFields, todayVn, vnd } from "./shared";
+import { dmy, ShipmentFields, todayVn, TrackLinkForm, vnd } from "./shared";
 
 export const metadata = { title: "Vận chuyển" };
 
@@ -48,6 +49,16 @@ export default async function ShippingBoard() {
         Mỗi thẻ là một kiện. Bấm &quot;Gửi đi&quot; / &quot;Đã nhận&quot; trong kiện — hệ thống tự ghi mốc cho mọi máy bên trong.
       </p>
 
+      <section className="card mt-4 p-4" aria-labelledby="bot-link">
+        <h2 id="bot-link" className="font-semibold">
+          🤖 Bot theo dõi vận đơn
+        </h2>
+        <p className="mt-1 text-xs text-muted">Dán link UPS / USPS / FedEx / DHL — bot tự nhận hãng, tạo kiện và kiểm tra lúc 07:00 và 19:00 mỗi ngày.</p>
+        <div className="mt-2">
+          <TrackLinkForm />
+        </div>
+      </section>
+
       <details className="card mt-4 p-4">
         <summary className="cursor-pointer font-semibold">+ Tạo kiện</summary>
         <ActionForm action={createShipmentAction} label="Tạo kiện" className="mt-3 field-row">
@@ -84,6 +95,15 @@ export default async function ShippingBoard() {
                         {s.batchCodes.join(", ") || "—"} · {vnd(s.valueVnd)} ₫
                       </div>
                       {s.status === "HOLD" && <div className="mt-1 text-xs font-semibold text-danger">⛔ GIỮ HẢI QUAN</div>}
+                      {s.trackStatus && s.status !== "ARRIVED" && (
+                        <div
+                          className={`text-xs ${["DELAYED", "EXCEPTION"].includes(s.trackStatus) ? "text-danger font-semibold" : s.trackStatus === "DELIVERED" ? "text-[var(--ok)] font-semibold" : "text-muted"}`}
+                          data-testid="card-track"
+                        >
+                          🤖 {TRACK_STATUS_LABEL[s.trackStatus as TrackStatus] ?? s.trackStatus}
+                          {s.trackEta ? ` · hãng hẹn ${dmy(s.trackEta)}` : ""}
+                        </div>
+                      )}
                       {s.status === "ARRIVED" ? (
                         <div className="text-xs text-[var(--ok)]">✓ nhận {dmy(s.arrivedAt)}</div>
                       ) : s.eta ? (
