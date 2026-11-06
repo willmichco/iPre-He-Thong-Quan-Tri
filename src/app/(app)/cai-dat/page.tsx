@@ -109,6 +109,12 @@ export default async function SettingsPage() {
               </div>
             </dl>
             <p className="mt-2 text-xs text-muted">Đổi mật khẩu / mã 2 lớp: chạy lại `npm run auth:setup` trên máy chủ (xem README).</p>
+            <p className="mt-3 text-sm">
+              <Link href="/cai-dat/nhat-ky" className="underline">
+                Nhật ký thay đổi →
+              </Link>{" "}
+              <span className="text-muted">ai sửa gì, lúc nào, giá trị trước và sau.</span>
+            </p>
           </section>
 
           <p className="text-sm text-muted">

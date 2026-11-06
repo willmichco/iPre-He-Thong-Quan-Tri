@@ -139,6 +139,24 @@ gantt
   trong bộ quét) → **Gửi vào hộp chờ duyệt** (gửi lại phiên cũ không tạo trùng) → trên máy tính soát từng dòng (Luhn, Part No. chưa gán cấu hình,
   không phải hàng LL/A, trùng trong hộp, đã có trong hệ thống; nhãn nguồn ▌▌▌ / Aa / ✍), sửa, bỏ, rồi **xác nhận vào đơn mua** (tạo máy — cùng kiểm tra
   với lưới nhập máy, một dòng lỗi thì không tạo gì, giá vốn tự tính lại) hoặc **vào kiện** (nhận hàng theo Serial / IMEI)
+- [x] **Nhận kiện bằng quét đối chiếu** (tài liệu 07 mục 5.1; `/van-chuyen/<kiện>/nhan`, `src/domain/receiving.ts`): quét từng hộp khi kiện về, đối chiếu tức
+  thì ✓ khớp · ○ còn thiếu · ⚠ ngoài kiện (kèm lý do: thuộc kiện khác / chưa có trong hệ thống). Đủ → nhận; thiếu → phải xác nhận, máy ✓ nhận mốc về,
+  máy thiếu giữ trạng thái đang vận chuyển và kiện ghi **sự cố thiếu hàng**; trang kiện có "Đã tìm thấy — nhận bổ sung"; bảng Vận chuyển báo số máy thiếu.
+  Chưa làm: gán Serial vừa quét cho máy chưa có Serial cùng cấu hình; đánh dấu **thất lạc** (cần chốt cách ghi lỗ / bồi thường — tài liệu 01 mục 6)
+- [x] **Nhật ký thay đổi** (`/cai-dat/nhat-ky`, migration `0006_nhat_ky_chi_them.sql`): mọi thao tác ghi, giá trị trước → sau, lọc theo đối tượng /
+  thao tác / ngày, tìm theo Serial / IMEI / mã; "Lịch sử thay đổi" ở trang chuyến, kiện, máy, đơn bán, khách. Nhật ký **chỉ thêm**: CSDL từ chối
+  sửa / xoá / truncate. Nhật ký không còn ghi tên, SĐT khách (chỉ mã khách) — dòng cũ đã được làm sạch — để ẩn danh hoá khách theo Luật 91/2025/QH15 trọn vẹn
+- [x] **Bot theo dõi vận đơn** (migration `0007_bot_theo_doi_van_don.sql`, `src/domain/tracking.ts`, `src/server/tracking/`): dán link tra cứu
+  UPS / USPS / FedEx / DHL (hoặc mã) ở Vận chuyển / Tổng quan → tự nhận hãng (mã UPS kiểm tra số cuối), tạo đơn vị + kiện "Chờ gửi" nếu chưa có, kiểm tra
+  ngay. **07:00 và 19:00 giờ VN** mỗi ngày (`npm run tracking` bằng cron `0 0,12 * * *`, hoặc `POST /api/cron/theo-doi-van-don` kèm
+  `Authorization: Bearer $CRON_SECRET`) hỏi hãng mọi kiện còn trên đường: ghi **hành trình kiện** (không trùng), hẹn giao + khung giờ của hãng, giờ hãng nhận
+  hàng / giao. Báo lên **Tổng quan** (thẻ Bot + "Cần xử lý"): hãng báo đã giao mà chưa nhận kiện, hãng đã nhận hàng mà kiện còn "Chờ gửi", trễ / sự cố,
+  hẹn giao muộn hơn dự kiến, 3 ngày không cập nhật, không đọc được vận đơn. Bot **không tự bấm** "Gửi đi" / "Đã nhận" — chỉ điền sẵn giờ hãng báo.
+  Chỉ dùng **API chính thức có khoá** (UPS Tracking API: `UPS_CLIENT_ID` + `UPS_CLIENT_SECRET`; hoặc 17TRACK: `TRACK17_API_KEY`) — không cào trang web hãng.
+  Phần đọc dữ liệu UPS / 17TRACK viết theo tài liệu API, kiểm bằng dữ liệu mô phỏng; **cần chạy thử với khoá thật** lần đầu
+- [x] **Múi giờ khi ghi mốc**: ô "Theo giờ" cạnh mọi ô ngày giờ gửi / nhận (giờ VN, Arizona, Thái Bình Dương, Miền núi, Miền Trung, Miền Đông — tính cả
+  giờ mùa hè) → nhập đúng giờ in trên trang hãng, hệ thống tự đổi; mọi nơi vẫn hiển thị giờ VN
+- [x] **Mốc "người bán tạo nhãn"** (trước M2): bot tự điền từ hãng hoặc nhập tay; trang kiện hiện "chờ … mới gửi" (đo người bán chậm gửi)
 - [ ] Nhập dữ liệu cũ từ Excel — chờ file Excel thật của chủ hàng để dựng đúng cột (hiện đã dán được từ Excel vào lưới nhập máy của từng đơn mua)
 
 **Ưu tiên khi phải cắt giảm:** costing engine và mốc vận chuyển là **không thể cắt**. Có thể dời: biểu đồ nâng cao, Kanban kéo thả (dùng nút bấm thay thế), PWA ngoại tuyến, tracking API.

@@ -2,6 +2,8 @@
  * Số liệu trang Tổng quan (tài liệu 04 mục 6 "GET /reports/overview", tài liệu 05 mục 4.1).
  * Chỉ đọc; mọi tiền là bigint VND, mọi ngày theo giờ Việt Nam.
  */
+import { trackingAlerts } from "@/domain/tracking";
+import { trackingBoard } from "@/server/tracking/service";
 import type { Sql, TransactionSql } from "postgres";
 import {
   alertSettingsFrom,
@@ -78,6 +80,7 @@ async function pnl(db: Db, from: string, to: string): Promise<PnlTotals> {
 }
 
 export async function getOverview(db: Db, period: Period, today: string) {
+  const botPromise = trackingBoard(db);
   const months = last12Months(today);
   const year = Number(today.slice(0, 4));
 
@@ -169,7 +172,9 @@ export async function getOverview(db: Db, period: Period, today: string) {
   const yearRevenueVnd = BigInt(yr.revenue ?? "0");
   const receivables = saleRows.map((r) => ({ id: r.id, code: r.code, customer: r.customer, status: r.status, balanceVnd: BigInt(r.total) - BigInt(r.paid) }));
 
+  const bot = await botPromise;
   const alertInput: AlertInput = {
+    trackAlerts: trackingAlerts(bot.rows, new Date()),
     today,
     shipments: shipmentRows.map((r) => ({ id: r.id, label: r.label, status: r.status, eta: r.eta, heldSince: r.held })),
     stock: stockList,
@@ -230,6 +235,7 @@ export async function getOverview(db: Db, period: Period, today: string) {
     taxBp: percentBp(yearRevenueVnd, settings.revenueThresholdVnd),
     receivableVnd: receivables.reduce((a, r) => a + (r.balanceVnd > 0n ? r.balanceVnd : 0n), 0n),
     activeBatches: [...batches.values()],
+    bot,
   };
 }
 export type Overview = Awaited<ReturnType<typeof getOverview>>;

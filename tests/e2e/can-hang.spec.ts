@@ -27,6 +27,7 @@ const PAGES = [
   "/ban-hang/khach-hang",
   "/ban-hang/khach-hang/b0000000-0000-0000-0000-000000000002",
   "/quet-ma/hop-cho",
+  "/cai-dat/nhat-ky",
 ];
 
 test("mọi hàng form thẳng hàng (ô nhập, nút, ô tích)", async ({ page }) => {

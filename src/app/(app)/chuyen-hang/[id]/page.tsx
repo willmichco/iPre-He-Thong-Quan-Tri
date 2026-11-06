@@ -385,6 +385,11 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
       </section>
 
       <CostSection costs={costs} targets={costTargetOptions} accounts={accountOptions} title="Chi phí của chuyến" />
+      <p className="mt-6 text-right text-xs">
+        <Link href={`/cai-dat/nhat-ky?id=${id}`} className="text-muted underline hover:text-text">
+          Lịch sử thay đổi
+        </Link>
+      </p>
     </main>
   );
 }

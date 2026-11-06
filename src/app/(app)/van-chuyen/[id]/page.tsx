@@ -3,16 +3,31 @@ import { notFound } from "next/navigation";
 import { LEG_LABEL, type LegType } from "@/domain/catalog";
 import { ITEM_STATUS_LABEL } from "@/domain/purchasing";
 import { daysLate, isMainLeg, isoToVnLocal, LEG_RULES, SHIPMENT_STATUS_LABEL, trackingUrl } from "@/domain/shipping";
+import { humanDuration, TRACK_STATUS_LABEL, vnShort, type TrackStatus } from "@/domain/tracking";
+import { listTrackingEvents } from "@/server/tracking/service";
 import { KINDS_BY_LEG } from "@/domain/costs";
 import { listCosts } from "@/server/costs/service";
-import { getShipment, shippingOptions } from "@/server/shipping/service";
+import { getShipment, listShortages, shippingOptions } from "@/server/shipping/service";
 import { listAttachments } from "@/server/attachments/service";
 import { Attachments } from "../../_components/Attachments";
 import { CostSection } from "../../_components/CostSection";
 import { ActionForm, Input, Submit } from "../../_components/form";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
-import { arriveAction, assignAction, deleteShipmentAction, holdAction, removeItemAction, shipAction, updateShipmentAction } from "../actions";
-import { dmy, ShipmentFields, todayVn, vnd } from "../shared";
+import {
+  arriveAction,
+  assignAction,
+  checkOneAction,
+  labelCreatedAction,
+  toggleTrackAction,
+  deleteShipmentAction,
+  holdAction,
+  receiveLateAction,
+  removeItemAction,
+  shipAction,
+  updateShipmentAction,
+} from "../actions";
+import { dmy, ShipmentFields, todayVn, TzSelect, vnd } from "../shared";
+import { ClearReceiveSession } from "./nhan/ReceiveClient";
 import { ScanBox } from "./ScanBox";
 
 export const metadata = { title: "Kiện vận chuyển" };
@@ -23,7 +38,7 @@ const dmyHm = (ts: string | null) => {
   return `${dmy(vn.slice(0, 10))} ${vn.slice(11, 16)}`;
 };
 
-export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[id]">) {
+export default async function ShipmentPage({ params, searchParams }: PageProps<"/van-chuyen/[id]">) {
   const db = await catalogDb();
   if (!db)
     return (
@@ -35,11 +50,14 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const s = await getShipment(db, id);
   if (!s) notFound();
-  const [opts, costs, accounts, docs] = await Promise.all([
+  const justReceived = (await searchParams).nhan === "1";
+  const [opts, costs, accounts, docs, shortages, events] = await Promise.all([
     shippingOptions(db),
     listCosts(db, { shipmentId: s.id }),
     db<{ id: string; name: string; currency: string }[]>`SELECT id::text, name, currency::text FROM accounts WHERE is_active ORDER BY name`,
     listAttachments(db, "SHIPMENT", [s.id]),
+    s.status === "ARRIVED" ? listShortages(db, s.id) : Promise.resolve([]),
+    listTrackingEvents(db, s.id),
   ]);
   const accountOptions = [["", "— chưa chọn —"] as const, ...accounts.map((a) => [a.id, `${a.name} (${a.currency})`] as const)];
   const carriers = [["", "— chọn —"] as const, ...opts.carriers.filter((c) => c.legTypes.includes(s.legType)).map((c) => [c.id, c.name] as const)];
@@ -49,6 +67,13 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
   const link = trackingUrl(s.trackingTemplate, s.trackingNumber);
   const now = isoToVnLocal(new Date());
   const title = s.trackingNumber ?? s.referenceCode ?? "Kiện chưa có mã";
+  const vnIso = (ts: string | null) => (ts ? new Date(ts).toISOString() : null);
+  const sellerWait =
+    s.labelCreatedAt && s.shippedAt ? humanDuration(vnIso(s.labelCreatedAt)!, vnIso(s.shippedAt.replace(" ", "T").replace(/([+-]\d{2})$/, "$1:00"))!) : null;
+  // gợi ý giờ theo hãng báo (bot): gửi đi = lúc hãng nhận hàng, đã nhận = lúc hãng giao
+  const shipDefault = s.trackPickedUpAt ? isoToVnLocal(new Date(s.trackPickedUpAt)) : now;
+  const arriveDefault = s.trackDeliveredAt ? isoToVnLocal(new Date(s.trackDeliveredAt)) : now;
+  const track = s.trackStatus as TrackStatus | null;
 
   return (
     <main className="mx-auto max-w-5xl p-4 md:p-8">
@@ -73,12 +98,27 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
           <dd>{s.carrierName ?? "—"}</dd>
         </div>
         <div>
+          <dt className="text-muted">Người bán tạo nhãn</dt>
+          <dd data-testid="label-created">
+            {s.labelCreatedAt ? vnShort(s.labelCreatedAt) : "—"}
+            {sellerWait && <span className="block text-xs text-muted">chờ {sellerWait} mới gửi</span>}
+          </dd>
+        </div>
+        <div>
           <dt className="text-muted">Gửi đi{rule ? ` (${rule.departMilestone})` : ""}</dt>
           <dd>{dmyHm(s.shippedAt)}</dd>
         </div>
         <div>
           <dt className="text-muted">Dự kiến nhận</dt>
-          <dd>{dmy(s.eta)}</dd>
+          <dd>
+            {dmy(s.eta)}
+            {s.trackEta && (
+              <span className="block text-xs text-muted">
+                hãng hẹn {dmy(s.trackEta)}
+                {s.trackEtaWindow ? ` ${s.trackEtaWindow}` : ""} (giờ nơi nhận)
+              </span>
+            )}
+          </dd>
         </div>
         <div>
           <dt className="text-muted">Đã nhận{rule ? ` (${rule.arriveMilestone})` : ""}</dt>
@@ -112,19 +152,83 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
         </div>
       </dl>
 
+      {justReceived && s.status === "ARRIVED" && (
+        <p role="status" className="card mt-4 p-3 text-sm text-[var(--ok)]">
+          ✓ Đã nhận kiện theo kết quả quét{shortages.length ? ` — ghi sự cố thiếu ${shortages.length} máy (xem bên dưới)` : " — đủ máy"}.
+          <ClearReceiveSession shipmentId={s.id} />
+        </p>
+      )}
+
+      {shortages.length > 0 && (
+        <section className="card mt-4 border border-[var(--danger)] p-4" aria-labelledby="su-co">
+          <h2 id="su-co" className="font-semibold text-danger">
+            ⚠ Sự cố thiếu hàng · {shortages.length} máy chưa về
+          </h2>
+          <p className="mt-1 text-xs text-muted">
+            Máy có trong kiện nhưng không quét được khi nhận — vẫn tính là đang vận chuyển. Tìm thấy / về sau thì nhận bổ sung; hỏi đơn vị vận chuyển kèm vận
+            đơn ở phần chứng từ.
+          </p>
+          <ul className="mt-2 flex flex-col gap-2">
+            {shortages.map((m) => (
+              <li
+                key={m.itemId}
+                className="flex flex-wrap items-end justify-between gap-2 border-t border-border pt-2"
+                aria-label={`Thiếu ${m.serial ?? m.imei1 ?? m.itemId}`}
+              >
+                <span className="text-sm">
+                  <Link href={`/kho/${m.itemId}`} className="underline">
+                    {m.label}
+                  </Link>{" "}
+                  <span className="font-mono text-xs text-muted">{m.serial ?? m.imei1 ?? ""}</span>
+                  <span className="text-xs text-muted"> · {ITEM_STATUS_LABEL[m.status] ?? m.status}</span>
+                </span>
+                <ActionForm action={receiveLateAction} label={`Nhận bổ sung ${m.serial ?? m.imei1 ?? m.itemId}`} className="field-row">
+                  <input type="hidden" name="id" value={s.id} />
+                  <input type="hidden" name="itemId" value={m.itemId} />
+                  <Input label="Ngày giờ nhận" name="at" type="datetime-local" defaultValue={now} className="w-56" />
+                  <TzSelect />
+                  <Submit variant="secondary">Đã tìm thấy — nhận bổ sung</Submit>
+                </ActionForm>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="mt-5 field-row" aria-label="Thao tác kiện">
         {s.status === "PLANNED" && (
           <ActionForm action={shipAction} label="Gửi đi" className="field-row">
             <input type="hidden" name="id" value={s.id} />
-            <Input label={`Ngày giờ gửi${rule ? ` — ${rule.departLabel}` : ""}`} name="at" type="datetime-local" defaultValue={now} className="w-56" />
+            <Input
+              label={`Ngày giờ gửi${rule ? ` — ${rule.departLabel}` : ""}`}
+              name="at"
+              type="datetime-local"
+              defaultValue={shipDefault}
+              className="w-56"
+              hint={s.trackPickedUpAt ? "Giờ VN lúc hãng nhận hàng (bot)" : undefined}
+            />
+            <TzSelect />
             <Submit>Gửi đi</Submit>
           </ActionForm>
+        )}
+        {(s.status === "IN_TRANSIT" || s.status === "HOLD") && s.items.length > 0 && (
+          <Link href={`/van-chuyen/${s.id}/nhan`} className="btn-primary self-end">
+            ▌▌▌ Nhận bằng quét đối chiếu
+          </Link>
         )}
         {(s.status === "IN_TRANSIT" || s.status === "HOLD") && (
           <ActionForm action={arriveAction} label="Đã nhận" className="field-row">
             <input type="hidden" name="id" value={s.id} />
-            <Input label={`Ngày giờ nhận${rule ? ` — ${rule.arriveLabel}` : ""}`} name="at" type="datetime-local" defaultValue={now} className="w-56" />
-            <Submit>Đã nhận</Submit>
+            <Input
+              label={`Ngày giờ nhận${rule ? ` — ${rule.arriveLabel}` : ""}`}
+              name="at"
+              type="datetime-local"
+              defaultValue={arriveDefault}
+              className="w-56"
+              hint={s.trackDeliveredAt ? "Giờ VN lúc hãng giao (bot)" : undefined}
+            />
+            <TzSelect />
+            <Submit variant="secondary">Đã nhận cả kiện</Submit>
           </ActionForm>
         )}
         {s.status === "IN_TRANSIT" && (
@@ -143,6 +247,101 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
           </ActionForm>
         )}
       </section>
+
+      {s.trackingNumber && (
+        <section className="card mt-5 p-4" aria-labelledby="bot-theo-doi" data-testid="bot-panel">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="bot-theo-doi" className="font-semibold">
+              🤖 Bot theo dõi vận đơn <span className="text-sm font-normal text-muted">· {s.trackEnabled ? "07:00 và 19:00 mỗi ngày" : "đang tắt"}</span>
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {s.trackEnabled && (s.status === "PLANNED" || s.status === "IN_TRANSIT" || s.status === "HOLD") && (
+                <ActionForm action={checkOneAction} label="Kiểm tra ngay">
+                  <input type="hidden" name="id" value={s.id} />
+                  <Submit variant="secondary">Kiểm tra ngay</Submit>
+                </ActionForm>
+              )}
+              <ActionForm action={toggleTrackAction} label={s.trackEnabled ? "Tắt bot" : "Bật bot"}>
+                <input type="hidden" name="id" value={s.id} />
+                <input type="hidden" name="on" value={s.trackEnabled ? "0" : "1"} />
+                <Submit variant="secondary">{s.trackEnabled ? "Tắt bot cho kiện này" : "Bật bot cho kiện này"}</Submit>
+              </ActionForm>
+            </div>
+          </div>
+          <p className="mt-2 text-sm" data-testid="bot-status">
+            {track ? (
+              <strong className={track === "DELAYED" || track === "EXCEPTION" ? "text-danger" : track === "DELIVERED" ? "text-[var(--ok)]" : ""}>
+                {TRACK_STATUS_LABEL[track] ?? track}
+              </strong>
+            ) : (
+              <span className="text-muted">Chưa kiểm tra</span>
+            )}
+            {s.trackStatusText && <span className="text-muted"> · {s.trackStatusText}</span>}
+            {s.trackCheckedAt && <span className="block text-xs text-muted">Kiểm tra lần cuối {vnShort(s.trackCheckedAt)} (giờ VN)</span>}
+          </p>
+          {s.trackError && (
+            <p className="mt-1 text-xs text-[var(--warn)]" role="note">
+              ⚠ {s.trackError}
+            </p>
+          )}
+          {track === "DELIVERED" && (s.status === "IN_TRANSIT" || s.status === "HOLD") && (
+            <p className="mt-2 text-sm font-medium" role="note">
+              Hãng báo đã giao{s.trackDeliveredAt ? ` lúc ${vnShort(s.trackDeliveredAt)}` : ""} — kiểm hàng rồi{" "}
+              <Link href={`/van-chuyen/${s.id}/nhan`} className="underline">
+                nhận kiện bằng quét đối chiếu
+              </Link>
+              .
+            </p>
+          )}
+          {s.status === "PLANNED" && track && track !== "LABEL_CREATED" && track !== "NOT_FOUND" && (
+            <p className="mt-2 text-sm font-medium" role="note">
+              Hãng đã nhận hàng{s.trackPickedUpAt ? ` lúc ${vnShort(s.trackPickedUpAt)}` : ""} — bấm “Gửi đi” ở trên (giờ đã điền sẵn).
+            </p>
+          )}
+          <details className="mt-3">
+            <summary className="cursor-pointer text-sm text-muted">
+              Giờ người bán tạo nhãn {s.labelCreatedAt ? `· ${vnShort(s.labelCreatedAt)}` : "· nhập tay"}
+            </summary>
+            <ActionForm action={labelCreatedAction} label="Giờ tạo nhãn" className="mt-2 field-row">
+              <input type="hidden" name="id" value={s.id} />
+              <Input
+                label="Người bán tạo nhãn lúc"
+                name="at"
+                type="datetime-local"
+                defaultValue={s.labelCreatedAt ? isoToVnLocal(new Date(s.labelCreatedAt)) : ""}
+                className="w-56"
+              />
+              <TzSelect />
+              <Submit variant="secondary">Lưu</Submit>
+              {s.labelCreatedAt && (
+                <button type="submit" name="do" value="clear" className="btn-secondary">
+                  Xoá
+                </button>
+              )}
+            </ActionForm>
+          </details>
+        </section>
+      )}
+
+      {events.length > 0 && (
+        <section className="card mt-5 p-4" aria-labelledby="hanh-trinh">
+          <h2 id="hanh-trinh" className="font-semibold">
+            Hành trình kiện <span className="text-sm font-normal text-muted">· giờ VN · {events.length} sự kiện</span>
+          </h2>
+          <ol className="mt-2 flex flex-col gap-1.5 text-sm" aria-label="Hành trình kiện">
+            {events.map((e, k) => (
+              <li key={k} className="grid grid-cols-[6.5rem_1fr] gap-2 border-t border-border pt-1.5 first:border-0 first:pt-0">
+                <span className="tabular-nums text-muted">{vnShort(e.at)}</span>
+                <span>
+                  {e.description}
+                  {e.location && <span className="text-muted"> · {e.location}</span>}
+                  <span className="ml-1 text-xs text-muted">{e.source === "API" ? "· hãng" : "· ghi tay"}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       {s.status !== "ARRIVED" && s.status !== "CANCELLED" && (
         <section className="card mt-5 p-4" aria-labelledby="quet-may">
@@ -248,6 +447,11 @@ export default async function ShipmentPage({ params }: PageProps<"/van-chuyen/[i
           </ActionForm>
         )}
       </details>
+      <p className="mt-6 text-right text-xs">
+        <Link href={`/cai-dat/nhat-ky?id=${id}`} className="text-muted underline hover:text-text">
+          Lịch sử thay đổi
+        </Link>
+      </p>
     </main>
   );
 }

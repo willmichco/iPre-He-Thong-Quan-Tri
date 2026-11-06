@@ -6,7 +6,10 @@ import { BATCH_STATUS_LABEL } from "@/domain/purchasing";
 import { getOverview } from "@/server/overview/service";
 import { HBars, MonthBars } from "./_overview/charts";
 import { catalogDb, NoDatabase } from "./danh-muc/shared";
-import { todayVn } from "./van-chuyen/shared";
+import { nextBotRun, TRACK_CARRIER_LABEL, TRACK_STATUS_LABEL, vnShort, type TrackStatus } from "@/domain/tracking";
+import { ActionForm, Submit } from "./_components/form";
+import { runBotAction } from "./van-chuyen/actions";
+import { dmy, todayVn, TrackLinkForm } from "./van-chuyen/shared";
 
 export const metadata = { title: "Tổng quan" };
 
@@ -245,6 +248,72 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
           </div>
         </section>
       </div>
+
+      {/* Bot theo dõi vận đơn */}
+      <section className="card mt-5 p-4" aria-labelledby="bot-van-don" data-testid="bot-card">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 id="bot-van-don" className="font-semibold">
+              🤖 Bot theo dõi vận đơn <span className="text-sm font-normal text-muted">· {o.bot.rows.length} kiện</span>
+            </h2>
+            <p className="text-xs text-muted" data-testid="bot-run">
+              Kiểm tra 07:00 và 19:00 mỗi ngày · lần cuối {o.bot.lastRun ? `${vnShort(o.bot.lastRun.at)}` : "chưa chạy"} · lần tới{" "}
+              {vnShort(nextBotRun(new Date()))}
+            </p>
+          </div>
+          <ActionForm action={runBotAction} label="Bot kiểm tra ngay">
+            <Submit variant="secondary">Kiểm tra ngay</Submit>
+          </ActionForm>
+        </div>
+        {o.bot.configured.length === 0 ? (
+          <p className="mt-2 rounded-xl bg-[var(--fill)] p-2.5 text-xs" role="note" data-testid="bot-unconfigured">
+            ⚠ Chưa có khoá API của hãng nên bot chưa đọc được vận đơn. Cần một trong hai: <strong>UPS_CLIENT_ID + UPS_CLIENT_SECRET</strong> (miễn phí ở
+            developer.ups.com) hoặc <strong>TRACK17_API_KEY</strong> (17track.net — UPS, USPS, FedEx, DHL). Đặt vào biến môi trường của máy chủ.
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-muted">Đang đọc được: {o.bot.configured.map((c) => TRACK_CARRIER_LABEL[c]).join(", ")}</p>
+        )}
+        <div className="mt-3">
+          <TrackLinkForm compact />
+        </div>
+        {o.bot.rows.length > 0 && (
+          <ul className="mt-3 flex flex-col gap-2" aria-label="Kiện bot đang theo dõi">
+            {o.bot.rows.map((r) => {
+              const st = r.trackStatus as TrackStatus | null;
+              const bad = st === "DELAYED" || st === "EXCEPTION";
+              return (
+                <li key={r.id}>
+                  <Link
+                    href={`/van-chuyen/${r.id}`}
+                    className="grid gap-x-3 rounded-2xl bg-[var(--fill)] px-3 py-2 text-sm hover:bg-[var(--fill-strong)] md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto]"
+                    data-testid="bot-row"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-mono text-xs">{r.trackingNumber}</span>
+                      <span className="text-xs text-muted">{r.carrierName ?? "—"}</span>
+                    </span>
+                    <span className="min-w-0">
+                      <span className={`font-medium ${bad ? "text-danger" : st === "DELIVERED" ? "text-[var(--ok)]" : ""}`}>
+                        {st ? (TRACK_STATUS_LABEL[st] ?? st) : r.error ? "Chưa đọc được" : "Chờ lần kiểm tra đầu"}
+                      </span>
+                      {(r.lastEvent || r.error) && (
+                        <span className="block truncate text-xs text-muted">
+                          {r.lastEvent
+                            ? `${r.lastEvent}${r.lastLocation ? ` · ${r.lastLocation}` : ""}${r.lastEventAt ? ` · ${vnShort(r.lastEventAt)}` : ""}`
+                            : r.error}
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-xs text-muted md:text-right">
+                      {r.trackEta ? `hãng hẹn ${dmy(r.trackEta)}${r.trackEtaWindow ? ` ${r.trackEtaWindow}` : ""}` : r.eta ? `dự kiến ${dmy(r.eta)}` : ""}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       {/* Biểu đồ 12 tháng */}
       <section aria-label="Doanh thu và lãi 12 tháng" className="mt-5 grid gap-5 md:grid-cols-2">

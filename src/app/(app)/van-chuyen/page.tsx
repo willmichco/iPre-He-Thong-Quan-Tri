@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { LEG_LABEL, type LegType } from "@/domain/catalog";
 import { BOARD_COLUMNS, boardColumn, daysLate } from "@/domain/shipping";
-import { listShipments, shippingOptions } from "@/server/shipping/service";
+import { TRACK_STATUS_LABEL, type TrackStatus } from "@/domain/tracking";
+import { listShipments, listShortages, shippingOptions } from "@/server/shipping/service";
 import { ActionForm, Submit } from "../_components/form";
 import { catalogDb, NoDatabase } from "../danh-muc/shared";
 import { createShipmentAction } from "./actions";
-import { dmy, ShipmentFields, todayVn, vnd } from "./shared";
+import { dmy, ShipmentFields, todayVn, TrackLinkForm, vnd } from "./shared";
 
 export const metadata = { title: "Vận chuyển" };
 
@@ -17,11 +18,13 @@ export default async function ShippingBoard() {
         <NoDatabase />
       </main>
     );
-  const [shipments, opts] = await Promise.all([listShipments(db), shippingOptions(db)]);
+  const [shipments, opts, shortages] = await Promise.all([listShipments(db), shippingOptions(db), listShortages(db)]);
   const today = todayVn();
   const carriers = [["", "— chọn —"] as const, ...opts.carriers.map((c) => [c.id, c.name] as const)];
   const batches = [["", "— không / nhiều chuyến —"] as const, ...opts.batches.map((b) => [b.id, b.code] as const)];
   const lateCount = shipments.filter((s) => daysLate(s.eta, today, s.status) > 0).length;
+  const shortBy = new Map<string, { tracking: string | null; n: number }>();
+  for (const m of shortages) shortBy.set(m.shipmentId, { tracking: m.tracking, n: (shortBy.get(m.shipmentId)?.n ?? 0) + 1 });
 
   return (
     <main className="mx-auto max-w-[1400px] p-4 md:p-8">
@@ -29,9 +32,32 @@ export default async function ShippingBoard() {
         <h1 className="text-2xl font-bold">Vận chuyển</h1>
         {lateCount > 0 && <span className="text-sm text-danger">⚠ {lateCount} kiện quá ngày dự kiến</span>}
       </div>
+      {shortBy.size > 0 && (
+        <p className="mt-2 text-sm text-danger" role="note">
+          ⚠ Sự cố thiếu hàng: {shortages.length} máy chưa về —{" "}
+          {[...shortBy].map(([id, x], k) => (
+            <span key={id}>
+              {k > 0 && ", "}
+              <Link href={`/van-chuyen/${id}`} className="underline">
+                kiện {x.tracking ?? "chưa có mã"} ({x.n})
+              </Link>
+            </span>
+          ))}
+        </p>
+      )}
       <p className="mt-1 text-sm text-muted">
         Mỗi thẻ là một kiện. Bấm &quot;Gửi đi&quot; / &quot;Đã nhận&quot; trong kiện — hệ thống tự ghi mốc cho mọi máy bên trong.
       </p>
+
+      <section className="card mt-4 p-4" aria-labelledby="bot-link">
+        <h2 id="bot-link" className="font-semibold">
+          🤖 Bot theo dõi vận đơn
+        </h2>
+        <p className="mt-1 text-xs text-muted">Dán link UPS / USPS / FedEx / DHL — bot tự nhận hãng, tạo kiện và kiểm tra lúc 07:00 và 19:00 mỗi ngày.</p>
+        <div className="mt-2">
+          <TrackLinkForm />
+        </div>
+      </section>
 
       <details className="card mt-4 p-4">
         <summary className="cursor-pointer font-semibold">+ Tạo kiện</summary>
@@ -69,6 +95,15 @@ export default async function ShippingBoard() {
                         {s.batchCodes.join(", ") || "—"} · {vnd(s.valueVnd)} ₫
                       </div>
                       {s.status === "HOLD" && <div className="mt-1 text-xs font-semibold text-danger">⛔ GIỮ HẢI QUAN</div>}
+                      {s.trackStatus && s.status !== "ARRIVED" && (
+                        <div
+                          className={`text-xs ${["DELAYED", "EXCEPTION"].includes(s.trackStatus) ? "text-danger font-semibold" : s.trackStatus === "DELIVERED" ? "text-[var(--ok)] font-semibold" : "text-muted"}`}
+                          data-testid="card-track"
+                        >
+                          🤖 {TRACK_STATUS_LABEL[s.trackStatus as TrackStatus] ?? s.trackStatus}
+                          {s.trackEta ? ` · hãng hẹn ${dmy(s.trackEta)}` : ""}
+                        </div>
+                      )}
                       {s.status === "ARRIVED" ? (
                         <div className="text-xs text-[var(--ok)]">✓ nhận {dmy(s.arrivedAt)}</div>
                       ) : s.eta ? (

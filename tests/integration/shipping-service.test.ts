@@ -200,4 +200,57 @@ describe("Kiện 3 chặng ↔ PostgreSQL", () => {
       await expect(svc.markShipped(tx, "91000000-0000-0000-0000-000000000000", "2026-10-02T09:00:00+07:00")).rejects.toMatchObject({ code: "NOT_FOUND" });
     });
   });
+  it("nhận kiện bằng quét đối chiếu: thiếu máy → chặn nếu chưa xác nhận; nhận phần đã quét, máy thiếu giữ đang vận chuyển + sự cố; nhận bổ sung đóng sự cố", async () => {
+    await inTx(async (tx) => {
+      const batchId = await fixture(tx);
+      const hnsg = await svc.createShipment(tx, shipment({ legType: "HN_TO_SG", carrierId: CHANH, trackingNumber: "HNSG-77" }));
+      await svc.assignItems(tx, hnsg, IMEI);
+      await svc.markShipped(tx, hnsg, "2026-10-18T08:00:00+07:00");
+      const at = "2026-10-20T16:00:00+07:00";
+
+      // máy 0 quét Serial (mã vạch có tiền tố "S"), máy 1 quét IMEI; máy 2 không quét; 1 mã lạ, 1 máy của kiện khác
+      const scanned = ["STESTSER000", IMEI[1], IMEI[1], "KHONGCO999", "SERIALIPHONE01"];
+      await expect(svc.receiveByScan(tx, hnsg, [], at, true)).rejects.toMatchObject({ code: "INVALID_INPUT", field: "codes" });
+      await expect(svc.receiveByScan(tx, hnsg, scanned, at, false)).rejects.toMatchObject({ code: "INVALID_STATE", field: "acceptShortage" });
+      expect((await svc.getShipment(tx, hnsg))!.status).toBe("IN_TRANSIT"); // bị chặn → không ghi gì
+
+      const r = await svc.receiveByScan(tx, hnsg, scanned, at, true);
+      expect(r.received).toBe(2);
+      expect(r.missing.map((m) => m.code)).toEqual(["TESTSER002"]);
+      expect(r.outside).toEqual([
+        { code: "KHONGCO999", reason: expect.stringContaining("Chưa có trong hệ thống") },
+        { code: "SERIALIPHONE01", reason: expect.stringContaining("Thuộc kiện") },
+      ]);
+      expect((await svc.getShipment(tx, hnsg))!.status).toBe("ARRIVED");
+      expect(await statuses(tx)).toEqual(["IN_STOCK", "IN_STOCK", "DOMESTIC_IN_TRANSIT"]);
+      expect(await batchStatus(tx, batchId)).toBe("IN_TRANSIT"); // còn 1 máy chưa về → chuyến chưa "Đã về"
+      const [ev] = await tx<{ d: string }[]>`SELECT description AS d FROM shipment_tracking_events WHERE shipment_id = ${hnsg}`;
+      expect(ev.d).toBe("Nhận thiếu 1 máy: TESTSER002");
+
+      const open = await svc.listShortages(tx, hnsg);
+      expect(open.map((o) => o.serial)).toEqual(["TESTSER002"]);
+      expect((await svc.listShortages(tx)).some((o) => o.serial === "TESTSER002")).toBe(true);
+      await expect(svc.receiveLateItem(tx, hnsg, open[0].itemId, "2026-10-17T00:00:00+07:00")).rejects.toMatchObject({ field: "at" });
+      await expect(svc.receiveLateItem(tx, hnsg, (await svc.getShipment(tx, hnsg))!.items[0].id, at)).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+      await svc.receiveLateItem(tx, hnsg, open[0].itemId, "2026-10-22T10:00:00+07:00");
+      expect(await statuses(tx)).toEqual(["IN_STOCK", "IN_STOCK", "IN_STOCK"]);
+      expect(await svc.listShortages(tx, hnsg)).toEqual([]);
+      expect(await batchStatus(tx, batchId)).toBe("ARRIVED");
+      await expect(svc.receiveByScan(tx, hnsg, IMEI, at, true)).rejects.toMatchObject({ code: "INVALID_STATE" }); // nhận rồi
+    });
+  });
+
+  it("nhận kiện bằng quét: quét đủ → nhận luôn, không cần xác nhận thiếu, không có sự cố", async () => {
+    await inTx(async (tx) => {
+      await fixture(tx);
+      const us = await svc.createShipment(tx, shipment({ legType: "US_DOMESTIC", carrierId: USPS, trackingNumber: "US-88" }));
+      await svc.assignItems(tx, us, IMEI);
+      await svc.markShipped(tx, us, "2026-10-02T09:00:00+07:00");
+      const r = await svc.receiveByScan(tx, us, ["TESTSER000", "TESTSER001", IMEI[2], IMEI[0]], "2026-10-05T15:00:00+07:00", false);
+      expect(r).toEqual({ received: 3, missing: [], outside: [] });
+      expect(await statuses(tx)).toEqual(["AT_US_WAREHOUSE", "AT_US_WAREHOUSE", "AT_US_WAREHOUSE"]);
+      expect(await svc.listShortages(tx, us)).toEqual([]);
+    });
+  });
 });
