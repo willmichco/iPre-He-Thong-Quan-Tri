@@ -4,6 +4,7 @@ import { formatBp, formatVnd, itemProfit } from "@/domain/costing";
 import { CHANNEL_LABEL, SALE_STATUS_LABEL, type Channel } from "@/domain/sales";
 import { getSale } from "@/server/sales/service";
 import { ActionForm, Checkbox, Input, Select, Submit } from "../../_components/form";
+import { HistoryLink } from "../../_components/HistoryLink";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
 import { addPaymentAction, cancelDepositAction, completeSaleAction, returnItemAction, setEinvoiceAction } from "../actions";
 import { listAttachments } from "@/server/attachments/service";
@@ -231,11 +232,7 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
           </ul>
         </section>
       )}
-      <p className="mt-6 text-right text-xs">
-        <Link href={`/cai-dat/nhat-ky?id=${id}`} className="text-muted underline hover:text-text">
-          Lịch sử thay đổi
-        </Link>
-      </p>
+      <HistoryLink id={id} />
     </main>
   );
 }

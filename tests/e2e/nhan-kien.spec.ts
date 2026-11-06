@@ -46,7 +46,7 @@ test("nhận kiện bằng quét: 2/3 máy → chặn → nhận phần đã qu�
 
     await login(page, "/van-chuyen");
     await page.goto(`/van-chuyen/${sh.id}`);
-    await page.getByRole("link", { name: "▌▌▌ Nhận bằng quét đối chiếu" }).click();
+    await page.getByRole("link", { name: "Nhận bằng quét đối chiếu" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(`Nhận kiện ${tracking}`);
     const progress = page.getByTestId("receive-progress");
     await expect(progress).toContainText("Đã quét 0/3 máy · còn thiếu 3");

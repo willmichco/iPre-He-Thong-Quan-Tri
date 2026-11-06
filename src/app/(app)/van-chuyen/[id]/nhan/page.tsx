@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { LEG_LABEL, type LegType } from "@/domain/catalog";
 import { isMainLeg, isoToVnLocal, LEG_RULES } from "@/domain/shipping";
 import { getShipment } from "@/server/shipping/service";
+import { Glyph } from "../../../_components/Glyph";
 import { catalogDb, NoDatabase } from "../../../danh-muc/shared";
 import { ClearReceiveSession, ReceiveClient } from "./ReceiveClient";
 
@@ -31,12 +32,29 @@ export default async function ReceivePage({ params }: PageProps<"/van-chuyen/[id
         ← Kiện {title}
       </Link>
       <h1 className="mt-1 text-2xl font-bold">
-        Nhận kiện <span className="font-mono">{title}</span>
+        Nhận kiện <span className="font-mono tracking-tight">{title}</span>
       </h1>
-      <p className="mt-1 text-sm text-muted">
-        {LEG_LABEL[s.legType as LegType]} · {s.items.length} máy. Quét Serial / IMEI từng hộp (camera, máy quét, hoặc gõ / dán). Đủ máy → xác nhận; thiếu → nhận
-        phần đã quét và ghi sự cố, máy thiếu giữ trạng thái đang vận chuyển cho tới khi tìm thấy.
+      <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
+        <span className="badge" data-tone="info">
+          {LEG_LABEL[s.legType as LegType]}
+        </span>
+        <span className="text-muted">{s.items.length} máy trong kiện</span>
       </p>
+      <ol className="mt-3 grid gap-2 text-sm sm:grid-cols-3" aria-label="Các bước nhận kiện">
+        {[
+          ["Quét từng hộp", "Serial / IMEI bằng camera, máy quét hoặc gõ / dán."],
+          ["Đối chiếu tự động", "Khớp với danh sách máy đã gửi, báo mã lạ."],
+          ["Xác nhận", "Đủ máy → nhận; thiếu → nhận phần đã quét và ghi sự cố, máy thiếu giữ trạng thái đang vận chuyển."],
+        ].map(([t, d], k) => (
+          <li key={t} className="flex gap-2.5 rounded-2xl bg-[var(--fill)] p-3">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--primary-tint)] text-xs font-bold text-primary">{k + 1}</span>
+            <span>
+              <span className="block font-medium">{t}</span>
+              <span className="text-xs text-muted">{d}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
       {open ? (
         <ReceiveClient
           shipmentId={s.id}
@@ -45,13 +63,16 @@ export default async function ReceivePage({ params }: PageProps<"/van-chuyen/[id
           arriveLabel={rule?.arriveLabel ?? "Đã nhận"}
         />
       ) : (
-        <p className="card mt-4 p-4 text-sm">
-          {s.status === "ARRIVED" ? "Kiện đã nhận." : "Kiện chưa gửi đi — bấm “Gửi đi” ở trang kiện trước."}{" "}
-          <Link href={`/van-chuyen/${s.id}`} className="underline">
-            Về trang kiện
-          </Link>
+        <div className="callout mt-4" data-tone={s.status === "ARRIVED" ? "ok" : "info"}>
+          <Glyph name={s.status === "ARRIVED" ? "checkCircle" : "info"} size={17} />
+          <p>
+            {s.status === "ARRIVED" ? "Kiện đã nhận." : "Kiện chưa gửi đi — bấm “Gửi đi” ở trang kiện trước."}{" "}
+            <Link href={`/van-chuyen/${s.id}`} className="font-medium underline">
+              Về trang kiện
+            </Link>
+          </p>
           {s.status === "ARRIVED" && <ClearReceiveSession shipmentId={s.id} />}
-        </p>
+        </div>
       )}
     </main>
   );

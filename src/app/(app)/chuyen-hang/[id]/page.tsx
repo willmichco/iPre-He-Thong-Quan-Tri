@@ -9,6 +9,7 @@ import { Attachments } from "../../_components/Attachments";
 import { getBatch, purchaseOptions, variantRefs, type PurchaseOrderRow } from "@/server/purchasing/service";
 import { CostSection } from "../../_components/CostSection";
 import { ActionForm, Input, Select, Submit } from "../../_components/form";
+import { HistoryLink } from "../../_components/HistoryLink";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
 import { deleteBatchAction, deletePurchaseOrderAction, finalizeBatchAction, reopenBatchAction, savePurchaseOrderAction, updateBatchAction } from "../actions";
 import { ItemGrid, type SavedInfo } from "./ItemGrid";
@@ -385,11 +386,7 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
       </section>
 
       <CostSection costs={costs} targets={costTargetOptions} accounts={accountOptions} title="Chi phí của chuyến" />
-      <p className="mt-6 text-right text-xs">
-        <Link href={`/cai-dat/nhat-ky?id=${id}`} className="text-muted underline hover:text-text">
-          Lịch sử thay đổi
-        </Link>
-      </p>
+      <HistoryLink id={id} />
     </main>
   );
 }

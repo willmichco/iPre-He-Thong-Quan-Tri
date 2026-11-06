@@ -1,6 +1,6 @@
 import { LEG_LABEL, LEG_TYPES } from "@/domain/catalog";
 import type { ShipmentInput } from "@/domain/shipping";
-import { TIME_ZONES } from "@/domain/tracking";
+import { TIME_ZONES, TRACK_STATUS_LABEL, type TrackStatus } from "@/domain/tracking";
 import { ActionForm, Input, Select, Submit } from "../_components/form";
 import { trackLinkAction } from "./actions";
 
@@ -58,5 +58,30 @@ export function TrackLinkForm({ compact = false }: { compact?: boolean }) {
       />
       <Submit>Theo dõi</Submit>
     </ActionForm>
+  );
+}
+
+type Tone = "ok" | "danger" | "warn" | "info" | "muted";
+const TRACK_TONE: Record<TrackStatus, Tone> = {
+  LABEL_CREATED: "muted",
+  IN_TRANSIT: "info",
+  DELAYED: "danger",
+  OUT_FOR_DELIVERY: "info",
+  DELIVERED: "ok",
+  EXCEPTION: "danger",
+  NOT_FOUND: "muted",
+  UNKNOWN: "muted",
+};
+
+/** Trạng thái hãng báo (bot) dạng huy hiệu màu; chưa có trạng thái → "Chưa đọc được" (có lỗi) / "Chờ lần kiểm tra đầu". */
+export function TrackBadge({ status, error, testid }: { status: string | null; error?: string | null; testid?: string }) {
+  const st = status as TrackStatus | null;
+  const label = st ? (TRACK_STATUS_LABEL[st] ?? st) : error ? "Chưa đọc được" : "Chờ lần kiểm tra đầu";
+  const tone: Tone = st ? (TRACK_TONE[st] ?? "muted") : error ? "warn" : "muted";
+  const moving = st === "IN_TRANSIT" || st === "OUT_FOR_DELIVERY";
+  return (
+    <span className="badge" data-tone={tone} data-live={moving ? "" : undefined} data-testid={testid}>
+      {label}
+    </span>
   );
 }
