@@ -2,6 +2,8 @@ import { requireOwner } from "@/server/auth/session";
 import { logout } from "../dang-nhap/actions";
 import { BrandMark } from "./_components/BrandMark";
 import { NavIcon } from "./_components/NavIcon";
+import { Suspense } from "react";
+import { SegmentScroll } from "./_components/SegmentScroll";
 import { MobileNav, NavLinks } from "./NavLinks";
 
 function Account({ email, compact = false }: { email: string; compact?: boolean }) {
@@ -69,6 +71,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       </div>
 
       <MobileNav account={<Account email={owner.email} compact />} />
+      <Suspense fallback={null}>
+        <SegmentScroll />
+      </Suspense>
     </div>
   );
 }

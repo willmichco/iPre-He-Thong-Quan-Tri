@@ -106,7 +106,7 @@ function VariantFields({ v }: { v?: VariantRow }) {
         placeholder="0,6"
         defaultValue={v?.defaultWeightKg ? String(Number(v.defaultWeightKg)).replace(".", ",") : ""}
         hint="Dùng chia cước theo cân nặng"
-        className="w-40"
+        className="w-48"
       />
       <Input
         label="Mã SKU"

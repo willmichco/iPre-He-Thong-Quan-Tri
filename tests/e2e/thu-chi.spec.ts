@@ -13,7 +13,7 @@ const show = (v: bigint) => formatAmount(v * 100n, "VND");
 const ledger = (page: Page) => page.locator('[aria-label="Sổ quỹ"], [aria-label="Sổ quỹ (dạng thẻ)"]').filter({ visible: true });
 const entry = (page: Page, text: string) => ledger(page).locator("tr, li").filter({ hasText: text }).first();
 
-test("sổ quỹ: tự sinh 🔗, ghi chi vận hành, chuyển tiền, đối soát, xoá", async ({ page }) => {
+test("sổ quỹ: tự sinh, ghi chi vận hành, chuyển tiền, đối soát, xoá", async ({ page }) => {
   test.setTimeout(90_000);
   await login(page, "/thu-chi");
   await expect(page.getByRole("heading", { name: "Thu chi", level: 1 })).toBeVisible();
@@ -25,7 +25,7 @@ test("sổ quỹ: tự sinh 🔗, ghi chi vận hành, chuyển tiền, đối s
   // máy tính: liên kết riêng về chuyến (điện thoại: cả thẻ mở chi tiết bút toán, ở đó có liên kết)
   const table = page.getByRole("table", { name: "Sổ quỹ" });
   if (await table.isVisible())
-    await expect(table.getByRole("link", { name: /🔗 Đơn mua W123456789 · CH-2026-011/ })).toHaveAttribute("href", /\/chuyen-hang\//);
+    await expect(table.getByRole("link", { name: /Đơn mua W123456789 · CH-2026-011/ })).toHaveAttribute("href", /\/chuyen-hang\//);
 
   // ghi khoản chi vận hành
   await page.getByText("+ Khoản chi vận hành / thu khác").click();
@@ -41,7 +41,7 @@ test("sổ quỹ: tự sinh 🔗, ghi chi vận hành, chuyển tiền, đối s
 
   // chuyển tiền: tổng thu chi toàn sổ không đổi, chỉ thêm 2 bút toán
   const totals = await page.getByTestId("ledger-totals").textContent();
-  await page.getByText("⇄ Chuyển tiền / đổi ngoại tệ").click();
+  await page.getByText("Chuyển tiền / đổi ngoại tệ").click();
   const tf = page.getByRole("form", { name: "Chuyển tiền" });
   await tf.getByLabel("Từ tài khoản *").selectOption({ label: "Ngân hàng chính" });
   await tf.getByLabel("Sang tài khoản *").selectOption({ label: "Thẻ Visa (VND)" });

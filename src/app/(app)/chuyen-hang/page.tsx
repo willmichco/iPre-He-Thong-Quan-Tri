@@ -5,6 +5,7 @@ import { listBatches, suggestBatchCode } from "@/server/purchasing/service";
 import { ActionForm, Input, Submit } from "../_components/form";
 import { catalogDb, Empty, NoDatabase } from "../danh-muc/shared";
 import { createBatchAction } from "./actions";
+import { BATCH_TONE } from "../_components/tones";
 
 export const metadata = { title: "Chuyến hàng" };
 
@@ -45,7 +46,9 @@ export default async function BatchesPage() {
                   <div className="flex flex-wrap items-baseline gap-2">
                     <b>{b.code}</b>
                     {b.name && <span className="text-muted">{b.name}</span>}
-                    <span className="ml-auto rounded-full bg-[var(--fill)] px-2.5 py-0.5 text-xs font-medium">{BATCH_STATUS_LABEL[b.status] ?? b.status}</span>
+                    <span className="badge ml-auto" data-tone={BATCH_TONE[b.status] ?? "muted"}>
+                      {BATCH_STATUS_LABEL[b.status] ?? b.status}
+                    </span>
                   </div>
                   <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
                     <Stat label="Máy" value={`${b.itemCount}`} note={`đã bán ${b.soldCount}`} />

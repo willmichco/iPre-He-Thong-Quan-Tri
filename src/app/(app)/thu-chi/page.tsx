@@ -7,6 +7,7 @@ import { cashSummary, getDebts, listAccountBalances, listCategories, listTransac
 import { catalogDb, Empty, NoDatabase } from "../danh-muc/shared";
 import { todayVn } from "../van-chuyen/shared";
 import { CashflowBars, categoryOptions, EntryForm, LedgerTable, TransferForm } from "./ui";
+import { Glyph } from "../_components/Glyph";
 
 export const metadata = { title: "Thu chi" };
 
@@ -132,7 +133,10 @@ export default async function CashPage({ searchParams }: PageProps<"/thu-chi">) 
             </details>
             {active.length > 1 && (
               <details className="card p-4">
-                <summary className="cursor-pointer font-semibold">⇄ Chuyển tiền / đổi ngoại tệ</summary>
+                <summary className="cursor-pointer font-semibold">
+                  <Glyph name="swap" size={17} className="mr-1.5 inline-block align-[-3px]" />
+                  Chuyển tiền / đổi ngoại tệ
+                </summary>
                 <p className="mt-1 text-sm text-muted">
                   Ghi 2 bút toán (ra – vào), không ảnh hưởng lãi lỗ. Phí chuyển (nếu có) ghi riêng là khoản chi vận hành.
                 </p>
@@ -150,7 +154,7 @@ export default async function CashPage({ searchParams }: PageProps<"/thu-chi">) 
         <h2 id="so-quy" className="font-semibold">
           Sổ quỹ
         </h2>
-        <form method="get" role="search" aria-label="Lọc sổ quỹ" className="field-row mt-2">
+        <form method="get" role="search" aria-label="Lọc sổ quỹ" className="card field-row mt-2 p-4">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted">Tài khoản</span>
             <select name="tk" defaultValue={f.accountId ?? ""} className="field">

@@ -14,7 +14,7 @@ import { CostSection } from "../../_components/CostSection";
 import { ActionForm, Input, Submit } from "../../_components/form";
 import { Glyph } from "../../_components/Glyph";
 import { HistoryLink } from "../../_components/HistoryLink";
-import { catalogDb, NoDatabase } from "../../danh-muc/shared";
+import { catalogDb, Empty, NoDatabase } from "../../danh-muc/shared";
 import {
   arriveAction,
   assignAction,
@@ -31,6 +31,7 @@ import {
 import { dmy, ShipmentFields, todayVn, TrackBadge, TzSelect, vnd } from "../shared";
 import { ClearReceiveSession } from "./nhan/ReceiveClient";
 import { ScanBox } from "./ScanBox";
+import { BackLink } from "../../_components/BackLink";
 
 export const metadata = { title: "Kiện vận chuyển" };
 
@@ -81,9 +82,7 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
 
   return (
     <main className="mx-auto max-w-5xl p-4 md:p-8">
-      <Link href="/van-chuyen" className="text-sm text-muted hover:text-text">
-        ← Vận chuyển
-      </Link>
+      <BackLink href="/van-chuyen">Vận chuyển</BackLink>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="break-all font-mono text-2xl font-bold tracking-tight">{title}</h1>
         <span className="text-sm text-muted">{LEG_LABEL[s.legType as LegType]}</span>
@@ -411,7 +410,7 @@ export default async function ShipmentPage({ params, searchParams }: PageProps<"
           Máy trong kiện <span className="text-sm font-normal text-muted">· {s.items.length}</span>
         </h2>
         {s.items.length === 0 ? (
-          <p className="card mt-2 p-4 text-sm text-muted">Chưa có máy — quét Serial / IMEI ở trên.</p>
+          <Empty className="mt-2">Chưa có máy — quét Serial / IMEI ở trên.</Empty>
         ) : (
           <div className="card mt-2 overflow-x-auto">
             <table className="w-full text-sm" aria-label="Máy trong kiện">

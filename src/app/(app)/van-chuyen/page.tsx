@@ -81,12 +81,17 @@ export default async function ShippingBoard() {
         </ActionForm>
       </details>
 
-      <div className="-mx-4 mt-5 flex snap-x gap-3 overflow-x-auto px-4 pb-3 md:mx-0 md:px-0" role="list" aria-label="Bảng tiến độ">
+      {/* điện thoại / máy tính bảng: cuộn ngang từng cột; màn rộng: các cột chia đều, thấy hết không cần cuộn */}
+      <div
+        className="-mx-4 mt-5 flex snap-x gap-3 overflow-x-auto px-4 pb-3 md:mx-0 md:px-0 xl:grid xl:auto-cols-fr xl:grid-flow-col xl:overflow-visible"
+        role="list"
+        aria-label="Bảng tiến độ"
+      >
         {BOARD_COLUMNS.map((col) => {
           const cards = shipments.filter((s) => boardColumn(s) === col.key);
           if (col.key === "OTHER" && !cards.length) return null;
           return (
-            <section key={col.key} role="listitem" aria-label={col.label} className="w-[17rem] shrink-0 snap-start rounded-[22px] bg-[var(--fill)] p-2">
+            <section key={col.key} role="listitem" aria-label={col.label} className="w-[17rem] shrink-0 snap-start rounded-[22px] bg-[var(--fill)] p-2 xl:w-auto xl:min-w-0">
               <h2 className="flex items-center justify-between px-2 pb-2 pt-1 text-sm font-semibold">
                 {col.label}
                 <span className="rounded-full bg-[var(--surface-strong)] px-2 py-0.5 text-xs font-medium tabular-nums text-muted">{cards.length}</span>

@@ -5,7 +5,7 @@ import { ALERT_LEVEL_ICON, ALERT_LEVEL_LABEL, changeBp, formatBp, parsePeriod, P
 import { BATCH_STATUS_LABEL } from "@/domain/purchasing";
 import { getOverview } from "@/server/overview/service";
 import { HBars, MonthBars } from "./_overview/charts";
-import { catalogDb, NoDatabase } from "./danh-muc/shared";
+import { catalogDb, Empty, NoDatabase } from "./danh-muc/shared";
 import { nextBotRun, TRACK_CARRIER_LABEL, vnShort } from "@/domain/tracking";
 import { ActionForm, Submit } from "./_components/form";
 import { Glyph } from "./_components/Glyph";
@@ -204,9 +204,10 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
             Cần xử lý <span className="text-sm font-normal text-muted">· {o.alerts.length}</span>
           </h2>
           {o.alerts.length === 0 ? (
-            <p className="mt-2 text-sm text-muted" data-testid="no-alerts">
-              ✓ Không có việc gì cần xử lý.
-            </p>
+            <div className="callout mt-2" data-tone="ok" data-testid="no-alerts">
+              <Glyph name="checkCircle" size={17} />
+              <p>Không có việc gì cần xử lý.</p>
+            </div>
           ) : (
             <ul className="mt-2 flex flex-col gap-2" data-testid="alerts">
               {o.alerts.map((a, k) => (
@@ -379,7 +380,7 @@ export default async function OverviewPage({ searchParams }: PageProps<"/">) {
           Chuyến đang chạy <span className="text-sm font-normal text-muted">· {o.activeBatches.length}</span>
         </h2>
         {o.activeBatches.length === 0 ? (
-          <p className="card mt-2 p-4 text-sm text-muted">Không có chuyến nào đang mua / đang về.</p>
+          <Empty className="mt-2">Không có chuyến nào đang mua / đang về.</Empty>
         ) : (
           <ul className="mt-2 flex flex-col gap-2" data-testid="active-batches">
             {o.activeBatches.map((b) => {
