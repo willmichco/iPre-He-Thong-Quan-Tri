@@ -13,6 +13,8 @@ import { HistoryLink } from "../../_components/HistoryLink";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
 import { deleteBatchAction, deletePurchaseOrderAction, finalizeBatchAction, reopenBatchAction, savePurchaseOrderAction, updateBatchAction } from "../actions";
 import { ItemGrid, type SavedInfo } from "./ItemGrid";
+import { BackLink } from "../../_components/BackLink";
+import { BATCH_TONE } from "../../_components/tones";
 
 export const metadata = { title: "Chi tiết chuyến hàng" };
 
@@ -164,16 +166,11 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
 
   return (
     <main className="mx-auto max-w-6xl p-4 md:p-8">
-      <Link href="/chuyen-hang" className="text-sm text-muted hover:text-text">
-        ← Chuyến hàng
-      </Link>
+      <BackLink href="/chuyen-hang">Chuyến hàng</BackLink>
       <div className="mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold">{batch.code}</h1>
         {batch.name && <span className="text-muted">{batch.name}</span>}
-        <span
-          className={`text-xs rounded-full px-2 py-0.5 ${finalized ? "bg-primary text-[var(--primary-text)]" : "border border-border"}`}
-          data-testid="batch-status"
-        >
+        <span className="badge" data-tone={BATCH_TONE[batch.status] ?? "muted"} data-testid="batch-status">
           {BATCH_STATUS_LABEL[batch.status] ?? batch.status}
           {finalized ? " ✓" : ""}
         </span>
@@ -199,7 +196,7 @@ export default async function BatchPage({ params }: PageProps<"/chuyen-hang/[id]
         ))}
       </section>
 
-      <section className="mt-4 flex flex-wrap items-start gap-3" aria-label="Chốt chi phí">
+      <section className="card mt-4 flex flex-wrap items-start gap-3 p-4" aria-label="Chốt chi phí">
         {finalized ? (
           <ActionForm action={reopenBatchAction} label="Mở lại chuyến" className="field-row">
             <input type="hidden" name="id" value={batch.id} />

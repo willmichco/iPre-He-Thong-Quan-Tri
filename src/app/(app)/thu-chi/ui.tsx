@@ -9,6 +9,7 @@ import { shortVnd } from "@/domain/overview";
 import type { CategoryRow, LedgerRow } from "@/server/ledger/service";
 import { ActionForm, Input, Select, Submit } from "../_components/form";
 import { saveEntryAction, transferAction } from "./actions";
+import { Glyph } from "../_components/Glyph";
 
 export type AccountOpt = { id: string; name: string; currency: "VND" | "USD" };
 
@@ -179,7 +180,7 @@ export function LedgerTable({
               <p className="mt-0.5 text-xs text-muted">
                 {dmy(r.date)}
                 {showAccount && ` · ${r.account}`}
-                {r.link && ` · 🔗 ${r.link.label}`}
+                {r.link && ` · ${r.link.label}`}
                 {balances && ` · số dư ${formatAmount(r.balanceCents ?? 0n, r.currency)}`}
               </p>
               {(r.counterparty || r.note) && <p className="mt-0.5 truncate text-xs text-muted">{[r.counterparty, r.note].filter(Boolean).join(" · ")}</p>}
@@ -217,8 +218,13 @@ export function LedgerTable({
                   </td>
                   <td className="px-3 py-2">
                     {r.link ? (
-                      <Link href={r.link.href} className="text-primary" title={`Tự sinh từ ${SOURCE_LABEL[r.source]}`}>
-                        🔗 {r.link.label}
+                      <Link
+                        href={r.link.href}
+                        className="inline-flex items-center gap-1 text-primary hover:underline"
+                        title={`Tự sinh từ ${SOURCE_LABEL[r.source]}`}
+                      >
+                        <Glyph name="link" size={14} className="shrink-0" />
+                        {r.link.label}
                       </Link>
                     ) : (
                       r.source !== "MANUAL" && <span className="text-xs text-muted">{SOURCE_LABEL[r.source]}</span>

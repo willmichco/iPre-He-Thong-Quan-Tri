@@ -6,6 +6,7 @@ import { DOC_KIND_LABEL, formatBytes, KIND_FOR, type EntityType } from "@/domain
 import type { Attachment } from "@/server/attachments/service";
 import { deleteAttachmentAction, uploadAttachmentAction } from "./attachment-actions";
 import { ActionForm, Input, Select, Submit } from "./form";
+import { Glyph } from "./Glyph";
 
 export function Attachments({
   entityType,
@@ -33,7 +34,7 @@ export function Attachments({
         <ul className="flex flex-col gap-1 text-sm" aria-label={`${title} đã lưu`}>
           {docs.map((d) => (
             <li key={d.id} className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span aria-hidden>{d.mimeType === "application/pdf" ? "📄" : "🖼"}</span>
+              <Glyph name={d.mimeType === "application/pdf" ? "doc" : "image"} size={16} className="shrink-0 text-muted" />
               <span className="chip">{DOC_KIND_LABEL[d.kind]}</span>
               <a href={`/chung-tu/${d.id}`} target="_blank" rel="noopener" className="min-w-0 truncate text-primary underline">
                 {d.fileName}

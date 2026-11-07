@@ -63,6 +63,13 @@ const PATHS = {
     </>
   ),
   plus: <path d="M12 5v14M5 12h14" />,
+  image: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
+      <circle cx="9" cy="9.5" r="1.6" />
+      <path d="m20.5 15.5-4.6-4.6a1.5 1.5 0 0 0-2.1 0L6 18.7" />
+    </>
+  ),
   pencil: (
     <>
       <path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4Z" />
@@ -90,6 +97,30 @@ const PATHS = {
     </>
   ),
   arrow: <path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5" />,
+  back: <path d="M14.5 5.5 8 12l6.5 6.5" />,
+  link: (
+    <>
+      <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+      <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+    </>
+  ),
+  swap: <path d="M4 8h14l-3.5-3.5M20 16H6l3.5 3.5" />,
+  download: <path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14" />,
+  doc: (
+    <>
+      <path d="M7 3.5h7l4.5 4.5v11a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5Z" />
+      <path d="M14 3.5V8h4.5M9 13h6M9 16.5h4" />
+    </>
+  ),
+  inbox: (
+    <>
+      <path d="M4 13.5 6.3 6a2 2 0 0 1 1.9-1.5h7.6A2 2 0 0 1 17.7 6l2.3 7.5V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
+      <path d="M4 13.5h4.5l1 2h5l1-2H20" />
+    </>
+  ),
+  close: <path d="M6 6l12 12M18 6 6 18" />,
+  up: <path d="M12 19V6M6.5 11.5 12 6l5.5 5.5" />,
+  down: <path d="M12 5v13M6.5 12.5 12 18l5.5-5.5" />,
 } as const;
 
 export type GlyphName = keyof typeof PATHS;

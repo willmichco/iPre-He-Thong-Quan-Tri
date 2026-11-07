@@ -4,6 +4,7 @@ import { auditTypes, listAudit, type AuditRow } from "@/server/audit/service";
 import { Glyph, type GlyphName } from "../../_components/Glyph";
 import { catalogDb, Empty, NoDatabase } from "../../danh-muc/shared";
 import { todayVn } from "../../van-chuyen/shared";
+import { BackLink } from "../../_components/BackLink";
 
 export const metadata = { title: "Nhật ký thay đổi — Cài đặt" };
 
@@ -49,9 +50,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/cai-dat/nh
 
   return (
     <main className="mx-auto max-w-5xl p-4 md:p-8">
-      <Link href="/cai-dat" className="text-sm text-muted hover:text-text">
-        ← Cài đặt
-      </Link>
+      <BackLink href="/cai-dat">Cài đặt</BackLink>
       <h1 className="mt-1 text-2xl font-bold">Nhật ký thay đổi</h1>
       <p className="mt-1 text-sm text-muted">
         Mọi thao tác ghi dữ liệu — tạo, sửa, xoá, chốt / mở lại chuyến, nhận kiện, bán, thu chi… — kèm giá trị trước và sau.

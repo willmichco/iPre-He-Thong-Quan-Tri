@@ -56,10 +56,28 @@ async function main() {
   const css = result.outputFiles.find((f) => f.path.endsWith(".css"))?.text ?? "";
   const wasmB64 = readFileSync(require.resolve("zxing-wasm/reader/zxing_reader.wasm")).toString("base64");
   const labelB64 = readFileSync(join(root, "public", "nhan-mau.svg")).toString("base64");
+  // Phông Be Vietnam Pro nhúng thẳng (Latin + tiếng Việt, 4 độ đậm) — bản độc lập không có máy chủ phục vụ tệp phông
+  const fontDir = join(root, "node_modules", "@fontsource", "be-vietnam-pro");
+  const fontFaces = [400, 500, 600, 700]
+    .flatMap((w) =>
+      [...readFileSync(join(fontDir, `${w}.css`), "utf8").matchAll(/@font-face\s*{[^}]*}/g)]
+        .map((m) => m[0])
+        .filter((rule) => /-(latin|vietnamese)-\d+-normal\.woff2/.test(rule)),
+    )
+    .map((rule) =>
+      rule
+        .replace(/src:[^;]*;/, (src) => {
+          const file = /url\(\.\/files\/([^)]+\.woff2)\)/.exec(src)![1];
+          return `src: url(data:font/woff2;base64,${readFileSync(join(fontDir, "files", file)).toString("base64")}) format("woff2");`;
+        })
+        .replace(/\s+/g, " "),
+    )
+    .join("\n");
 
   const html = `<title>Quét mã iPre</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
+${fontFaces}
 /* Bố cục: công cụ + danh sách máy; màu theo hệ thiết kế V2 của ứng dụng iPre */
 :root {
   --page-bg: #f2f4f9;
@@ -84,7 +102,7 @@ body {
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   color: var(--page-muted);
-  font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font: 13px/1.5 "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
 }
 .demo-note strong { color: var(--page-fg); }
 html .sc-root { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }

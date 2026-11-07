@@ -29,12 +29,12 @@ test("quét → gửi vào hộp chờ duyệt → soát từng dòng → sửa 
   await expect(ipad).toHaveAttribute("data-level", "WARN");
   await expect(ipad).toContainText("Không phải hàng thị trường LL/A");
 
-  // sửa Serial dòng iPad (nguồn thành ✍ tay)
+  // sửa Serial dòng iPad (nguồn thành "sửa tay")
   await ipad.getByText("Sửa").click();
   const edit = ipad.getByRole("form");
   await edit.getByLabel("Serial").fill("c02xl0gtjgh6");
   await edit.getByRole("button", { name: "Lưu" }).click();
-  await expect(rows.filter({ hasText: "C02XL0GTJGH6" })).toContainText("✍");
+  await expect(rows.filter({ hasText: "C02XL0GTJGH6" })).toContainText("sửa tay");
 
   // bỏ cả hai (dòng không lỗi đã được chọn sẵn)
   await page.getByRole("button", { name: "Bỏ dòng đã chọn" }).click();

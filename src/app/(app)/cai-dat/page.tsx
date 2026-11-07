@@ -69,7 +69,8 @@ export default async function SettingsPage() {
               toàn. Mỗi lần tải được ghi nhật ký.
             </p>
             <a href="/cai-dat/xuat-du-lieu" className="btn-secondary mt-3 inline-flex" download data-testid="export-all">
-              ⤓ Tải toàn bộ dữ liệu (.zip)
+              <Glyph name="download" size={17} />
+              Tải toàn bộ dữ liệu (.zip)
             </a>
             <p className="mt-3 text-xs text-muted">
               Sao lưu tự động hằng ngày (pg_dump mã hoá, giữ 30 bản ngày + 12 bản tháng) được bật khi triển khai lên máy chủ thật — đang chờ chọn nơi triển

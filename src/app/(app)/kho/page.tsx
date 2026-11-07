@@ -28,10 +28,11 @@ export default async function StockPage({ searchParams }: PageProps<"/kho">) {
         {db && (
           <Link
             href="/kho/thieu-chung-tu"
-            className={`ml-auto text-sm underline ${missing.length ? "text-[var(--warn)]" : "text-muted"}`}
+            className="badge ml-auto transition-[filter] hover:brightness-95"
+            data-tone={missing.length ? "warn" : "ok"}
             data-testid="missing-docs-link"
           >
-            {missing.length ? `⚠ ${missing.length} máy thiếu chứng từ nguồn gốc` : "✓ Hồ sơ chứng từ đủ"}
+            {missing.length ? `${missing.length} máy thiếu chứng từ nguồn gốc` : "Hồ sơ chứng từ đủ"}
           </Link>
         )}
       </div>

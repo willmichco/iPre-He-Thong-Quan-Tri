@@ -1,9 +1,9 @@
-import Link from "next/link";
 import type { InboxField } from "@/domain/scan-inbox";
 import { inboxTargets, listInbox, type InboxRow } from "@/server/scans/service";
 import { ActionForm, Input, Select, Submit } from "../../_components/form";
 import { catalogDb, Empty, NoDatabase } from "../../danh-muc/shared";
 import { inboxAction, updateCaptureAction } from "../actions";
+import { BackLink } from "../../_components/BackLink";
 
 export const metadata = { title: "Hộp chờ duyệt — Quét mã" };
 
@@ -14,11 +14,12 @@ const COLS: { key: InboxField; label: string }[] = [
   { key: "imei2", label: "IMEI 2" },
   { key: "partNumber", label: "Part No." },
 ];
-const SRC: Record<string, string> = { BARCODE: "▌▌▌", HW_SCANNER: "▌▌▌", OCR: "Aa", PASTE: "📋", MANUAL: "✍" };
+/** Nguồn của từng giá trị: mã vạch / máy quét đáng tin, đọc chữ cần soát kỹ, sửa tay là người dùng đã xác nhận. */
+const SRC: Record<string, string> = { BARCODE: "mã vạch", HW_SCANNER: "máy quét", OCR: "đọc chữ", PASTE: "dán", MANUAL: "sửa tay" };
 const LEVEL = {
-  OK: { label: "✓ Hợp lệ", cls: "text-[var(--ok)]" },
-  WARN: { label: "⚠ Cần soát", cls: "text-[var(--warn)]" },
-  ERROR: { label: "✖ Lỗi", cls: "text-danger" },
+  OK: { label: "Hợp lệ", tone: "ok" },
+  WARN: { label: "Cần soát", tone: "warn" },
+  ERROR: { label: "Lỗi", tone: "danger" },
 } as const;
 
 export default async function InboxPage() {
@@ -33,15 +34,13 @@ export default async function InboxPage() {
   const ok = rows.filter((r) => r.level !== "ERROR").length;
   return (
     <main className="mx-auto max-w-6xl p-4 md:p-8">
-      <Link href="/quet-ma" className="text-sm text-muted hover:text-text">
-        ← Quét mã
-      </Link>
+      <BackLink href="/quet-ma">Quét mã</BackLink>
       <h1 className="mt-1 text-2xl font-bold">
         Hộp chờ duyệt <span className="text-base font-normal text-muted">({rows.length})</span>
       </h1>
       <p className="mt-1 text-sm text-muted">
-        Quét / chụp loạt trên điện thoại rồi bấm <b>“Gửi vào hộp chờ duyệt”</b> ở trang Quét mã. Ở đây soát từng dòng (▌▌▌ mã vạch · Aa đọc chữ · ✍ sửa tay),
-        sửa nếu cần, rồi xác nhận vào <b>đơn mua</b> (tạo máy mới) hoặc vào <b>kiện</b> (nhận hàng).
+        Quét / chụp loạt trên điện thoại rồi bấm <b>“Gửi vào hộp chờ duyệt”</b> ở trang Quét mã. Ở đây soát từng dòng (nguồn: mã vạch · đọc chữ · sửa tay), sửa
+        nếu cần, rồi xác nhận vào <b>đơn mua</b> (tạo máy mới) hoặc vào <b>kiện</b> (nhận hàng).
       </p>
 
       {rows.length === 0 ? (
@@ -143,7 +142,10 @@ function Row({ r }: { r: InboxRow }) {
             {f ? (
               <>
                 {f.value}{" "}
-                <span className={f.source === "OCR" ? "text-[var(--warn)]" : "text-muted"} title={f.source}>
+                <span
+                  className={`ml-1 rounded-md px-1.5 py-0.5 font-sans text-[11px] ${f.source === "OCR" ? "bg-[var(--warn-bg)] text-[var(--warn)]" : "bg-[var(--fill)] text-muted"}`}
+                  title={f.source}
+                >
                   {SRC[f.source] ?? ""}
                 </span>
               </>
@@ -153,10 +155,12 @@ function Row({ r }: { r: InboxRow }) {
           </td>
         );
       })}
-      <td className="px-3 py-2">
-        <span className={`font-medium ${lv.cls}`}>{lv.label}</span>
+      <td className="min-w-60 whitespace-normal px-3 py-2">
+        <span className="badge" data-tone={lv.tone}>
+          {lv.label}
+        </span>
         {r.issues.length > 0 && (
-          <ul className="mt-1 text-xs text-muted">
+          <ul className="mt-1.5 flex flex-col gap-0.5 text-xs text-muted">
             {r.issues.map((i, k) => (
               <li key={k} className={i.level === "ERROR" ? "text-danger" : i.level === "WARN" ? "text-[var(--warn)]" : ""}>
                 {i.message}

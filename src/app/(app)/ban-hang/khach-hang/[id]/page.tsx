@@ -10,6 +10,7 @@ import { catalogDb, Empty, NoDatabase } from "../../../danh-muc/shared";
 import { todayVn } from "../../../van-chuyen/shared";
 import { anonymizeCustomerAction, saveCustomerAction } from "../actions";
 import { CustomerFields } from "../fields";
+import { BackLink } from "../../../_components/BackLink";
 
 export const metadata = { title: "Khách hàng — Bán hàng" };
 
@@ -30,9 +31,7 @@ export default async function CustomerPage({ params }: PageProps<"/ban-hang/khac
   const today = todayVn();
   return (
     <main className="mx-auto max-w-4xl p-4 md:p-8">
-      <Link href="/ban-hang/khach-hang" className="text-sm text-muted hover:text-text">
-        ← Khách hàng
-      </Link>
+      <BackLink href="/ban-hang/khach-hang">Khách hàng</BackLink>
       <div className="mt-1 flex flex-wrap items-baseline gap-3">
         <h1 className="text-2xl font-bold" data-testid="customer-name">
           {c.fullName}
@@ -41,18 +40,21 @@ export default async function CustomerPage({ params }: PageProps<"/ban-hang/khac
         {c.anonymized && <span className="chip">đã ẩn danh</span>}
       </div>
 
-      <section className="mt-4 grid grid-cols-3 gap-3" aria-label="Tổng hợp khách">
+      <section className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Tổng hợp khách">
         <div className="card p-4">
           <p className="text-xs text-muted">Số đơn</p>
           <p className="mt-1 text-lg font-semibold tabular-nums">{c.sales.length}</p>
         </div>
-        <div className="card p-4">
+        <div className="card order-last col-span-2 p-4 sm:order-none sm:col-span-1">
           <p className="text-xs text-muted">Đã mua</p>
-          <p className="mt-1 text-lg font-semibold tabular-nums">{formatVnd(c.revenueVnd)} ₫</p>
+          <p className="mt-1 whitespace-nowrap text-lg font-semibold tabular-nums">{formatVnd(c.revenueVnd)} ₫</p>
         </div>
         <div className="card p-4">
           <p className="text-xs text-muted">Còn nợ</p>
-          <p className={`mt-1 text-lg font-semibold tabular-nums ${c.balanceVnd > 0n ? "text-[var(--warn)]" : ""}`} data-testid="customer-balance">
+          <p
+            className={`mt-1 whitespace-nowrap text-lg font-semibold tabular-nums ${c.balanceVnd > 0n ? "text-[var(--warn)]" : ""}`}
+            data-testid="customer-balance"
+          >
             {formatVnd(c.balanceVnd)} ₫
           </p>
         </div>

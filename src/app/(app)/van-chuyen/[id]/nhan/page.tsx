@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { LEG_LABEL, type LegType } from "@/domain/catalog";
 import { isMainLeg, isoToVnLocal, LEG_RULES } from "@/domain/shipping";
 import { getShipment } from "@/server/shipping/service";
+import { BackLink } from "../../../_components/BackLink";
 import { Glyph } from "../../../_components/Glyph";
 import { catalogDb, NoDatabase } from "../../../danh-muc/shared";
 import { ClearReceiveSession, ReceiveClient } from "./ReceiveClient";
@@ -28,9 +29,7 @@ export default async function ReceivePage({ params }: PageProps<"/van-chuyen/[id
 
   return (
     <main className="mx-auto max-w-3xl p-4 md:p-8">
-      <Link href={`/van-chuyen/${s.id}`} className="text-sm text-muted hover:text-text">
-        ← Kiện {title}
-      </Link>
+      <BackLink href={`/van-chuyen/${s.id}`}>Kiện {title}</BackLink>
       <h1 className="mt-1 text-2xl font-bold">
         Nhận kiện <span className="font-mono tracking-tight">{title}</span>
       </h1>
