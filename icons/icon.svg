@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f9dff"/>
+      <stop offset="1" stop-color="#7a5cff"/>
+    </linearGradient>
+  </defs>
+  <!-- nền phủ kín (biểu tượng "maskable": hệ điều hành tự bo góc / cắt tròn) -->
+  <rect width="512" height="512" fill="url(#g)"/>
+  <!-- chữ "i" vẽ bằng hình (không phụ thuộc phông), nằm trong vùng an toàn 80% -->
+  <circle cx="256" cy="166" r="34" fill="#fff"/>
+  <rect x="226" y="226" width="60" height="150" rx="30" fill="#fff"/>
+</svg>
