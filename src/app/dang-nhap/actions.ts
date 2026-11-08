@@ -22,7 +22,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   if (!cfg) return { error: "Hệ thống chưa cấu hình tài khoản chủ (xem README → Cấu hình đăng nhập)." };
 
   const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "local";
+  const ip = h.get("cf-connecting-ip")?.trim() || h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "local";
   const lockedMs = isLocked(ip);
   if (lockedMs > 0) {
     return { error: `Sai quá nhiều lần. Thử lại sau ${Math.ceil(lockedMs / 60000)} phút.` };

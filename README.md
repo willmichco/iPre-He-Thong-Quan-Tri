@@ -59,6 +59,13 @@ Mở http://localhost:3000. Khi chưa cấu hình tài khoản chủ, máy phát
 
 > Camera trên web chỉ chạy qua **HTTPS** (hoặc `localhost`). Muốn thử quét bằng iPhone với máy chạy local, dùng `next dev --experimental-https` hoặc triển khai lên môi trường thật.
 
+### Dùng thật trên máy của bạn (không cần VPS) + Cloudflare
+
+Bấm đúp `khoi-dong-ipre.bat` (Windows) / `khoi-dong-ipre.command` (macOS), hoặc `npm run may:cloudflare`:
+tự bật PostgreSQL, migration, build, sao lưu, chạy iPre và mở đường hầm **Cloudflare Tunnel** — in đường dẫn `https://…` kèm mã QR
+để mở từ iPhone ở bất kỳ đâu (camera quét chạy được). Hướng dẫn đầy đủ, kể cả tên miền cố định và lớp khoá Cloudflare Access:
+[`docs/08-chay-tai-may-cloudflare.md`](docs/08-chay-tai-may-cloudflare.md).
+
 ### Cấu hình đăng nhập (một tài khoản chủ, xác thực 2 lớp)
 
 ```bash
@@ -91,6 +98,7 @@ ngoài. Mọi thao tác ghi đều qua **phiếu xem trước → Xác nhận** 
 | Lệnh | Việc |
 |---|---|
 | `npm run dev` | Chạy máy phát triển |
+| `npm run may` / `npm run may:cloudflare` | Chạy thật trên máy này / kèm đường hầm Cloudflare |
 | `npm run typecheck` · `npm run lint` | Kiểm tra kiểu dữ liệu · quy tắc mã |
 | `npm test` | Kiểm thử đơn vị (nhận dạng mã, trích xuất chữ OCR, gom máy theo vị trí, đăng nhập, mã vạch thật → giải mã) |
 | `npm run test:e2e` | Kiểm thử đầu-cuối bằng trình duyệt (máy tính, giả lập iPhone, 2 camera giả: nhãn hộp và màn hình Giới thiệu) |

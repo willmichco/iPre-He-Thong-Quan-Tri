@@ -64,11 +64,14 @@ async function main() {
   console.log("\n1) Quét mã QR này bằng ứng dụng Authenticator trên điện thoại:\n");
   console.log(await QRCode.toString(uri, { type: "terminal", small: true }));
   console.log("   (hoặc nhập tay khoá:", totpSecret, ")\n");
-  console.log("2) Đặt các biến môi trường sau (KHÔNG commit vào git):\n");
+  console.log("2) Dán 4 dòng sau vào .env.local (KHÔNG commit vào git):\n");
   console.log(`OWNER_EMAIL=${email}`);
-  console.log(`OWNER_PASSWORD_HASH='${passwordHash}'`);
+  // Trình đọc .env của Next tự thay "$TÊN" (kể cả trong nháy đơn) → mã băm scrypt$… bị cắt hỏng. Phải viết "\$".
+  console.log(`OWNER_PASSWORD_HASH=${passwordHash.replaceAll("$", "\\$")}`);
   console.log(`OWNER_TOTP_SECRET=${totpSecret}`);
   console.log(`SESSION_SECRET=${sessionSecret}`);
+  console.log("\n   Đặt ở phần Environment Variables của nơi triển khai (Vercel…) thì dùng mã băm KHÔNG có dấu \\:");
+  console.log(`   ${passwordHash}`);
   console.log("\nĐổi SESSION_SECRET sẽ đăng xuất mọi thiết bị.");
 }
 
