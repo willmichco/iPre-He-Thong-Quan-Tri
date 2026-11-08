@@ -2,13 +2,14 @@
  * Ghi file Excel (.xlsx, Office Open XML) tối giản — không cần thư viện ngoài.
  * .xlsx là một tệp ZIP chứa vài tệp XML; ở đây tự đóng gói ZIP (nén deflate của zlib, CRC32 của zlib).
  * Hỗ trợ: nhiều trang tính, dòng tiêu đề in đậm + cố định khi cuộn, cột tiền (#,##0), phần trăm, số lẻ,
- * dòng tổng in đậm, độ rộng cột tự tính. Tiền là số nguyên VND (Excel giữ chính xác tới 15 chữ số).
+ * cột ngày (ngày thật của Excel, hiện dd/mm/yyyy — lọc / sắp xếp được), dòng tổng in đậm, độ rộng cột tự tính.
+ * Tiền là số nguyên VND (Excel giữ chính xác tới 15 chữ số).
  */
 import { zip } from "@/server/zip";
 
 export { zip };
 
-export type ColumnType = "text" | "money" | "int" | "pct" | "dec";
+export type ColumnType = "text" | "money" | "int" | "pct" | "dec" | "date";
 
 export interface Column {
   header: string;
@@ -17,7 +18,7 @@ export interface Column {
   width?: number;
 }
 
-/** Giá trị ô: pct truyền điểm cơ bản (553 = 5,53%); money/int truyền bigint hoặc number. */
+/** Giá trị ô: pct truyền điểm cơ bản (553 = 5,53%); money/int truyền bigint hoặc number; date truyền "YYYY-MM-DD". */
 export type Value = string | number | bigint | null | undefined;
 
 export interface Sheet {
@@ -31,7 +32,17 @@ export interface Sheet {
 }
 
 // Kiểu ô (thứ tự trong cellXfs của styles.xml)
-const S = { text: 0, bold: 1, money: 2, moneyBold: 3, pct: 4, pctBold: 5, dec: 6, decBold: 7 } as const;
+const S = { text: 0, bold: 1, money: 2, moneyBold: 3, pct: 4, pctBold: 5, dec: 6, decBold: 7, date: 8, dateBold: 9 } as const;
+
+/** "YYYY-MM-DD" → số ngày kiểu Excel (hệ 1900: 30/12/1899 = 0). Ngày không hợp lệ → null. */
+export function excelDate(iso: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return null;
+  const t = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  const d = new Date(t);
+  if (d.getUTCFullYear() !== +m[1] || d.getUTCMonth() !== +m[2] - 1 || d.getUTCDate() !== +m[3]) return null;
+  return Math.round((t - Date.UTC(1899, 11, 30)) / 86_400_000);
+}
 
 const esc = (s: string) =>
   s
@@ -65,6 +76,10 @@ export function sheetName(raw: string, used: Set<string>): string {
 
 function cell(ref: string, v: Value, type: ColumnType, bold: boolean): string {
   if (v === null || v === undefined || v === "") return "";
+  if (type === "date" && typeof v === "string") {
+    const serial = excelDate(v);
+    if (serial !== null) return `<c r="${ref}" s="${bold ? S.dateBold : S.date}"><v>${serial}</v></c>`;
+  }
   if (typeof v === "string" || type === "text") {
     return `<c r="${ref}" t="inlineStr"${bold ? ` s="${S.bold}"` : ""}><is><t xml:space="preserve">${esc(String(v))}</t></is></c>`;
   }
@@ -80,7 +95,9 @@ function cell(ref: string, v: Value, type: ColumnType, bold: boolean): string {
 const displayLen = (v: Value, type: ColumnType) =>
   v === null || v === undefined
     ? 0
-    : type === "text" || typeof v === "string"
+    : type === "date"
+      ? 10
+      : type === "text" || typeof v === "string"
       ? String(v).length
       : type === "pct"
         ? 8
@@ -116,12 +133,12 @@ function sheetXml(sh: Sheet): string {
 const STYLES =
   `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
   `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
-  `<numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts>` +
+  `<numFmts count="2"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="dd/mm/yyyy"/></numFmts>` +
   `<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>` +
   `<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>` +
   `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>` +
   `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-  `<cellXfs count="8">` +
+  `<cellXfs count="10">` +
   `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` + // text
   `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>` + // bold
   `<xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` + // #,##0
@@ -130,6 +147,8 @@ const STYLES =
   `<xf numFmtId="10" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>` +
   `<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` + // 0.0
   `<xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>` +
+  `<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` + // dd/mm/yyyy
+  `<xf numFmtId="165" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>` +
   `</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
 
 /** Dựng nội dung (các tệp XML) của sổ tính. */

@@ -75,6 +75,12 @@ export const saleSchema = z
       .default("")
       .transform((s) => s.trim())
       .pipe(z.string().max(120)),
+    /** khách đã có (chọn từ danh sách / trợ lý tra ra) — ưu tiên hơn SĐT / tên */
+    customerId: z
+      .string()
+      .default("")
+      .transform((s) => s.trim() || null)
+      .refine((s) => s === null || z.guid().safeParse(s).success, "Khách không hợp lệ"),
     channel: z.enum(CHANNELS).default("OTHER"),
     discount: money("Giảm giá"),
     shippingFee: money("Phí ship khách"),
@@ -119,7 +125,7 @@ export const saleSchema = z
     if (s.payment === "DEPOSIT" && s.paidAmount <= 0n) ctx.addIssue({ code: "custom", path: ["paidAmount"], message: "Nhập số tiền cọc" });
     if ((s.payment !== "UNPAID" || s.paidAmount > 0n) && !s.accountId)
       ctx.addIssue({ code: "custom", path: ["accountId"], message: "Chọn tài khoản nhận tiền" });
-    if (!s.customerPhone && !s.customerName && s.payment === "DEPOSIT")
+    if (!s.customerPhone && !s.customerName && !s.customerId && s.payment === "DEPOSIT")
       ctx.addIssue({ code: "custom", path: ["customerPhone"], message: "Đơn cọc cần SĐT hoặc tên khách" });
   });
 export type SaleInput = z.output<typeof saleSchema>;

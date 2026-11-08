@@ -7,7 +7,7 @@ import { NAV } from "./nav";
 
 export function NavLinks({ compact = false }: { compact?: boolean }) {
   const pathname = usePathname();
-  const items = compact ? NAV.filter((n) => ["/", "/quet-ma", "/kho", "/ban-hang", "/chuyen-hang"].includes(n.href)) : NAV;
+  const items = compact ? NAV.filter((n) => ["/", "/tro-ly", "/quet-ma", "/kho", "/ban-hang"].includes(n.href)) : NAV;
   return (
     <>
       {items.map((n) => {

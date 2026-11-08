@@ -11,6 +11,13 @@ export interface NavItem {
 
 export const NAV: NavItem[] = [
   { href: "/", label: "Tổng quan", icon: "overview", phase: "GĐ1", description: "Vốn theo chặng, doanh thu, lãi, tồn kho, cảnh báo." },
+  {
+    href: "/tro-ly",
+    label: "Trợ lý",
+    icon: "assistant",
+    phase: "GĐ2",
+    description: "Nhắn tin để ghi bán, nhập máy, thu chi; hỏi tồn kho, doanh thu, công nợ; xuất bảng kê Excel.",
+  },
   { href: "/quet-ma", label: "Quét mã", icon: "scan", phase: "GĐ0", description: "Quét IMEI, Serial, mã máy bằng camera và hình ảnh." },
   { href: "/chuyen-hang", label: "Chuyến hàng", icon: "batch", phase: "GĐ1", description: "Chuyến, đơn mua, máy, chi phí, lãi lỗ theo chuyến." },
   { href: "/van-chuyen", label: "Vận chuyển", icon: "truck", phase: "GĐ1", description: "Kiện 3 chặng, mốc thời gian, ETA, quá hạn." },

@@ -158,6 +158,19 @@ gantt
   giờ mùa hè) → nhập đúng giờ in trên trang hãng, hệ thống tự đổi; mọi nơi vẫn hiển thị giờ VN
 - [x] **Mốc "người bán tạo nhãn"** (trước M2): bot tự điền từ hãng hoặc nhập tay; trang kiện hiện "chờ … mới gửi" (đo người bán chậm gửi)
 - [ ] Nhập dữ liệu cũ từ Excel — chờ file Excel thật của chủ hàng để dựng đúng cột (hiện đã dán được từ Excel vào lưới nhập máy của từng đơn mua)
+- [x] **Trợ lý nhập liệu bằng chat** (`/tro-ly`, migration `0008_tro_ly.sql`, `src/domain/assistant/`, `src/server/assistant/`): nhắn tự nhiên
+  ("bán đuôi 5672 cho chị Lan 0901… 25tr5 hôm qua zalo ck bh 12") → **bộ đọc theo mẫu câu, không dùng AI, chạy nội bộ** nhận máy (IMEI / Serial /
+  vài số cuối / dòng máy viết tắt — máy tồn lâu nhất trước), tiền (25tr5, 25 triệu 500, 25,5 củ, $899), ngày (hôm qua, thứ 2 tuần trước, 5/11, quý 3…),
+  khách, SĐT, kênh, thanh toán, tài khoản, bảo hành, mã đơn / chuyến / vận đơn. **Không ghi gì khi chưa bấm Xác nhận**: mỗi thao tác là một phiếu xem
+  trước (lãi dự kiến, cảnh báo bán dưới giá vốn, chặn ghi lùi ngày trước khi máy về SG / ngày tương lai, cảnh báo kỳ đã đối soát / đã kê khai); sửa bằng
+  "sửa giá 26tr"; thiếu thì hỏi lại kèm nút chọn. Xác nhận gọi đúng dịch vụ của form tay (bán, cọc, thu nợ, hoàn tất cọc, nhập máy vào đơn mua, thu chi,
+  chi phí vào giá vốn, chuyển tiền, thêm khách, số hoá đơn, giá mục tiêu) trong 1 transaction, khoá phiếu — bấm 2 lần chỉ ghi 1 lần.
+  Hỏi đáp ~30 loại câu (tồn kho, tồn lâu, máy đang về, vốn theo chặng, tra máy, gợi ý giá, doanh thu / lãi theo kỳ, từng tháng, chi phí vận hành, dòng
+  máy / kênh, chuyến, đơn bán, công nợ phải thu / phải trả, số dư, thu chi, kiện đang đi / trễ / thiếu, việc cần xử lý, ngưỡng thuế, đơn chưa xuất hoá
+  đơn, thiếu chứng từ) — cùng hàm truy vấn với các trang nên số liệu khớp từng đồng. **Bảng kê nháp** (`/tro-ly/bang-ke`): tin chưa đủ / máy chưa có →
+  bổ sung rồi "Ghi thật". **Bảng kê Excel** (`/tro-ly/xuat`, hoặc nhắn "xuất excel tháng này"): bán · nhập · thu chi · tồn kho · nháp; cột ngày là ngày thật
+  của Excel, cột tiền là số. Dữ liệu cá nhân: tin nhắn ở bảng riêng, tự xoá sau 90 ngày, làm sạch khi ẩn danh hoá khách, không chép vào nhật ký.
+  Lõi trung lập kênh (`handleMessage` / `handleEvent`, `replyAsText`) — gắn Telegram / Zalo sau không phải viết lại
 
 **Ưu tiên khi phải cắt giảm:** costing engine và mốc vận chuyển là **không thể cắt**. Có thể dời: biểu đồ nâng cao, Kanban kéo thả (dùng nút bấm thay thế), PWA ngoại tuyến, tracking API.
 
