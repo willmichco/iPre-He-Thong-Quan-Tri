@@ -70,6 +70,13 @@ npm run backup -- khoi-phuc <tệp.ipbak> --vao postgres://…/ipre --dong-y-ghi
 
 Mỗi bản `.ipbak` gồm `pg_dump` toàn bộ CSDL + mọi tệp chứng từ, mã hoá AES-256-GCM bằng `BACKUP_KEY` (**mất khoá là mất bản sao lưu** — cất khoá ở nơi riêng, ví dụ trình quản lý mật khẩu). Lưu ở `BACKUP_DIR` (mặc định `./data/sao-luu`), tự giữ 30 bản ngày gần nhất + 12 bản tháng. Chạy hằng ngày bằng cron (02:00 giờ VN = 19:00 UTC: `0 19 * * * cd /srv/ipre && npm run backup`) và chép `BACKUP_DIR` sang nơi khác máy chủ. Cần `pg_dump` / `pg_restore` **cùng phiên bản lớn với máy chủ** (pg_restore mới hơn máy chủ đích sẽ bị từ chối trước khi đụng vào dữ liệu); máy có nhiều bản thì đặt `PG_BIN=/usr/lib/postgresql/16/bin`. Kiểm thử `tests/integration/backup.test.ts` diễn tập khôi phục vào CSDL mới và so từng bảng.
 
+### Trợ lý nhập liệu (`/tro-ly`)
+
+Khung chat trong ứng dụng: nhắn tự nhiên để **ghi** (bán, cọc, thu nợ, nhập máy, thu chi, chi phí, chuyển tiền, thêm khách, số hoá đơn, giá mục tiêu)
+hoặc **hỏi** (tồn kho, doanh thu / lãi, công nợ, số dư, kiện đang đi, việc cần xử lý, ngưỡng thuế…). Bộ đọc theo mẫu câu, chạy nội bộ, không gọi AI bên
+ngoài. Mọi thao tác ghi đều qua **phiếu xem trước → Xác nhận** và dùng đúng dịch vụ của form tay. Tin chưa đủ thông tin vào **Bảng kê nháp**
+(`/tro-ly/bang-ke`); **Bảng kê Excel** tải ở `/tro-ly/xuat?ky=thang` (hoặc nhắn "xuất excel tháng này"). Gõ "giúp" trong khung chat để xem câu mẫu.
+
 ## Lệnh thường dùng
 
 | Lệnh | Việc |
@@ -89,9 +96,11 @@ Mỗi bản `.ipbak` gồm `pg_dump` toàn bộ CSDL + mọi tệp chứng từ,
 src/
 ├── app/                    # Next.js: (app)/ khu vực đã đăng nhập · dang-nhap/ · api/health
 ├── domain/                 # Hàm thuần dùng chung trình duyệt + máy chủ: nhận dạng IMEI/Serial/Part No., gom máy
+│   └── assistant/          # Trợ lý: đọc câu tiếng Việt (tiền, ngày, máy, khách…), ý định, bản nháp phiếu, câu trả lời
 ├── features/scanner/       # Bộ quét mã (camera, ảnh, máy quét USB, dán, nhập tay)
 ├── server/auth/            # Mật khẩu (scrypt), TOTP, phiên JWT, chống dò mật khẩu
 ├── server/db/              # Kết nối PostgreSQL
+├── server/assistant/       # Trợ lý: điều phối hội thoại, trả lời câu hỏi, dựng / ghi phiếu, bảng kê nháp, xuất Excel
 └── proxy.ts                # Chặn truy cập khi chưa đăng nhập
 db/migrations/              # Migration SQL thuần, chạy theo thứ tự, có kiểm tra mã băm
 scripts/                    # migrate, auth:setup, nhãn mẫu, đóng gói bản chạy thử

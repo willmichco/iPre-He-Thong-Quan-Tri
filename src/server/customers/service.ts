@@ -5,6 +5,7 @@
 import type { Sql, TransactionSql } from "postgres";
 import { anonymousName, type CustomerInput } from "@/domain/customers";
 import { variantLabel } from "@/domain/catalog";
+import { scrubCustomerChat } from "@/server/assistant/store";
 
 type Db = Sql | TransactionSql;
 
@@ -189,7 +190,8 @@ export async function saveCustomer(db: Db, id: string | null, input: CustomerInp
 
 /**
  * Ẩn danh hoá theo yêu cầu của khách: xoá tên, số điện thoại, Zalo, Facebook, địa chỉ, ghi chú; giữ các đơn bán
- * (nghĩa vụ lưu sổ sách thuế) gắn với mã khách đã ẩn danh. Không hoàn tác được.
+ * (nghĩa vụ lưu sổ sách thuế) gắn với mã khách đã ẩn danh. Làm sạch cả tin nhắn / phiếu / bảng kê nháp của trợ lý.
+ * Không hoàn tác được.
  */
 export async function anonymizeCustomer(db: Db, id: string, reason: string) {
   const why = reason.trim();
@@ -200,6 +202,8 @@ export async function anonymizeCustomer(db: Db, id: string, reason: string) {
     await tx`
       UPDATE customers SET full_name = ${anonymousName(id)}, phone = NULL, zalo = NULL, facebook = NULL, address = NULL, note = NULL, deleted_at = now()
        WHERE id = ${id}`;
+    // tin nhắn / phiếu / bảng kê của trợ lý có tên, SĐT khách → làm sạch cùng lúc
+    await scrubCustomerChat(tx, id);
     await tx`INSERT INTO audit_logs (action, entity_type, entity_id, after) VALUES ('DELETE', 'customer', ${id}, ${tx.json({ anonymized: true, reason: why })})`;
   });
 }

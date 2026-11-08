@@ -35,6 +35,7 @@ export const ENTITY_LABEL: Record<string, string> = {
   scan_capture: "Hộp chờ duyệt",
   app_setting: "Cài đặt",
   data_export: "Tải dữ liệu",
+  assistant_action: "Trợ lý (phiếu xác nhận)",
 };
 
 /** Trang xem đối tượng (nếu có trang riêng). */

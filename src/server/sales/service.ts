@@ -140,7 +140,12 @@ async function lockItems(tx: TransactionSql, ids: string[]) {
      FOR UPDATE OF i`;
 }
 
-async function findOrCreateCustomer(tx: TransactionSql, phone: string, name: string): Promise<string | null> {
+async function findOrCreateCustomer(tx: TransactionSql, phone: string, name: string, customerId: string | null = null): Promise<string | null> {
+  if (customerId) {
+    const [c] = await tx<{ id: string }[]>`SELECT id::text FROM customers WHERE id = ${customerId} AND deleted_at IS NULL`;
+    if (!c) throw new SaleError("NOT_FOUND", "Không tìm thấy khách hàng", "customerId");
+    return c.id;
+  }
   if (!phone && !name) return null;
   if (phone) {
     const norm = phone.replace(/^\+?84/, "0");
@@ -215,7 +220,7 @@ export async function createSale(db: Db, input: SaleInput, now = new Date()): Pr
       year,
       (await tx<{ code: string }[]>`SELECT code FROM sales WHERE code LIKE ${`BH-${year}-%`}`).map((r) => r.code),
     );
-    const customerId = await findOrCreateCustomer(tx, input.customerPhone, input.customerName);
+    const customerId = await findOrCreateCustomer(tx, input.customerPhone, input.customerName, input.customerId ?? null);
     const at = now.toISOString();
     const status = deposit ? "DEPOSITED" : "COMPLETED";
     const [sale] = await tx<{ id: string }[]>`
@@ -370,6 +375,25 @@ export async function setEinvoiceNo(db: Db, saleId: string, raw: string) {
     if (s.status === "CANCELLED" && no) throw new SaleError("INVALID_STATE", "Đơn đã huỷ — không ghi hoá đơn", "einvoiceNo");
     await tx`UPDATE sales SET einvoice_no = ${no}, updated_at = now() WHERE id = ${saleId}`;
     await audit(tx, "UPDATE", saleId, { einvoiceNo: s.einvoice_no }, { einvoiceNo: no });
+  });
+}
+
+/** Đặt / xoá giá bán mục tiêu của các máy (null = xoá). Máy đã bán không đổi. */
+export async function setTargetPrice(db: Db, itemIds: readonly string[], priceVnd: bigint | null) {
+  if (!itemIds.length) throw new SaleError("INVALID_INPUT", "Chọn máy cần đặt giá", "itemIds");
+  if (priceVnd !== null && priceVnd <= 0n) throw new SaleError("INVALID_INPUT", "Giá phải > 0", "price");
+  return db.begin(async (tx) => {
+    const rows = await tx<{ id: string; status: string; target: string | null }[]>`
+      SELECT id::text, status::text, target_price_vnd::text AS target FROM items WHERE id = ANY(${[...itemIds]}::uuid[]) AND deleted_at IS NULL FOR UPDATE`;
+    if (rows.length !== new Set(itemIds).size) throw new SaleError("NOT_FOUND", "Không tìm thấy máy", "itemIds");
+    const sold = rows.filter((r) => (NOT_SELLABLE as readonly string[]).includes(r.status));
+    if (sold.length) throw new SaleError("INVALID_STATE", `${sold.length} máy đã bán / không bán được — không đặt giá`, "itemIds");
+    const v = priceVnd === null ? null : priceVnd.toString();
+    await tx`UPDATE items SET target_price_vnd = ${v}, updated_at = now() WHERE id = ANY(${[...itemIds]}::uuid[])`;
+    for (const r of rows)
+      await tx`INSERT INTO audit_logs (action, entity_type, entity_id, before, after)
+               VALUES ('UPDATE', 'item', ${r.id}, ${tx.json({ targetPriceVnd: r.target })}, ${tx.json({ targetPriceVnd: v })})`;
+    return rows.length;
   });
 }
 

@@ -3,6 +3,7 @@
  * hạn đổi trả, đọc bảng dán từ Excel/Google Sheets, kiểm tra lưới nhập máy (tài liệu 07 mục 6.2–6.4).
  * purchasing.ts tái xuất toàn bộ, nên phía máy chủ vẫn nhập từ "@/domain/purchasing" như cũ.
  */
+import { fold } from "./assistant/normalize";
 import { parseDecimalInput } from "./decimal-input";
 import { classifyCode, isPartNumber, isSerialFormat, isValidImei, normalizeCode, partNumberRegion } from "./identifiers";
 
@@ -106,53 +107,71 @@ export interface VariantRef {
   defaultWeightKg: string | null;
 }
 
-const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").toLowerCase();
+
+export interface RankedVariant {
+  v: VariantRef;
+  /** điểm khớp: từ gõ trùng hẳn 3, là đầu từ 2, nằm trong từ 1, chữ cái đầu 2 */
+  raw: number;
+  /** số từ của tên + SKU — ít hơn = sát ý người gõ hơn */
+  extra: number;
+}
+
+/**
+ * Chấm điểm mọi cấu hình khớp với chuỗi gõ (mỗi từ gõ phải khớp một từ của tên / SKU / chữ cái đầu), cao trước.
+ * Gõ đúng Part No. / SKU / trọn tên → chỉ một kết quả.
+ */
+export function rankVariants(query: string, variants: readonly VariantRef[]): RankedVariant[] {
+  const q = fold(query).trim();
+  if (!q) return [];
+  const code = normalizeCode(query);
+  const exact = variants.find((v) => v.sku === code || v.codes.includes(code) || fold(v.label) === q);
+  if (exact) return [{ v: exact, raw: 100, extra: 0 }];
+  const tokens = q.split(/[\s·,/]+/).filter(Boolean);
+  return (
+    variants
+      .map((v) => {
+        const nameWords = fold(v.label)
+          .split(/[\s·,/-]+/)
+          .filter(Boolean);
+        const words = [
+          ...nameWords,
+          ...fold(v.sku)
+            .split(/[\s-]+/)
+            .filter(Boolean),
+        ];
+        // chữ cái đầu của 2–4 từ liền nhau: "pro max" → "pm", "iphone pro max" → "ipm"
+        const acronyms = new Set<string>();
+        for (let i = 0; i < nameWords.length; i++)
+          for (let n = 2; n <= 4 && i + n <= nameWords.length; n++)
+            acronyms.add(
+              nameWords
+                .slice(i, i + n)
+                .map((w) => w[0])
+                .join(""),
+            );
+        let score = 0;
+        for (const t of tokens) {
+          const hit = words.find((w) => w.startsWith(t) || (t.length >= 3 && w.includes(t)));
+          if (hit) score += hit === t ? 3 : hit.startsWith(t) ? 2 : 1;
+          else if (acronyms.has(t)) score += 2;
+          else return null;
+        }
+        return { v, raw: score, extra: words.length };
+      })
+      .filter((x): x is RankedVariant => x !== null)
+      // điểm khớp cao hơn trước; bằng nhau thì tên ít từ thừa hơn (sát ý người gõ hơn)
+      .sort((a, b) => b.raw - a.raw || a.extra - b.extra)
+  );
+}
 
 /**
  * Gõ tắt cấu hình: "pm 256 sil" → iPhone Pro Max · 256GB · Silver. Mỗi từ gõ phải là đầu của một từ trong tên
  * hoặc SKU; gõ đúng Part No./SKU thì khớp ngay. Trả null khi không khớp hoặc khớp nhiều cấu hình ngang nhau.
  */
 export function matchVariant(query: string, variants: readonly VariantRef[]): VariantRef | null {
-  const q = fold(query).trim();
-  if (!q) return null;
-  const code = normalizeCode(query);
-  const exact = variants.find((v) => v.sku === code || v.codes.includes(code) || fold(v.label) === q);
-  if (exact) return exact;
-  const tokens = q.split(/[\s·,/]+/).filter(Boolean);
-  const scored = variants
-    .map((v) => {
-      const nameWords = fold(v.label)
-        .split(/[\s·,/-]+/)
-        .filter(Boolean);
-      const words = [
-        ...nameWords,
-        ...fold(v.sku)
-          .split(/[\s-]+/)
-          .filter(Boolean),
-      ];
-      // chữ cái đầu của 2–4 từ liền nhau: "pro max" → "pm", "iphone pro max" → "ipm"
-      const acronyms = new Set<string>();
-      for (let i = 0; i < nameWords.length; i++)
-        for (let n = 2; n <= 4 && i + n <= nameWords.length; n++)
-          acronyms.add(
-            nameWords
-              .slice(i, i + n)
-              .map((w) => w[0])
-              .join(""),
-          );
-      let score = 0;
-      for (const t of tokens) {
-        const hit = words.find((w) => w.startsWith(t) || (t.length >= 3 && w.includes(t)));
-        if (hit) score += hit === t ? 3 : hit.startsWith(t) ? 2 : 1;
-        else if (acronyms.has(t)) score += 2;
-        else return null;
-      }
-      return { v, raw: score, extra: words.length };
-    })
-    .filter((x): x is { v: VariantRef; raw: number; extra: number } => x !== null)
-    // điểm khớp cao hơn trước; bằng nhau thì tên ít từ thừa hơn (sát ý người gõ hơn)
-    .sort((a, b) => b.raw - a.raw || a.extra - b.extra);
+  const scored = rankVariants(query, variants);
   if (!scored.length) return null;
+  const tokens = fold(query).trim().split(/[\s·,/]+/).filter(Boolean);
   const [best, second] = scored;
   if (second && best.raw === second.raw && (tokens.length < 2 || best.extra === second.extra)) return null; // mơ hồ
   return best.v;

@@ -85,6 +85,9 @@ export const EXPORT_TABLES = [
   "scan_captures",
   "app_settings",
   "tracking_runs",
+  // trợ lý: phiếu đã ghi / huỷ và bảng kê nháp (tin nhắn trò chuyện KHÔNG xuất — chứa dữ liệu cá nhân, có hạn lưu)
+  "chat_actions",
+  "bang_ke_nhap",
   "audit_logs",
 ] as const;
 

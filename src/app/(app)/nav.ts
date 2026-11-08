@@ -19,6 +19,14 @@ export const NAV_GROUPS: Record<NavItem["group"], string> = {
 
 export const NAV: NavItem[] = [
   { href: "/", label: "Tổng quan", icon: "overview", group: "ops", phase: "GĐ1", description: "Vốn theo chặng, doanh thu, lãi, tồn kho, cảnh báo." },
+  {
+    href: "/tro-ly",
+    label: "Trợ lý",
+    icon: "assistant",
+    group: "ops",
+    phase: "GĐ2",
+    description: "Nhắn tin để ghi bán, nhập máy, thu chi; hỏi tồn kho, doanh thu, công nợ; xuất bảng kê Excel.",
+  },
   { href: "/quet-ma", label: "Quét mã", icon: "scan", group: "ops", phase: "GĐ0", description: "Quét IMEI, Serial, mã máy bằng camera và hình ảnh." },
   { href: "/chuyen-hang", label: "Chuyến hàng", icon: "batch", group: "ops", phase: "GĐ1", description: "Chuyến, đơn mua, máy, chi phí, lãi lỗ theo chuyến." },
   { href: "/van-chuyen", label: "Vận chuyển", icon: "truck", group: "ops", phase: "GĐ1", description: "Kiện 3 chặng, mốc thời gian, ETA, quá hạn." },

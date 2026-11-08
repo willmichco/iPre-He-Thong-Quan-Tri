@@ -26,7 +26,7 @@ export const NOT_SELLABLE = ["SOLD", "LOST", "DAMAGED", "RETURNED_TO_SELLER", "P
 
 /**
  * Tiền VND gõ tắt: "34,5tr" → 34.500.000 · "30k" → 30.000 · "1,2ty" / "1.2 tỷ" → 1.200.000.000 ·
- * "34.500.000" / "34500000" / "34,500,000" → 34.500.000. Không hiểu → null. Không nhận số âm.
+ * "34.500.000" / "34500000" / "34,500,000" → 34.500.000 · "25tr5" → 25.500.000. Không hiểu → null. Không nhận số âm.
  */
 export function parseVndInput(raw: string): bigint | null {
   const s = raw
@@ -44,6 +44,13 @@ export function parseVndInput(raw: string): bigint | null {
     const [int, frac = ""] = m[1].split(/[.,]/);
     if (frac.length > unit) return null;
     return BigInt(int + frac.padEnd(unit, "0"));
+  }
+  // gõ tắt kiểu nói: "25tr5" = 25,5 triệu · "1ty2" = 1,2 tỷ · "25k5" = 25.500 — số sau đơn vị là phần lẻ
+  const c = /^(\d+)(k|nghin|ng|tr|trieu|cu|m|ty|b)(\d{1,3})$/.exec(s);
+  if (c) {
+    const unit = { k: 3, nghin: 3, ng: 3, tr: 6, trieu: 6, cu: 6, m: 6, ty: 9, b: 9 }[c[2] as "k"]!;
+    if (c[3].length > unit) return null;
+    return BigInt(c[1] + c[3].padEnd(unit, "0"));
   }
   // số thường: dấu . hoặc , là phân cách hàng nghìn (tiền VND không có phần lẻ)
   if (/^\d{1,3}([.,]\d{3})+$/.test(s) || /^\d+$/.test(s)) return BigInt(s.replace(/[.,]/g, ""));

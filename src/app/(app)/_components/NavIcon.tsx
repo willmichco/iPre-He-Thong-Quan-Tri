@@ -1,5 +1,5 @@
 /** Biểu tượng nét mảnh cho điều hướng (SVG tự vẽ, 24×24, theo màu chữ). */
-export type IconName = "overview" | "scan" | "batch" | "truck" | "stock" | "sale" | "cash" | "report" | "catalog" | "settings" | "more" | "logout";
+export type IconName = "overview" | "assistant" | "scan" | "batch" | "truck" | "stock" | "sale" | "cash" | "report" | "catalog" | "settings" | "more" | "logout";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   overview: (
@@ -8,6 +8,12 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <rect x="13.5" y="3.5" width="7" height="7" rx="2" />
       <rect x="3.5" y="13.5" width="7" height="7" rx="2" />
       <rect x="13.5" y="13.5" width="7" height="7" rx="2" />
+    </>
+  ),
+  assistant: (
+    <>
+      <path d="M4.5 6.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11l-4 3.5v-3.5h-.5a2 2 0 0 1-2-2v-8Z" />
+      <path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" />
     </>
   ),
   scan: (
