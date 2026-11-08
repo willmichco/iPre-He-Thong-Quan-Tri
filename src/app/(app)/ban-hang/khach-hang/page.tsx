@@ -5,6 +5,7 @@ import { ActionForm, Submit } from "../../_components/form";
 import { catalogDb, Empty, NoDatabase } from "../../danh-muc/shared";
 import { saveCustomerAction } from "./actions";
 import { CustomerFields } from "./fields";
+import { BackLink } from "../../_components/BackLink";
 
 export const metadata = { title: "Khách hàng — Bán hàng" };
 
@@ -17,9 +18,7 @@ export default async function CustomersPage({ searchParams }: PageProps<"/ban-ha
   const rows = db ? await listCustomers(db, q) : [];
   return (
     <main className="mx-auto max-w-5xl p-4 md:p-8">
-      <Link href="/ban-hang" className="text-sm text-muted hover:text-text">
-        ← Bán hàng
-      </Link>
+      <BackLink href="/ban-hang">Bán hàng</BackLink>
       <h1 className="mt-1 text-2xl font-bold">Khách hàng</h1>
       <p className="mt-1 text-sm text-muted">
         Chỉ lưu thông tin cần cho giao hàng và bảo hành (Luật Bảo vệ dữ liệu cá nhân). Khách mới cũng tự được tạo khi bán hàng có số điện thoại.

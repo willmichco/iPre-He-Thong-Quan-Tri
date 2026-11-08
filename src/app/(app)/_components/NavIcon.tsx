@@ -1,5 +1,5 @@
 /** Biểu tượng nét mảnh cho điều hướng (SVG tự vẽ, 24×24, theo màu chữ). */
-export type IconName = "overview" | "assistant" | "scan" | "batch" | "truck" | "stock" | "sale" | "cash" | "report" | "catalog" | "settings";
+export type IconName = "overview" | "assistant" | "scan" | "batch" | "truck" | "stock" | "sale" | "cash" | "report" | "catalog" | "settings" | "more" | "logout";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   overview: (
@@ -57,6 +57,14 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <circle cx="9" cy="17" r="2" />
     </>
   ),
+  more: (
+    <>
+      <circle cx="5.5" cy="12" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="18.5" cy="12" r="1.3" fill="currentColor" stroke="none" />
+    </>
+  ),
+  logout: <path d="M14 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h9" />,
 };
 
 export function NavIcon({ name, className = "h-5 w-5" }: { name: IconName; className?: string }) {

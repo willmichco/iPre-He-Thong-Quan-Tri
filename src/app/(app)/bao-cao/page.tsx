@@ -3,6 +3,7 @@ import { addDays, isReportKey, parseRange, PRESETS, rangeQuery, REPORTS, type Ra
 import { catalogDb, NoDatabase } from "../danh-muc/shared";
 import { todayVn } from "../van-chuyen/shared";
 import { BatchReport, ChannelReport, InventoryReport, ModelReport, PnlReport, TaxReport, TransportReport } from "./sections";
+import { Glyph } from "../_components/Glyph";
 
 export const metadata = { title: "Báo cáo" };
 
@@ -28,7 +29,8 @@ export default async function ReportsPage({ searchParams }: PageProps<"/bao-cao"
         <h1 className="text-2xl font-bold">Báo cáo</h1>
         {db && (
           <a href={`/bao-cao/xuat?${new URLSearchParams({ bc: key, ...rq })}`} className="btn-secondary ml-auto" download data-testid="export-xlsx">
-            ⤓ Xuất Excel
+            <Glyph name="download" size={17} />
+            Xuất Excel
           </a>
         )}
       </div>
@@ -70,7 +72,7 @@ function PeriodBar({ reportKey, range, today }: { reportKey: ReportKey; range: R
   const thisYear = +today.slice(0, 4);
   const isCurrent = (k: string) => (reportKey === "thue" ? (k === "nam" ? year === thisYear : year === thisYear - 1) : range.key === k);
   return (
-    <div className="mt-3 flex flex-wrap items-end gap-3">
+    <div className="card mt-3 flex flex-wrap items-end gap-3 p-3 md:p-4">
       <nav aria-label="Chọn kỳ" className="segmented">
         {presets.map((p) => (
           <Link key={p.key} href={href(reportKey, { ky: p.key })} aria-current={isCurrent(p.key) ? "page" : undefined}>

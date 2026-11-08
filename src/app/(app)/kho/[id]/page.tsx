@@ -7,7 +7,10 @@ import { getItemProfile } from "@/server/sales/service";
 import { GAP_LABEL } from "@/domain/attachments";
 import { itemDossier } from "@/server/attachments/service";
 import { Attachments } from "../../_components/Attachments";
+import { HistoryLink } from "../../_components/HistoryLink";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
+import { BackLink } from "../../_components/BackLink";
+import { ITEM_TONE } from "../../_components/tones";
 
 export const metadata = { title: "Hồ sơ máy" };
 
@@ -64,12 +67,10 @@ export default async function ItemProfilePage({ params }: PageProps<"/kho/[id]">
 
   return (
     <main className="mx-auto max-w-3xl p-4 md:p-8">
-      <Link href="/kho" className="text-sm text-muted hover:text-text">
-        ← Kho máy
-      </Link>
+      <BackLink href="/kho">Kho máy</BackLink>
       <div className="mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold">{p.label}</h1>
-        <span data-testid="item-status" className="text-xs rounded-full border border-border px-2 py-0.5">
+        <span data-testid="item-status" className="badge" data-tone={ITEM_TONE[p.status] ?? "muted"}>
           {ITEM_STATUS_LABEL[p.status] ?? p.status}
         </span>
         {sellable && code && (
@@ -121,12 +122,12 @@ export default async function ItemProfilePage({ params }: PageProps<"/kho/[id]">
               Hồ sơ nguồn gốc
             </h2>
             {dossier.gaps.length === 0 ? (
-              <span className="text-sm text-[var(--ok)]" data-testid="dossier-status">
-                ✓ đủ chứng từ mua và nhập khẩu
+              <span className="badge" data-tone="ok" data-testid="dossier-status">
+                đủ chứng từ mua và nhập khẩu
               </span>
             ) : (
-              <span className="text-sm text-[var(--warn)]" data-testid="dossier-status">
-                ⚠ {dossier.gaps.map((g) => GAP_LABEL[g]).join(", ")}
+              <span className="badge" data-tone="warn" data-testid="dossier-status">
+                {dossier.gaps.map((g) => GAP_LABEL[g]).join(", ")}
               </span>
             )}
           </div>
@@ -172,32 +173,36 @@ export default async function ItemProfilePage({ params }: PageProps<"/kho/[id]">
         </p>
       </section>
 
-      <section className="mt-5" aria-labelledby="dong-thoi-gian">
+      <section className="card mt-5 p-4" aria-labelledby="dong-thoi-gian">
         <h2 id="dong-thoi-gian" className="font-semibold">
           Dòng thời gian
         </h2>
-        <ol className="mt-2 border-l-2 border-border pl-4" aria-label="Mốc thời gian">
+        <ol className="timeline mt-3 text-sm" data-order="asc" aria-label="Mốc thời gian">
           {p.events.map((e, k) => (
-            <li key={k} className="relative py-1 text-sm">
-              <span className="absolute -left-[1.4rem] top-2.5 size-2.5 rounded-full bg-primary" aria-hidden />
-              <b>{MILESTONE[e.type] ?? e.type}</b> <span className="text-muted">{dmyHm(e.at)}</span>
-              {e.tracking && <span className="text-muted"> · kiện {e.tracking}</span>}
-              {e.sale_code && <span className="text-muted"> · đơn {e.sale_code}</span>}
-              {e.note && <span className="text-muted"> · {e.note}</span>}
+            <li key={k}>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                <b className="font-semibold">{MILESTONE[e.type] ?? e.type}</b>
+                <span className="text-xs tabular-nums text-muted">{dmyHm(e.at)}</span>
+              </div>
+              {(e.tracking || e.sale_code || e.note) && (
+                <div className="mt-0.5 text-xs text-muted">
+                  {[e.tracking && `kiện ${e.tracking}`, e.sale_code && `đơn ${e.sale_code}`, e.note].filter(Boolean).join(" · ")}
+                </div>
+              )}
             </li>
           ))}
         </ol>
       </section>
 
       {p.sales.length > 0 && (
-        <section className="mt-5" aria-labelledby="ban">
+        <section className="card mt-5 p-4" aria-labelledby="ban">
           <h2 id="ban" className="font-semibold">
             Bán hàng &amp; bảo hành
           </h2>
           <ul className="mt-2 text-sm">
             {p.sales.map((s) => (
-              <li key={s.sale_id} className="flex flex-wrap gap-3 border-t border-border py-1">
-                <Link href={`/ban-hang/${s.sale_id}`} className="underline">
+              <li key={s.sale_id} className="flex flex-wrap gap-x-3 gap-y-0.5 border-t border-border py-2 first:border-0">
+                <Link href={`/ban-hang/${s.sale_id}`} className="font-medium text-primary hover:underline">
                   {s.code}
                 </Link>
                 <span>{formatVnd(s.priceVnd)} ₫</span>
@@ -209,11 +214,7 @@ export default async function ItemProfilePage({ params }: PageProps<"/kho/[id]">
           </ul>
         </section>
       )}
-      <p className="mt-6 text-right text-xs">
-        <Link href={`/cai-dat/nhat-ky?id=${id}`} className="text-muted underline hover:text-text">
-          Lịch sử thay đổi
-        </Link>
-      </p>
+      <HistoryLink id={id} />
     </main>
   );
 }

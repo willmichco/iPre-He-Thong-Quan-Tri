@@ -4,10 +4,13 @@ import { formatBp, formatVnd, itemProfit } from "@/domain/costing";
 import { CHANNEL_LABEL, SALE_STATUS_LABEL, type Channel } from "@/domain/sales";
 import { getSale } from "@/server/sales/service";
 import { ActionForm, Checkbox, Input, Select, Submit } from "../../_components/form";
+import { HistoryLink } from "../../_components/HistoryLink";
 import { catalogDb, NoDatabase } from "../../danh-muc/shared";
 import { addPaymentAction, cancelDepositAction, completeSaleAction, returnItemAction, setEinvoiceAction } from "../actions";
 import { listAttachments } from "@/server/attachments/service";
 import { Attachments } from "../../_components/Attachments";
+import { BackLink } from "../../_components/BackLink";
+import { SALE_TONE } from "../../_components/tones";
 
 export const metadata = { title: "Đơn bán" };
 
@@ -51,12 +54,10 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
 
   return (
     <main className="mx-auto max-w-3xl p-4 md:p-8">
-      <Link href="/ban-hang" className="text-sm text-muted hover:text-text">
-        ← Bán hàng
-      </Link>
+      <BackLink href="/ban-hang">Bán hàng</BackLink>
       <div className="mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold">{sale.code}</h1>
-        <span data-testid="sale-status" className="text-xs rounded-full border border-border px-2 py-0.5">
+        <span data-testid="sale-status" className="badge" data-tone={SALE_TONE[sale.status] ?? "muted"}>
           {SALE_STATUS_LABEL[sale.status] ?? sale.status}
         </span>
         <span className="text-sm text-muted">
@@ -165,7 +166,7 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
           })}
         </ul>
         {sale.expenses.length > 0 && (
-          <p className="mt-2 text-sm text-muted">
+          <p className="mt-2 rounded-2xl bg-[var(--fill)] px-3.5 py-2.5 text-sm text-muted">
             Chi phí bán hàng: {sale.expenses.map((e) => `${EXPENSE[e.kind] ?? e.kind} ${formatVnd(e.amountVnd)} ₫`).join(" · ")}
             {sale.discountVnd > 0n ? ` · giảm giá đơn ${formatVnd(sale.discountVnd)} ₫` : ""}
           </p>
@@ -212,17 +213,17 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
       </section>
 
       {sale.payments.length > 0 && (
-        <section className="mt-4" aria-labelledby="thu-chi">
+        <section className="card mt-4 p-4" aria-labelledby="thu-chi">
           <h2 id="thu-chi" className="font-semibold">
             Thu chi của đơn
           </h2>
           <ul className="mt-2 text-sm">
             {sale.payments.map((p) => (
-              <li key={p.id} className="flex gap-3 border-t border-border py-1">
-                <span className="text-muted">{dmyHm(p.at)}</span>
+              <li key={p.id} className="flex flex-wrap gap-x-3 gap-y-0.5 border-t border-border py-2 first:border-0">
+                <span className="tabular-nums text-muted">{dmyHm(p.at)}</span>
                 <span>{CATEGORY[p.category] ?? p.category}</span>
                 <span className="text-muted">{p.account}</span>
-                <span className={`ml-auto tabular-nums ${p.direction === "OUT" ? "text-danger" : ""}`}>
+                <span className={`ml-auto font-medium tabular-nums ${p.direction === "OUT" ? "text-danger" : "text-[var(--ok)]"}`}>
                   {p.direction === "OUT" ? "−" : "+"}
                   {formatVnd(p.amountVnd)} ₫
                 </span>
@@ -231,11 +232,7 @@ export default async function SalePage({ params }: PageProps<"/ban-hang/[id]">) 
           </ul>
         </section>
       )}
-      <p className="mt-6 text-right text-xs">
-        <Link href={`/cai-dat/nhat-ky?id=${id}`} className="text-muted underline hover:text-text">
-          Lịch sử thay đổi
-        </Link>
-      </p>
+      <HistoryLink id={id} />
     </main>
   );
 }

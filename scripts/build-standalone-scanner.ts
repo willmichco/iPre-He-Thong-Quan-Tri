@@ -56,21 +56,39 @@ async function main() {
   const css = result.outputFiles.find((f) => f.path.endsWith(".css"))?.text ?? "";
   const wasmB64 = readFileSync(require.resolve("zxing-wasm/reader/zxing_reader.wasm")).toString("base64");
   const labelB64 = readFileSync(join(root, "public", "nhan-mau.svg")).toString("base64");
+  // Phông Be Vietnam Pro nhúng thẳng (Latin + tiếng Việt, 4 độ đậm) — bản độc lập không có máy chủ phục vụ tệp phông
+  const fontDir = join(root, "node_modules", "@fontsource", "be-vietnam-pro");
+  const fontFaces = [400, 500, 600, 700]
+    .flatMap((w) =>
+      [...readFileSync(join(fontDir, `${w}.css`), "utf8").matchAll(/@font-face\s*{[^}]*}/g)]
+        .map((m) => m[0])
+        .filter((rule) => /-(latin|vietnamese)-\d+-normal\.woff2/.test(rule)),
+    )
+    .map((rule) =>
+      rule
+        .replace(/src:[^;]*;/, (src) => {
+          const file = /url\(\.\/files\/([^)]+\.woff2)\)/.exec(src)![1];
+          return `src: url(data:font/woff2;base64,${readFileSync(join(fontDir, "files", file)).toString("base64")}) format("woff2");`;
+        })
+        .replace(/\s+/g, " "),
+    )
+    .join("\n");
 
   const html = `<title>Quét mã iPre</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-/* Bố cục: một cột công cụ, thẻ từng máy xếp dọc; màu theo bộ quét của ứng dụng iPre */
+${fontFaces}
+/* Bố cục: công cụ + danh sách máy; màu theo hệ thiết kế V2 của ứng dụng iPre */
 :root {
-  --page-bg: #f6f7f9;
-  --page-fg: #14181f;
-  --page-muted: #5b6472;
-  --page-border: #dde1e7;
+  --page-bg: #f2f4f9;
+  --page-fg: #16181d;
+  --page-muted: #5c6070;
+  --page-border: rgba(60, 60, 67, 0.12);
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --page-bg: #0f1217; --page-fg: #e8ebf0; --page-muted: #9aa3b2; --page-border: #2a303b; color-scheme: dark; }
+  :root:not([data-theme="light"]) { --page-bg: #090b10; --page-fg: #f3f4f7; --page-muted: #a3a6b1; --page-border: rgba(255, 255, 255, 0.1); color-scheme: dark; }
 }
-:root[data-theme="dark"] { --page-bg: #0f1217; --page-fg: #e8ebf0; --page-muted: #9aa3b2; --page-border: #2a303b; color-scheme: dark; }
+:root[data-theme="dark"] { --page-bg: #090b10; --page-fg: #f3f4f7; --page-muted: #a3a6b1; --page-border: rgba(255, 255, 255, 0.1); color-scheme: dark; }
 body {
   background: var(--page-bg);
   color: var(--page-fg);
@@ -78,18 +96,17 @@ body {
   padding-right: max(0px, env(safe-area-inset-right, 0px));
 }
 .demo-note {
-  max-width: 880px;
+  max-width: 1180px;
   margin: 0 auto;
   padding-block: 12px 0;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   color: var(--page-muted);
-  font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font: 13px/1.5 "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
 }
 .demo-note strong { color: var(--page-fg); }
-.sc-root { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.sc-actions { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
-.sc-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+html .sc-root { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+html .sc-root { padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
 ${css}
 </style>
 <p class="demo-note"><strong>Bản xem thử.</strong> Mọi xử lý diễn ra ngay trên máy của bạn; ảnh và mã không được gửi đi đâu. Kết quả chỉ lưu tạm trên trình duyệt này — dùng <strong>Tải CSV</strong> hoặc <strong>Sao chép bảng</strong> để giữ lại.</p>

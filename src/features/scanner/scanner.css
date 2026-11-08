@@ -1,160 +1,292 @@
-/* Bộ quét mã — CSS tự chứa (dùng chung cho ứng dụng và bản chạy thử độc lập) */
+/*
+ * Bộ quét mã V2 — CSS tự chứa (dùng chung cho ứng dụng và bản chạy thử độc lập).
+ * Trong ứng dụng: lấy biến màu của hệ thiết kế (var(--surface)…) nên đồng bộ sáng / tối với cả trang.
+ * Ở bản độc lập (không có các biến đó): dùng giá trị dự phòng ngay trong var(…, dự-phòng).
+ * Khung camera luôn tối (như ứng dụng camera thật) dù trang đang sáng hay tối.
+ */
 .sc-root {
-  --sc-bg: #f6f7f9;
-  --sc-surface: #ffffff;
-  --sc-text: #14181f;
-  --sc-muted: #5b6472;
-  --sc-border: #dde1e7;
-  --sc-primary: #1d5bd8;
-  --sc-primary-text: #ffffff;
-  --sc-ok: #1a7f4b;
-  --sc-ok-bg: #e5f4ec;
-  --sc-info: #3f4f66;
-  --sc-info-bg: #eaeef4;
-  --sc-warn: #8a5a00;
-  --sc-warn-bg: #fff4dc;
-  --sc-err: #b42318;
-  --sc-err-bg: #fdecea;
-  --sc-live: #1d5bd8;
+  --sc-bg: var(--bg, #f2f4f9);
+  --sc-surface: var(--surface-solid, #ffffff);
+  --sc-card: var(--surface, rgba(255, 255, 255, 0.8));
+  --sc-edge: var(--glass-edge, rgba(255, 255, 255, 0.85));
+  --sc-shadow: var(--glass-shadow, 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 26px -8px rgba(15, 23, 42, 0.12));
+  --sc-text: var(--text, #16181d);
+  --sc-muted: var(--muted, #5c6070);
+  --sc-border: var(--border, rgba(60, 60, 67, 0.14));
+  --sc-fill: var(--fill, rgba(118, 118, 128, 0.1));
+  --sc-fill-strong: var(--fill-strong, rgba(118, 118, 128, 0.17));
+  --sc-primary: var(--primary, #0a63e0);
+  --sc-primary-2: var(--primary-2, #5b5bf0);
+  --sc-primary-text: var(--primary-text, #ffffff);
+  --sc-primary-tint: var(--primary-tint, rgba(10, 99, 224, 0.11));
+  --sc-ok: var(--ok, #157a3c);
+  --sc-ok-bg: var(--ok-bg, rgba(22, 163, 74, 0.12));
+  --sc-warn: var(--warn, #8a5300);
+  --sc-warn-bg: var(--warn-bg, rgba(255, 190, 0, 0.18));
+  --sc-err: var(--danger, #c4001a);
+  --sc-err-bg: var(--danger-bg, rgba(220, 38, 38, 0.1));
+  --sc-ease: var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+  --sc-spring: var(--ease-spring, cubic-bezier(0.34, 1.4, 0.64, 1));
+  --sc-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  /* màu trên khung camera (luôn nền tối) */
+  --sc-live: #5aa9ff;
+  --sc-live-ok: #4fd07f;
+  --sc-live-warn: #f3bd4f;
 
+  container: sc-root / inline-size;
   color: var(--sc-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-sans, "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
   font-size: 15px;
   line-height: 1.45;
-  max-width: 880px;
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 16px 16px 96px;
+  padding: 16px 16px 24px;
   -webkit-text-size-adjust: 100%;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .sc-root {
-    --sc-bg: #0f1217;
-    --sc-surface: #171b22;
-    --sc-text: #e8ebf0;
-    --sc-muted: #9aa3b2;
-    --sc-border: #2a303b;
-    --sc-primary: #5b8cff;
-    --sc-primary-text: #0b0e13;
-    --sc-ok: #4cc38a;
-    --sc-ok-bg: #12291f;
-    --sc-info: #b9c4d6;
-    --sc-info-bg: #1f2632;
-    --sc-warn: #f0b84a;
-    --sc-warn-bg: #2d2412;
-    --sc-err: #ff7b6e;
-    --sc-err-bg: #34191a;
-    --sc-live: #5b8cff;
+    --sc-bg: var(--bg, #090b10);
+    --sc-surface: var(--surface-solid, #181a21);
+    --sc-card: var(--surface, rgba(30, 33, 42, 0.72));
+    --sc-edge: var(--glass-edge, rgba(255, 255, 255, 0.08));
+    --sc-shadow: var(--glass-shadow, 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 30px -10px rgba(0, 0, 0, 0.55));
+    --sc-text: var(--text, #f3f4f7);
+    --sc-muted: var(--muted, #a3a6b1);
+    --sc-border: var(--border, rgba(255, 255, 255, 0.1));
+    --sc-fill: var(--fill, rgba(118, 118, 128, 0.2));
+    --sc-fill-strong: var(--fill-strong, rgba(118, 118, 128, 0.3));
+    --sc-primary: var(--primary, #5aa9ff);
+    --sc-primary-2: var(--primary-2, #8b8dff);
+    --sc-primary-text: var(--primary-text, #041631);
+    --sc-primary-tint: var(--primary-tint, rgba(90, 169, 255, 0.18));
+    --sc-ok: var(--ok, #4fd07f);
+    --sc-ok-bg: var(--ok-bg, rgba(60, 200, 110, 0.15));
+    --sc-warn: var(--warn, #f3bd4f);
+    --sc-warn-bg: var(--warn-bg, rgba(255, 184, 0, 0.15));
+    --sc-err: var(--danger, #ff7a70);
+    --sc-err-bg: var(--danger-bg, rgba(255, 90, 80, 0.14));
   }
 }
 :root[data-theme="dark"] .sc-root {
-  --sc-bg: #0f1217;
-  --sc-surface: #171b22;
-  --sc-text: #e8ebf0;
-  --sc-muted: #9aa3b2;
-  --sc-border: #2a303b;
-  --sc-primary: #5b8cff;
-  --sc-primary-text: #0b0e13;
-  --sc-ok: #4cc38a;
-  --sc-ok-bg: #12291f;
-  --sc-info: #b9c4d6;
-  --sc-info-bg: #1f2632;
-  --sc-warn: #f0b84a;
-  --sc-warn-bg: #2d2412;
-  --sc-err: #ff7b6e;
-  --sc-err-bg: #34191a;
-  --sc-live: #5b8cff;
+  --sc-bg: var(--bg, #090b10);
+  --sc-surface: var(--surface-solid, #181a21);
+  --sc-card: var(--surface, rgba(30, 33, 42, 0.72));
+  --sc-edge: var(--glass-edge, rgba(255, 255, 255, 0.08));
+  --sc-shadow: var(--glass-shadow, 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 30px -10px rgba(0, 0, 0, 0.55));
+  --sc-text: var(--text, #f3f4f7);
+  --sc-muted: var(--muted, #a3a6b1);
+  --sc-border: var(--border, rgba(255, 255, 255, 0.1));
+  --sc-fill: var(--fill, rgba(118, 118, 128, 0.2));
+  --sc-fill-strong: var(--fill-strong, rgba(118, 118, 128, 0.3));
+  --sc-primary: var(--primary, #5aa9ff);
+  --sc-primary-2: var(--primary-2, #8b8dff);
+  --sc-primary-text: var(--primary-text, #041631);
+  --sc-primary-tint: var(--primary-tint, rgba(90, 169, 255, 0.18));
+  --sc-ok: var(--ok, #4fd07f);
+  --sc-ok-bg: var(--ok-bg, rgba(60, 200, 110, 0.15));
+  --sc-warn: var(--warn, #f3bd4f);
+  --sc-warn-bg: var(--warn-bg, rgba(255, 184, 0, 0.15));
+  --sc-err: var(--danger, #ff7a70);
+  --sc-err-bg: var(--danger-bg, rgba(255, 90, 80, 0.14));
 }
 .sc-root *,
 .sc-root *::before,
 .sc-root *::after {
   box-sizing: border-box;
 }
+.sc-root svg {
+  flex: none;
+}
+.sc-root.is-embedded {
+  padding: 14px;
+}
 
+/* ================= tiêu đề ================= */
 .sc-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-bottom: 14px;
 }
 .sc-title {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
+  line-height: 1.2;
   margin: 0;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.025em;
+}
+.is-embedded .sc-title {
+  font-size: 18px;
 }
 .sc-sub {
-  margin: 2px 0 0;
+  margin: 3px 0 0;
   color: var(--sc-muted);
+  font-size: 14px;
 }
 .sc-err-count {
   color: var(--sc-err);
   font-weight: 600;
 }
+.sc-head-aside {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .sc-engine {
-  font-size: 12px;
-  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 5px 11px;
   border-radius: 999px;
   white-space: nowrap;
-  background: var(--sc-info-bg);
-  color: var(--sc-info);
+  background: var(--sc-fill);
+  color: var(--sc-muted);
 }
-.sc-engine-ready {
+.sc-engine-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.sc-engine.is-loading .sc-engine-dot {
+  animation: sc-blink 1s ease-in-out infinite alternate;
+}
+.sc-engine.is-ready {
   background: var(--sc-ok-bg);
   color: var(--sc-ok);
 }
-.sc-engine-error {
+.sc-engine.is-error {
   background: var(--sc-err-bg);
   color: var(--sc-err);
 }
+.sc-head-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--sc-primary-tint);
+  color: var(--sc-primary);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: filter 0.15s;
+}
+.sc-head-link:hover {
+  filter: brightness(1.08);
+}
 
+/* ================= bố cục: 1 cột; khung rộng → công cụ trái (dính), danh sách phải ================= */
+.sc-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.sc-results {
+  container: sc-results / inline-size;
+}
+.sc-tools,
+.sc-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+@container sc-root (min-width: 940px) {
+  .sc-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 20px;
+  }
+  .sc-tools {
+    position: sticky;
+    top: 16px;
+  }
+}
+
+/* ================= tab cách nhập (kiểu iOS segmented) ================= */
 .sc-tabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
+  gap: 3px;
   padding: 4px;
-  background: var(--sc-surface);
-  border: 1px solid var(--sc-border);
-  border-radius: 12px;
-  margin-bottom: 12px;
+  border-radius: 18px;
+  background: var(--sc-fill);
 }
 .sc-tab {
   appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 6px;
   border: 0;
+  border-radius: 14px;
   background: transparent;
   color: var(--sc-muted);
   font: inherit;
+  font-size: 14.5px;
   font-weight: 600;
-  padding: 10px 6px;
-  border-radius: 9px;
+  line-height: 1.15;
   cursor: pointer;
-  min-height: 44px;
+  transition:
+    background-color 0.2s var(--sc-ease),
+    color 0.15s,
+    box-shadow 0.2s var(--sc-ease);
+}
+.sc-tab:hover {
+  color: var(--sc-text);
 }
 .sc-tab.is-active {
-  background: var(--sc-primary);
-  color: var(--sc-primary-text);
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.08),
+    0 3px 10px -3px rgba(15, 23, 42, 0.18);
+}
+.sc-tab.is-active svg {
+  color: var(--sc-primary);
+}
+@container sc-root (max-width: 430px) {
+  .sc-tab {
+    flex-direction: column;
+    gap: 3px;
+    min-height: 54px;
+    font-size: 12.5px;
+  }
 }
 
+/* ================= bảng, hàng, nút ================= */
 .sc-panel {
-  background: var(--sc-surface);
-  border: 1px solid var(--sc-border);
-  border-radius: 14px;
-  padding: 14px;
-  margin-bottom: 16px;
+  container: sc-panel / inline-size;
+  background: var(--sc-card);
+  border: 1px solid var(--sc-edge);
+  box-shadow:
+    inset 0 1px 0 var(--sc-edge),
+    var(--sc-shadow);
+  border-radius: 24px;
+  padding: 12px;
 }
 .sc-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 .sc-row:first-child {
   margin-top: 0;
 }
-.sc-hint {
-  color: var(--sc-muted);
-  font-size: 13px;
-  margin: 10px 0 0;
+.sc-row-center {
+  justify-content: center;
 }
 .sc-muted {
   color: var(--sc-muted);
@@ -165,66 +297,629 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
   min-height: 44px;
-  padding: 10px 16px;
-  border-radius: 10px;
-  border: 1px solid var(--sc-border);
+  padding: 10px 17px;
+  border-radius: 999px;
+  border: 1px solid var(--sc-edge);
   background: var(--sc-surface);
   color: var(--sc-text);
   font: inherit;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
   user-select: none;
+  -webkit-user-select: none;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 4px 12px -6px rgba(15, 23, 42, 0.14);
+  transition:
+    transform 0.15s var(--sc-ease),
+    filter 0.15s,
+    background-color 0.15s;
+}
+.sc-btn:hover {
+  filter: brightness(0.98);
+}
+.sc-btn:active {
+  transform: scale(0.96);
 }
 .sc-btn:disabled,
 .sc-btn.is-disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  transform: none;
 }
 .sc-btn-primary {
-  background: var(--sc-primary);
-  border-color: var(--sc-primary);
+  background-color: var(--sc-primary);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 60%);
+  border-color: transparent;
   color: var(--sc-primary-text);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 1px 2px rgba(15, 23, 42, 0.12),
+    0 6px 18px -6px var(--sc-primary);
+}
+.sc-btn-primary:hover {
+  filter: brightness(1.07);
 }
 .sc-btn-ghost {
   background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--sc-muted);
+}
+.sc-btn-ghost:hover {
+  background: var(--sc-fill);
+  color: var(--sc-text);
+}
+.sc-btn-danger {
+  background: var(--sc-err);
+  border-color: transparent;
+  color: #fff;
+}
+.sc-btn-lg {
+  min-height: 50px;
+  padding: 12px 24px;
+  font-size: 16px;
+}
+.sc-btn-icon {
+  width: 44px;
+  padding: 0;
+}
+.sc-btn-label {
+  display: none;
+}
+@container sc-results (min-width: 700px) {
+  .sc-results .sc-btn-icon {
+    width: auto;
+    padding: 0 14px;
+  }
+  .sc-results .sc-btn-label {
+    display: inline;
+  }
 }
 .sc-icon-btn {
   appearance: none;
+  display: grid;
+  place-items: center;
   border: 0;
   background: transparent;
   color: var(--sc-muted);
-  font-size: 16px;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: 50%;
   cursor: pointer;
   margin-left: auto;
+  flex: none;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
 }
 .sc-icon-btn:hover {
-  background: var(--sc-info-bg);
+  background: var(--sc-err-bg);
+  color: var(--sc-err);
 }
 
-.sc-video-wrap {
+/* ================= chọn đối tượng quét (sau hộp / màn hình máy) ================= */
+.sc-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.sc-seg button {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 10px;
+  border-radius: 16px;
+  border: 1.5px solid var(--sc-border);
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.2s var(--sc-ease),
+    background-color 0.2s var(--sc-ease),
+    box-shadow 0.2s var(--sc-ease);
+}
+.sc-seg button.is-active {
+  border-color: var(--sc-primary);
+  background: var(--sc-primary-tint);
+  box-shadow: 0 0 0 3px var(--sc-primary-tint);
+}
+.sc-seg-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: var(--sc-fill);
+  color: var(--sc-muted);
+  flex: none;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+}
+.sc-seg button.is-active .sc-seg-icon {
+  background: var(--sc-primary);
+  color: var(--sc-primary-text);
+}
+.sc-seg-text {
+  display: flex;
+  flex-direction: column;
+  font-weight: 650;
+  font-size: 14.5px;
+  line-height: 1.2;
+  min-width: 0;
+}
+.sc-seg-text span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sc-muted);
+}
+@container sc-panel (max-width: 420px) {
+  .sc-seg button {
+    gap: 7px;
+    padding: 8px 6px 8px 8px;
+  }
+  .sc-seg-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+  }
+  .sc-seg-icon svg {
+    width: 17px;
+    height: 17px;
+  }
+  .sc-seg-text {
+    font-size: 14px;
+  }
+}
+
+/* ================= khung camera (viewfinder) ================= */
+.sc-vf {
   position: relative;
-  background: #000;
-  border-radius: 10px;
   overflow: hidden;
-  aspect-ratio: 4 / 3;
-  max-height: 60vh;
+  isolation: isolate;
   width: 100%;
+  aspect-ratio: 4 / 5;
+  max-height: 64svh;
+  border-radius: 20px;
+  background: #07090e;
+  color: #fff;
+  /* bo góc + overflow: một số Safari cũ bỏ bo góc khi video chạy — mặt nạ ép bo đúng */
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+}
+@container sc-panel (min-width: 520px) {
+  .sc-vf {
+    aspect-ratio: 4 / 3;
+    max-height: 60vh;
+  }
 }
 .sc-video {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
-.sc-video-wrap:not(.is-running) .sc-video {
+.sc-vf:not(.is-running) .sc-video {
   visibility: hidden;
 }
-.sc-video-placeholder {
+
+/* --- khung ngắm 4 góc (mã vạch) --- */
+.sc-reticle {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 17%;
+  bottom: 33%;
+  border-radius: 22px;
+  box-shadow: 0 0 0 100vmax rgba(4, 6, 12, 0.48);
+  pointer-events: none;
+}
+@container sc-panel (min-width: 520px) {
+  .sc-reticle {
+    left: 12%;
+    right: 12%;
+    top: 20%;
+    bottom: 30%;
+  }
+}
+.sc-corner {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  border: 0 solid #fff;
+  transition:
+    border-color 0.2s,
+    transform 0.3s var(--sc-spring);
+}
+.sc-tl {
+  top: -2px;
+  left: -2px;
+  border-top-width: 4px;
+  border-left-width: 4px;
+  border-top-left-radius: 22px;
+}
+.sc-tr {
+  top: -2px;
+  right: -2px;
+  border-top-width: 4px;
+  border-right-width: 4px;
+  border-top-right-radius: 22px;
+}
+.sc-bl {
+  bottom: -2px;
+  left: -2px;
+  border-bottom-width: 4px;
+  border-left-width: 4px;
+  border-bottom-left-radius: 22px;
+}
+.sc-br {
+  bottom: -2px;
+  right: -2px;
+  border-bottom-width: 4px;
+  border-right-width: 4px;
+  border-bottom-right-radius: 22px;
+}
+.sc-reticle.is-hit .sc-corner {
+  border-color: var(--sc-live-ok);
+}
+.sc-reticle.is-hit .sc-tl {
+  transform: translate(-4px, -4px);
+}
+.sc-reticle.is-hit .sc-tr {
+  transform: translate(4px, -4px);
+}
+.sc-reticle.is-hit .sc-bl {
+  transform: translate(-4px, 4px);
+}
+.sc-reticle.is-hit .sc-br {
+  transform: translate(4px, 4px);
+}
+/* tia quét: chỉ đổi transform (GPU), không vẽ lại khung */
+.sc-laser {
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  top: 8px;
+  height: calc(100% - 16px);
+  background:
+    linear-gradient(90deg, transparent, var(--sc-live) 18%, #cfe6ff 50%, var(--sc-live) 82%, transparent) top / 100% 2px no-repeat,
+    linear-gradient(180deg, transparent, rgba(90, 169, 255, 0.28) 50%, transparent) 0 -8px / 100% 18px no-repeat;
+  will-change: transform;
+  animation: sc-laser 2.2s ease-in-out infinite alternate;
+}
+.sc-reticle.is-hit .sc-laser {
+  opacity: 0;
+}
+@keyframes sc-laser {
+  to {
+    transform: translateY(calc(100% - 2px));
+  }
+}
+.sc-hit {
+  position: absolute;
+  left: 50%;
+  bottom: -16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px 5px 9px;
+  border-radius: 999px;
+  background: rgba(21, 128, 61, 0.94);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  box-shadow: 0 6px 18px -6px rgba(0, 0, 0, 0.5);
+  animation: sc-pop 0.32s var(--sc-spring);
+}
+@keyframes sc-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.8);
+  }
+}
+
+/* --- khung bám vùng chữ (màn hình máy): vị trí đặt bằng transform từ JS --- */
+.sc-docbox {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  border: 2.5px solid rgba(255, 255, 255, 0.92);
+  border-radius: 14px;
+  box-shadow: 0 0 0 100vmax rgba(4, 6, 12, 0.42);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform;
+  transition:
+    transform 0.12s linear,
+    width 0.12s linear,
+    height 0.12s linear,
+    border-color 0.2s,
+    opacity 0.2s;
+}
+.sc-docbox.is-moving {
+  border-style: dashed;
+}
+.sc-docbox.is-steady {
+  border-color: var(--sc-live-warn);
+}
+.sc-docbox.is-reading {
+  border-color: var(--sc-live);
+  box-shadow:
+    0 0 0 100vmax rgba(4, 6, 12, 0.42),
+    0 0 0 4px rgba(90, 169, 255, 0.35);
+}
+.sc-docbox.is-done,
+.sc-docbox.is-complete {
+  border-color: var(--sc-live-ok);
+  box-shadow:
+    0 0 0 100vmax rgba(4, 6, 12, 0.42),
+    0 0 0 4px rgba(79, 208, 127, 0.4);
+}
+.sc-shutter {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  animation: sc-flash 0.3s ease-out;
+}
+@keyframes sc-flash {
+  from {
+    opacity: 0.55;
+  }
+}
+
+/* --- lớp thông tin trên video (không làm mờ hậu cảnh: video đổi mỗi khung → làm mờ rất tốn) --- */
+.sc-hud-top {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+.sc-status {
+  --tone: #fff;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  max-width: 100%;
+  padding: 6px 12px 6px 11px;
+  border-radius: 999px;
+  background: rgba(10, 12, 18, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.sc-status.is-live {
+  --tone: var(--sc-live);
+}
+.sc-status.is-ok {
+  --tone: var(--sc-live-ok);
+}
+.sc-status.is-warn {
+  --tone: var(--sc-live-warn);
+}
+.sc-status.is-busy {
+  --tone: var(--sc-live);
+}
+.sc-status-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone);
+  flex: none;
+}
+.sc-status-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--tone);
+  animation: sc-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes sc-ping {
+  75%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+.sc-status-meta {
+  font-weight: 500;
+  opacity: 0.72;
+}
+.sc-res {
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(10, 12, 18, 0.5);
+  color: rgba(255, 255, 255, 0.8);
+  font-family: var(--sc-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+@container sc-panel (max-width: 400px) {
+  .sc-res {
+    display: none;
+  }
+}
+.sc-hud-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: 8px;
+  padding: 36px 14px 12px;
+  background: linear-gradient(to top, rgba(4, 6, 12, 0.6), transparent);
+}
+.sc-hud-side {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 22px;
+}
+.sc-hud-side.is-end {
+  justify-content: flex-end;
+}
+.sc-fab {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(16, 18, 26, 0.58);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform 0.15s var(--sc-ease),
+    background-color 0.15s;
+}
+.sc-fab:active {
+  transform: scale(0.9);
+}
+.sc-fab.is-on {
+  background: #ffd54a;
+  border-color: #ffd54a;
+  color: #2a1f00;
+}
+.sc-fab-text {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.sc-shoot {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #fff;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+}
+.sc-shoot-ring {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 3.5px solid #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.sc-shoot-ring::after {
+  content: "";
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s var(--sc-ease);
+}
+.sc-shoot:active .sc-shoot-ring::after {
+  transform: scale(0.84);
+}
+.sc-shoot:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+/* --- đã đọc xong một máy (màn hình máy) --- */
+.sc-complete {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(4, 6, 12, 0.55);
+  animation: sc-fade 0.25s ease-out;
+}
+.sc-complete-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 320px;
+  padding: 20px 18px 16px;
+  border-radius: 24px;
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.4;
+  box-shadow: 0 24px 60px -16px rgba(0, 0, 0, 0.6);
+  animation: sc-rise 0.4s var(--sc-spring);
+}
+.sc-complete-card strong {
+  font-size: 18px;
+}
+.sc-complete-card > span:not(.sc-complete-icon) {
+  color: var(--sc-muted);
+}
+.sc-complete-card .sc-btn {
+  margin-top: 8px;
+}
+.sc-complete-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #34c759, #1f9d4a);
+  color: #fff;
+  box-shadow: 0 8px 20px -8px rgba(31, 157, 74, 0.8);
+  animation: sc-pop-in 0.45s var(--sc-spring) 0.05s backwards;
+}
+@keyframes sc-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+}
+@keyframes sc-pop-in {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+
+/* --- màn hình chờ (chưa bật camera) --- */
+.sc-idle {
   position: absolute;
   inset: 0;
   display: flex;
@@ -232,132 +927,350 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 16px;
+  padding: 20px;
   text-align: center;
-  color: #e8ebf0;
-  background: #11151b;
+  color: #eef2fa;
+  background:
+    radial-gradient(90% 70% at 50% 0%, rgba(79, 107, 255, 0.35), transparent 70%),
+    radial-gradient(70% 60% at 100% 100%, rgba(20, 160, 150, 0.22), transparent 70%),
+    linear-gradient(180deg, #121828, #07090e);
 }
-.sc-video-placeholder .sc-muted {
-  color: #aab3c2;
-}
-.sc-reticle {
+.sc-idle::before {
+  content: "";
   position: absolute;
-  left: 8%;
-  right: 8%;
-  top: 30%;
-  bottom: 30%;
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  border-radius: 10px;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.28);
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 28px 28px;
+  -webkit-mask-image: radial-gradient(80% 70% at 50% 45%, #000, transparent);
+  mask-image: radial-gradient(80% 70% at 50% 45%, #000, transparent);
   pointer-events: none;
 }
+.sc-idle > * {
+  position: relative;
+}
+.sc-idle-art {
+  width: min(170px, 46%);
+  color: #dfe7ff;
+  margin-bottom: 6px;
+}
+.sc-idle-art svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+.sc-art-laser {
+  filter: drop-shadow(0 0 6px rgba(90, 169, 255, 0.9));
+  animation: sc-art-scan 2.4s ease-in-out infinite alternate;
+}
+@keyframes sc-art-scan {
+  from {
+    transform: translateY(-26px);
+  }
+  to {
+    transform: translateY(26px);
+  }
+}
+.sc-idle-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.sc-idle-sub {
+  margin: 0 0 8px;
+  max-width: 340px;
+  color: #aeb7cb;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.sc-idle .sc-btn:not(.sc-btn-primary) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+.sc-idle-foot {
+  margin: 6px 0 0;
+  color: #8790a6;
+  font-size: 12px;
+}
 
+/* --- thao tác dưới khung camera --- */
+.sc-cam-actions .sc-btn {
+  flex: 1 1 auto;
+}
+.sc-cam-actions .sc-btn-primary {
+  flex-grow: 2;
+}
+.sc-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+.sc-readout-label {
+  font-size: 12px;
+  color: var(--sc-muted);
+  margin-right: 2px;
+}
+.sc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--sc-mono);
+  font-size: 12.5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--sc-fill);
+  color: var(--sc-text);
+  overflow-wrap: anywhere;
+  animation: sc-fade 0.25s ease-out;
+}
+.sc-chip.is-ok {
+  background: var(--sc-ok-bg);
+  color: var(--sc-ok);
+  font-weight: 600;
+}
+.sc-chip.is-pending {
+  background: var(--sc-warn-bg);
+  color: var(--sc-warn);
+}
+
+/* --- hộp gợi ý --- */
+.sc-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--sc-fill);
+  color: var(--sc-muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.sc-tip > svg {
+  margin-top: 1px;
+  color: var(--sc-primary);
+}
+.sc-tip b {
+  color: var(--sc-text);
+}
+.sc-tip.is-warn {
+  background: var(--sc-warn-bg);
+  color: var(--sc-warn);
+}
+.sc-tip.is-warn > svg,
+.sc-tip.is-warn b {
+  color: inherit;
+}
+
+/* ================= ảnh ================= */
+.sc-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 14px 16px;
+  border-radius: 18px;
+  border: 1.5px dashed var(--sc-border);
+  background: var(--sc-fill);
+  text-align: center;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+.sc-drop.is-over {
+  border-color: var(--sc-primary);
+  background: var(--sc-primary-tint);
+}
+.sc-drop-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--sc-primary), var(--sc-primary-2));
+  color: #fff;
+  box-shadow: 0 8px 20px -10px var(--sc-primary);
+}
+.sc-drop-title {
+  margin: 0;
+  font-weight: 650;
+  font-size: 15px;
+}
+.sc-drop-sub {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--sc-muted);
+}
+.sc-drop .sc-row {
+  margin-top: 2px;
+}
+.sc-paste {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 0 0 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--sc-border);
+  background: var(--sc-surface);
+  color: var(--sc-muted);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.sc-paste:focus-within {
+  border-color: var(--sc-primary);
+  box-shadow: 0 0 0 4px var(--sc-primary-tint);
+  color: var(--sc-text);
+}
+.sc-paste-zone {
+  flex: 1;
+  min-width: 0;
+  padding: 13px 14px 13px 0;
+  font-size: 14px;
+  min-height: 48px;
+  outline: none;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.sc-sample {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--sc-surface);
+  border: 1px solid var(--sc-border);
+}
+.sc-sample img {
+  width: 96px;
+  max-width: 32%;
+  border-radius: 10px;
+  border: 1px solid var(--sc-border);
+  flex: none;
+}
+.sc-sample p {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
 .sc-log {
   list-style: none;
   padding: 0;
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   font-size: 13px;
 }
 .sc-log li {
-  padding: 6px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 2px;
   border-top: 1px solid var(--sc-border);
   overflow-wrap: anywhere;
+  animation: sc-fade 0.25s ease-out;
+}
+.sc-log li > svg {
+  margin-top: 1px;
+}
+.sc-log li.is-ok > svg {
+  color: var(--sc-ok);
 }
 .sc-log li.is-bad {
   color: var(--sc-warn);
 }
-
-.sc-list {
+.sc-nolive {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-.sc-empty {
-  padding: 28px 16px;
-  text-align: center;
-  color: var(--sc-muted);
-  border: 1px dashed var(--sc-border);
-  border-radius: 14px;
-}
-.sc-card {
-  background: var(--sc-surface);
-  border: 1px solid var(--sc-border);
-  border-radius: 14px;
-  padding: 12px 14px;
-}
-.sc-card.is-current {
-  border-color: var(--sc-live);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sc-live) 25%, transparent);
-}
-.sc-card-head {
-  display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
+  padding: 24px 16px;
+  text-align: center;
 }
-.sc-origin {
-  color: var(--sc-muted);
-  font-size: 13px;
-  overflow-wrap: anywhere;
+.sc-nolive p {
+  margin: 0;
 }
-.sc-card-body {
+
+/* ================= nhập tay ================= */
+.sc-manual {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-items: flex-start;
 }
-.sc-thumb {
-  width: 84px;
-  height: auto;
-  border-radius: 8px;
-  border: 1px solid var(--sc-border);
-  flex: none;
+.sc-manual .sc-row {
+  margin-top: 0;
 }
-.sc-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 12px;
-  flex: 1;
-  min-width: 0;
+.sc-input-wrap {
+  position: relative;
+  display: block;
 }
-@media (max-width: 560px) {
-  .sc-fields {
-    grid-template-columns: 1fr;
-  }
-  .sc-thumb {
-    width: 64px;
-  }
+.sc-input-wrap > svg {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--sc-muted);
+  pointer-events: none;
 }
+.sc-input-wrap > .sc-input {
+  padding-left: 42px;
+}
+.sc-input-lg {
+  min-height: 52px;
+  font-size: 17px;
+}
+
+/* ================= ô nhập (thẻ máy, nhập tay) ================= */
 .sc-field {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
 }
 .sc-label {
   font-size: 12px;
+  font-weight: 500;
   color: var(--sc-muted);
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+  min-height: 18px;
 }
 .sc-input {
   font: inherit;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 16px; /* >= 16px để Safari iPhone không tự phóng to */
+  font-family: var(--sc-mono);
+  font-size: 16px; /* ≥ 16px để Safari iPhone không tự phóng to */
+  letter-spacing: 0.01em;
   width: 100%;
-  padding: 9px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--sc-border);
-  background: var(--sc-bg);
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: var(--sc-fill);
   color: var(--sc-text);
-  min-height: 42px;
+  min-height: 44px;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    box-shadow 0.2s var(--sc-ease);
+}
+.sc-input::placeholder {
+  color: var(--sc-muted);
+  opacity: 0.7;
+}
+.sc-input:hover {
+  background: var(--sc-fill-strong);
 }
 .sc-input:focus {
-  outline: 2px solid var(--sc-primary);
-  outline-offset: 0;
-  border-color: transparent;
+  outline: none;
+  background: var(--sc-surface);
+  border-color: var(--sc-primary);
+  box-shadow: 0 0 0 4px var(--sc-primary-tint);
 }
 .sc-input.has-error {
   border-color: var(--sc-err);
@@ -372,81 +1285,49 @@
 }
 .sc-textarea {
   resize: vertical;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-.sc-fields > .sc-field:last-child {
-  grid-column: 1 / -1;
+  font-family: var(--sc-mono);
+  line-height: 1.5;
 }
 
-.sc-badge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 7px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-.sc-badge-ok {
-  background: var(--sc-ok-bg);
-  color: var(--sc-ok);
-}
-.sc-badge-info {
-  background: var(--sc-info-bg);
-  color: var(--sc-info);
-}
-.sc-badge-live {
-  background: var(--sc-live);
-  color: var(--sc-primary-text);
-}
-.sc-issue {
-  font-size: 12px;
-  margin: 0;
-}
-.sc-card > .sc-issue {
-  margin-top: 8px;
-}
-.sc-issue-error {
-  color: var(--sc-err);
-}
-.sc-issue-warning {
-  color: var(--sc-warn);
-}
-.sc-extras {
-  font-size: 12px;
-  color: var(--sc-muted);
-  margin: 8px 0 0;
-  overflow-wrap: anywhere;
-}
-
-.sc-actions {
-  position: sticky;
-  bottom: 0;
+/* ================= phiên quét ================= */
+.sc-session {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px 0;
-  margin-top: 12px;
-  background: linear-gradient(to top, var(--sc-bg) 70%, transparent);
+  align-items: center;
+  gap: 8px 10px;
+  padding: 10px;
+  border-radius: 22px;
+  background: var(--sc-card);
+  border: 1px solid var(--sc-edge);
+  box-shadow:
+    inset 0 1px 0 var(--sc-edge),
+    var(--sc-shadow);
 }
-.sc-actions .sc-btn {
+.sc-session-info {
   flex: 1 1 auto;
-}
-.sc-toast {
-  position: fixed;
-  left: 50%;
-  bottom: 84px;
-  transform: translateX(-50%);
-  background: var(--sc-text);
-  color: var(--sc-bg);
-  padding: 10px 16px;
-  border-radius: 10px;
+  margin: 0;
+  padding-left: 6px;
+  color: var(--sc-muted);
   font-size: 14px;
-  max-width: calc(100vw - 32px);
-  z-index: 50;
 }
-.sc-btn-danger {
-  background: var(--sc-err);
-  border-color: var(--sc-err);
-  color: var(--sc-surface);
+.sc-session-info strong {
+  color: var(--sc-text);
+  font-size: 20px;
+  font-weight: 700;
+  margin-right: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.sc-session-tools {
+  display: flex;
+  gap: 6px;
+}
+.sc-session-send {
+  flex: 1 1 100%;
+}
+@container sc-results (min-width: 560px) {
+  .sc-session-send {
+    flex: 0 1 auto;
+  }
 }
 .sc-confirm {
   display: inline-flex;
@@ -454,44 +1335,238 @@
   align-items: center;
   gap: 8px;
   font-weight: 600;
+  color: var(--sc-err);
 }
-.sc-sample {
+
+/* ================= danh sách máy ================= */
+.sc-list {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-items: flex-start;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--sc-border);
 }
-.sc-sample img {
-  width: 110px;
-  max-width: 35%;
-  border-radius: 6px;
+.sc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--sc-muted);
+  font-size: 14px;
+  border: 1.5px dashed var(--sc-border);
+  border-radius: 22px;
+}
+.sc-empty strong {
+  color: var(--sc-text);
+  font-size: 16px;
+}
+.sc-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 4px;
+  border-radius: 18px;
+  background: var(--sc-fill);
+  color: var(--sc-muted);
+}
+.sc-card {
+  background: var(--sc-card);
+  border: 1px solid var(--sc-edge);
+  border-radius: 22px;
+  padding: 12px 14px 14px;
+  box-shadow:
+    inset 0 1px 0 var(--sc-edge),
+    var(--sc-shadow);
+  animation: sc-card-in 0.32s var(--sc-ease) backwards;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+@keyframes sc-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+.sc-card.is-current {
+  border-color: color-mix(in srgb, var(--sc-primary) 60%, transparent);
+  box-shadow:
+    0 0 0 3px var(--sc-primary-tint),
+    var(--sc-shadow);
+}
+.sc-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+.sc-card-num {
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--sc-fill);
+  color: var(--sc-muted);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.sc-card.is-current .sc-card-num {
+  background: var(--sc-primary);
+  color: var(--sc-primary-text);
+}
+.sc-thumb {
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 10px;
   border: 1px solid var(--sc-border);
   flex: none;
 }
-.sc-sample p {
-  margin: 0 0 8px;
-  font-size: 14px;
+.sc-card-title {
+  font-size: 15px;
+  white-space: nowrap;
+}
+.sc-origin {
+  min-width: 0;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--sc-fill);
+  color: var(--sc-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sc-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+.sc-field.is-wide {
+  grid-column: 1 / -1;
+}
+@container sc-results (max-width: 340px) {
+  .sc-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 650;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+.sc-badge-ok {
+  background: var(--sc-ok-bg);
+  color: var(--sc-ok);
+}
+.sc-badge-info {
+  background: var(--sc-fill);
+  color: var(--sc-muted);
 }
 .sc-badge-warn {
   background: var(--sc-warn-bg);
   color: var(--sc-warn);
 }
+.sc-badge-live {
+  background: var(--sc-primary);
+  color: var(--sc-primary-text);
+  font-size: 11px;
+  padding: 2px 9px 2px 8px;
+  flex: none;
+}
+.sc-live-dot {
+  position: relative;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.sc-live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: currentColor;
+  animation: sc-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.sc-issue {
+  display: block;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+}
+.sc-issue.has-icon {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+}
+.sc-issue > svg {
+  margin-top: 1px;
+}
+.sc-card > .sc-issue {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+}
+.sc-issue-error {
+  color: var(--sc-err);
+}
+.sc-card > .sc-issue-error {
+  background: var(--sc-err-bg);
+}
+.sc-issue-warning,
+.sc-issue-warn {
+  color: var(--sc-warn);
+}
+.sc-card > .sc-issue-warning,
+.sc-card > .sc-issue-warn {
+  background: var(--sc-warn-bg);
+}
+.sc-extras {
+  font-size: 12px;
+  color: var(--sc-muted);
+  margin: 10px 0 0;
+  overflow-wrap: anywhere;
+}
+.sc-card > .sc-extras[data-testid="part-info"] {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--sc-ok-bg);
+  color: var(--sc-ok);
+  font-weight: 600;
+}
+
+/* ================= trạng thái bận, thông báo ================= */
 .sc-busy {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 0 0 12px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--sc-info-bg);
-  color: var(--sc-info);
+  gap: 10px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--sc-primary-tint);
+  color: var(--sc-primary);
   font-size: 14px;
+  font-weight: 500;
+  animation: sc-fade 0.2s ease-out;
 }
 .sc-spinner {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   border: 2px solid currentColor;
   border-right-color: transparent;
@@ -503,161 +1578,53 @@
     transform: rotate(360deg);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .sc-spinner {
-    animation-duration: 2.4s;
+@keyframes sc-blink {
+  to {
+    opacity: 0.3;
   }
 }
-.sc-paste-zone {
-  margin-top: 12px;
-  padding: 14px;
-  border: 1.5px dashed var(--sc-border);
-  border-radius: 10px;
-  color: var(--sc-muted);
-  font-size: 14px;
-  min-height: 52px;
-  outline: none;
-  -webkit-user-select: text;
-  user-select: text;
-}
-.sc-paste-zone:focus {
-  border-color: var(--sc-primary);
-  color: var(--sc-text);
-}
-.sc-live-pill {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.55);
+.sc-toast {
+  position: fixed;
+  left: 50%;
+  /* trong ứng dụng: nằm trên thanh tab nổi (--dock-offset); bản độc lập: trên vùng an toàn đáy màn hình */
+  bottom: calc(var(--dock-offset, env(safe-area-inset-bottom, 0px)) + 16px);
+  z-index: 60;
+  max-width: min(calc(100vw - 32px), 520px);
+  padding: 11px 18px;
+  border-radius: 16px;
+  background: rgba(22, 24, 31, 0.94);
   color: #fff;
-  font-size: 12px;
-}
-.sc-reticle.is-hit {
-  border-color: #4cc38a;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.28), 0 0 0 3px rgba(76, 195, 138, 0.6);
-}
-.sc-hint-warn {
-  color: var(--sc-warn);
-}
-.sc-seg {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 4px;
-  margin-bottom: 10px;
-  border-radius: 10px;
-  background: var(--sc-bg);
-  border: 1px solid var(--sc-border);
-}
-.sc-seg button {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--sc-muted);
-  font: inherit;
-  font-weight: 600;
-  padding: 8px 6px;
-  border-radius: 8px;
-  min-height: 44px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1.2;
-}
-.sc-seg button span {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 14px 34px -10px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transform: translateX(-50%);
+  animation: sc-toast-in 0.34s var(--sc-spring);
 }
-.sc-seg button.is-active {
-  background: var(--sc-surface);
-  color: var(--sc-text);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-}
-.sc-reticle.is-screen {
-  left: 18%;
-  right: 18%;
-  top: 6%;
-  bottom: 6%;
-  border-radius: 22px;
-}
-/* Khung bám vùng chữ (chế độ "Màn hình máy") */
-.sc-docbox {
-  position: absolute;
-  border: 3px solid rgba(255, 255, 255, 0.85);
-  border-radius: 12px;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.25);
-  pointer-events: none;
-  transition: left 0.12s linear, top 0.12s linear, width 0.12s linear, height 0.12s linear, border-color 0.2s;
-}
-.sc-docbox.is-moving {
-  border-style: dashed;
-}
-.sc-docbox.is-steady {
-  border-color: #f0b84a;
-}
-.sc-docbox.is-reading {
-  border-color: #5b8cff;
-}
-.sc-docbox.is-done,
-.sc-docbox.is-complete {
-  border-color: #4cc38a;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.25), 0 0 0 4px rgba(76, 195, 138, 0.5);
-}
-@media (prefers-reduced-motion: reduce) {
-  .sc-docbox {
-    transition: none;
+@keyframes sc-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 14px) scale(0.96);
   }
-}
-.sc-shutter {
-  position: absolute;
-  inset: 0;
-  background: #fff;
-  opacity: 0.55;
-  pointer-events: none;
-}
-.sc-readout {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
-}
-.sc-chip {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--sc-info-bg);
-  color: var(--sc-info);
-}
-.sc-chip.is-ok {
-  background: var(--sc-ok-bg);
-  color: var(--sc-ok);
-  font-weight: 600;
 }
 
-/* Đã đọc đủ một máy — camera dừng đọc, chờ người dùng chọn máy tiếp theo */
-.sc-complete {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: rgba(20, 110, 70, 0.92);
-  color: #fff;
-  font-size: 14px;
-  line-height: 1.35;
-}
-.sc-complete strong {
-  font-size: 16px;
-}
-.sc-complete .sc-btn {
-  align-self: flex-start;
-  margin-top: 4px;
+/* ================= giảm chuyển động ================= */
+@media (prefers-reduced-motion: reduce) {
+  .sc-root *,
+  .sc-root *::before,
+  .sc-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  /* vẫn giữ vòng quay chậm để biết đang bận */
+  .sc-root .sc-spinner {
+    animation-duration: 2.4s !important;
+    animation-iteration-count: infinite !important;
+  }
+  .sc-root .sc-laser {
+    display: none;
+  }
 }

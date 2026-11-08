@@ -8,6 +8,8 @@ import { catalogDb, NoDatabase } from "../../danh-muc/shared";
 import { todayVn } from "../../van-chuyen/shared";
 import { deleteEntryAction } from "../actions";
 import { categoryOptions, EntryForm } from "../ui";
+import { BackLink } from "../../_components/BackLink";
+import { Glyph } from "../../_components/Glyph";
 
 export const metadata = { title: "Bút toán — Thu chi" };
 
@@ -23,11 +25,9 @@ export default async function EntryPage({ params }: PageProps<"/thu-chi/[id]">) 
   const accs = accounts.some((a) => a.id === t.accountId) ? accounts : [...accounts, { id: t.accountId, name: t.account, currency: t.currency }];
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm">
-        <Link href="/thu-chi" className="text-muted underline">
-          ← Sổ quỹ
-        </Link>
-      </p>
+      <div>
+        <BackLink href="/thu-chi">Sổ quỹ</BackLink>
+      </div>
       <section className="card p-4" aria-label="Bút toán">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <b className={`text-xl tabular-nums ${t.direction === "IN" ? "text-[var(--ok)]" : ""}`}>
@@ -54,8 +54,9 @@ export default async function EntryPage({ params }: PageProps<"/thu-chi/[id]">) 
             <Row
               k="Chứng từ gốc"
               v={
-                <Link href={t.link.href} className="text-primary">
-                  🔗 {t.link.label}
+                <Link href={t.link.href} className="inline-flex items-center gap-1 text-primary hover:underline">
+                  <Glyph name="link" size={14} className="shrink-0" />
+                  {t.link.label}
                 </Link>
               }
             />

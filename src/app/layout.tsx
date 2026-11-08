@@ -1,4 +1,10 @@
 import type { Metadata, Viewport } from "next";
+// Phông Be Vietnam Pro tự chứa (không phụ thuộc mạng lúc build); mỗi độ đậm gồm bộ ký tự Latin + tiếng Việt,
+// trình duyệt chỉ tải tệp của bộ ký tự có trên trang (unicode-range).
+import "@fontsource/be-vietnam-pro/400.css";
+import "@fontsource/be-vietnam-pro/500.css";
+import "@fontsource/be-vietnam-pro/600.css";
+import "@fontsource/be-vietnam-pro/700.css";
 import "./globals.css";
 import { PwaRegister } from "./PwaRegister";
 

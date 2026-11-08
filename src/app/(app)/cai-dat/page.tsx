@@ -3,6 +3,7 @@ import { displayValue, SETTING_GROUPS, SETTINGS } from "@/domain/settings";
 import { requireOwner } from "@/server/auth/session";
 import { getSettings } from "@/server/settings/service";
 import { ActionForm, Input, Select, Submit } from "../_components/form";
+import { Glyph } from "../_components/Glyph";
 import { catalogDb, NoDatabase } from "../danh-muc/shared";
 import { saveSettingsAction } from "./actions";
 
@@ -68,7 +69,8 @@ export default async function SettingsPage() {
               toàn. Mỗi lần tải được ghi nhật ký.
             </p>
             <a href="/cai-dat/xuat-du-lieu" className="btn-secondary mt-3 inline-flex" download data-testid="export-all">
-              ⤓ Tải toàn bộ dữ liệu (.zip)
+              <Glyph name="download" size={17} />
+              Tải toàn bộ dữ liệu (.zip)
             </a>
             <p className="mt-3 text-xs text-muted">
               Sao lưu tự động hằng ngày (pg_dump mã hoá, giữ 30 bản ngày + 12 bản tháng) được bật khi triển khai lên máy chủ thật — đang chờ chọn nơi triển
@@ -109,12 +111,18 @@ export default async function SettingsPage() {
               </div>
             </dl>
             <p className="mt-2 text-xs text-muted">Đổi mật khẩu / mã 2 lớp: chạy lại `npm run auth:setup` trên máy chủ (xem README).</p>
-            <p className="mt-3 text-sm">
-              <Link href="/cai-dat/nhat-ky" className="underline">
-                Nhật ký thay đổi →
-              </Link>{" "}
-              <span className="text-muted">ai sửa gì, lúc nào, giá trị trước và sau.</span>
-            </p>
+            <Link
+              href="/cai-dat/nhat-ky"
+              className="group mt-3 flex items-center gap-3 rounded-2xl bg-[var(--fill)] p-3 text-sm transition-colors hover:bg-[var(--fill-strong)]"
+            >
+              <span className="icon-tile h-9 w-9 rounded-[11px]">
+                <Glyph name="history" size={18} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">Nhật ký thay đổi →</span>
+                <span className="text-xs text-muted">ai sửa gì, lúc nào, giá trị trước và sau.</span>
+              </span>
+            </Link>
           </section>
 
           <p className="text-sm text-muted">

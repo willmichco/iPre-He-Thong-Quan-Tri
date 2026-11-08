@@ -340,7 +340,7 @@ export function QuickSell({ accounts, initialCode }: { accounts: { id: string; n
           </p>
         )}
         <button type="button" className="btn-primary mt-3 w-full" disabled={pending || !lines.length} onClick={submit}>
-          {pending ? "Đang lưu…" : payment === "DEPOSIT" ? "XÁC NHẬN NHẬN CỌC" : "XÁC NHẬN BÁN"}
+          {pending ? "Đang lưu…" : payment === "DEPOSIT" ? "Xác nhận nhận cọc" : "Xác nhận bán"}
         </button>
       </section>
     </div>

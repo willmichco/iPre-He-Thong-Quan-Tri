@@ -3,6 +3,8 @@ import { GAP_LABEL } from "@/domain/attachments";
 import { ITEM_STATUS_LABEL } from "@/domain/purchasing-core";
 import { missingDossiers } from "@/server/attachments/service";
 import { catalogDb, Empty, NoDatabase } from "../../danh-muc/shared";
+import { BackLink } from "../../_components/BackLink";
+import { Glyph } from "../../_components/Glyph";
 
 export const metadata = { title: "Máy thiếu chứng từ — Kho máy" };
 
@@ -19,9 +21,7 @@ export default async function MissingDocsPage() {
   const batches = [...new Map(rows.map((r) => [r.batchId, r.batchCode])).entries()];
   return (
     <main className="mx-auto max-w-5xl p-4 md:p-8">
-      <Link href="/kho" className="text-sm text-muted hover:text-text">
-        ← Kho máy
-      </Link>
+      <BackLink href="/kho">Kho máy</BackLink>
       <h1 className="mt-1 text-2xl font-bold">Máy thiếu chứng từ nguồn gốc</h1>
       <p className="mt-1 text-sm text-muted">
         Hàng nhập khẩu lưu thông trên thị trường phải có hoá đơn, chứng từ kèm theo; thiếu có thể bị coi là hàng nhập lậu, bị phạt và tịch thu. Cần: hoá đơn /
@@ -29,10 +29,13 @@ export default async function MissingDocsPage() {
       </p>
       <div className="mt-4">
         {rows.length === 0 ? (
-          <Empty>Mọi máy đang trong tay đều đủ chứng từ ✓</Empty>
+          <Empty>Mọi máy đang trong tay đều đủ chứng từ.</Empty>
         ) : (
           <div className="flex flex-col gap-4" data-testid="missing-docs">
-            <p className="text-sm font-semibold text-[var(--warn)]">⚠ {rows.length} máy thiếu chứng từ</p>
+            <div className="callout" data-tone="warn">
+              <Glyph name="warn" size={17} />
+              <p className="font-semibold">{rows.length} máy thiếu chứng từ</p>
+            </div>
             {batches.map(([batchId, code]) => {
               const items = rows.filter((r) => r.batchId === batchId);
               return (

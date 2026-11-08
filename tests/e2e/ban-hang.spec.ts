@@ -52,7 +52,7 @@ test("kho → hồ sơ máy → Bán máy này → gõ giá 7,5tr → thấy lã
   await page.getByLabel("SĐT khách").fill("0909 111 222");
   await page.getByLabel("Tên khách").fill("Khách kiểm thử");
   await page.getByRole("radio", { name: "Zalo" }).click();
-  await page.getByRole("button", { name: "XÁC NHẬN BÁN" }).click();
+  await page.getByRole("button", { name: "Xác nhận bán" }).click();
 
   await expect(page).toHaveURL(/\/ban-hang\/[0-9a-f-]{36}$/);
   await expect(page.getByTestId("sale-status")).toHaveText("Hoàn tất");
@@ -91,14 +91,14 @@ test("bán dưới giá vốn phải xác nhận; mã lạ báo rõ; nhận cọ
   const card = page.getByRole("article", { name: "Máy SERIALAIRPODS1" });
   await card.getByLabel("Giá bán *").fill("6tr");
   await expect(card.getByTestId("line-profit")).toContainText("⚠ dưới giá vốn");
-  await page.getByRole("button", { name: "XÁC NHẬN BÁN" }).click();
+  await page.getByRole("button", { name: "Xác nhận bán" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "thấp hơn giá vốn" })).toBeVisible();
 
   // chuyển sang nhận cọc 1tr
   await page.getByRole("radio", { name: "Cọc" }).click();
   await page.getByLabel("Tiền cọc *").fill("1tr");
   await page.getByLabel("SĐT khách").fill("0909333444");
-  await page.getByRole("button", { name: "XÁC NHẬN NHẬN CỌC" }).click();
+  await page.getByRole("button", { name: "Xác nhận nhận cọc" }).click();
   await expect(page.getByTestId("sale-status")).toHaveText("Đã cọc");
   await expect(page.getByTestId("balance")).toHaveText("5.000.000 ₫");
   await page.goto(`/kho/${AIRPODS}`);

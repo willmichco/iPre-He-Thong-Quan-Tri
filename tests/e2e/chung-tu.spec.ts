@@ -31,7 +31,7 @@ test("tải chứng từ trên hồ sơ máy → đủ hồ sơ → mở / xoá"
   await expect(status).toContainText("thiếu vận đơn");
   const intl = dossier.getByTestId("attachments-SHIPMENT").filter({ hasText: "AWB-0001" });
   await upload(intl, "Vận đơn / AWB", "awb-0001.pdf");
-  await expect(status).toHaveText("✓ đủ chứng từ mua và nhập khẩu");
+  await expect(status).toHaveText("đủ chứng từ mua và nhập khẩu");
 
   // mở chứng từ: đúng tệp PDF, cần đăng nhập
   const href = await po.getByRole("link", { name: "hoa-don-apple.pdf" }).getAttribute("href");

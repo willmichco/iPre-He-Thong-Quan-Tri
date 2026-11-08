@@ -1,16 +1,12 @@
 import Link from "next/link";
-import { ACTION_LABEL, changes, ENTITY_LABEL, entityHref, parseAuditFilter } from "@/domain/audit";
+import { ACTION_LABEL, changes, ENTITY_LABEL, entityHref, parseAuditFilter, type FieldChange } from "@/domain/audit";
 import { auditTypes, listAudit, type AuditRow } from "@/server/audit/service";
+import { Glyph, type GlyphName } from "../../_components/Glyph";
 import { catalogDb, Empty, NoDatabase } from "../../danh-muc/shared";
+import { todayVn } from "../../van-chuyen/shared";
+import { BackLink } from "../../_components/BackLink";
 
 export const metadata = { title: "Nhật ký thay đổi — Cài đặt" };
-
-const ACTION_CLS: Record<string, string> = {
-  CREATE: "text-[var(--ok)]",
-  DELETE: "text-danger",
-  FINALIZE: "text-primary",
-  REOPEN: "text-[var(--warn)]",
-};
 
 /** Nhật ký kiểm toán: mọi thao tác ghi (ai sửa gì, lúc nào, trước → sau). Chỉ xem, không sửa / xoá được. */
 export default async function AuditPage({ searchParams }: PageProps<"/cai-dat/nhat-ky">) {
@@ -40,16 +36,32 @@ export default async function AuditPage({ searchParams }: PageProps<"/cai-dat/nh
   };
   const filtered = Boolean(f.entityType || f.action || f.from || f.to || f.q || f.entityId);
 
+  // nhóm theo ngày (giờ VN, chuỗi "DD/MM/YYYY HH:MM:SS") — đọc lướt theo ngày dễ hơn một danh sách dài
+  const days: { day: string; rows: AuditRow[] }[] = [];
+  for (const r of rows) {
+    const day = r.at.slice(0, 10);
+    const last = days.at(-1);
+    if (last?.day === day) last.rows.push(r);
+    else days.push({ day, rows: [r] });
+  }
+  const isoToday = todayVn();
+  const today = isoToday.split("-").reverse().join("/");
+  const yesterday = new Date(Date.parse(`${isoToday}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10).split("-").reverse().join("/");
+
   return (
     <main className="mx-auto max-w-5xl p-4 md:p-8">
-      <Link href="/cai-dat" className="text-sm text-muted hover:text-text">
-        ← Cài đặt
-      </Link>
+      <BackLink href="/cai-dat">Cài đặt</BackLink>
       <h1 className="mt-1 text-2xl font-bold">Nhật ký thay đổi</h1>
       <p className="mt-1 text-sm text-muted">
-        Mọi thao tác ghi dữ liệu — tạo, sửa, xoá, chốt / mở lại chuyến, nhận kiện, bán, thu chi… — kèm giá trị trước và sau. Nhật ký chỉ được thêm: cơ sở dữ
-        liệu từ chối mọi lệnh sửa / xoá dòng nhật ký. Không ghi tên, số điện thoại khách (chỉ mã khách) để ẩn danh hoá khách vẫn trọn vẹn.
+        Mọi thao tác ghi dữ liệu — tạo, sửa, xoá, chốt / mở lại chuyến, nhận kiện, bán, thu chi… — kèm giá trị trước và sau.
       </p>
+      <div className="callout mt-3" data-tone="info">
+        <Glyph name="lock" size={16} />
+        <p>
+          Nhật ký chỉ được thêm: cơ sở dữ liệu từ chối mọi lệnh sửa / xoá dòng nhật ký. Không ghi tên, số điện thoại khách (chỉ mã khách) để ẩn danh hoá khách
+          vẫn trọn vẹn.
+        </p>
+      </div>
 
       <form method="get" className="card mt-4 grid grid-cols-2 gap-3 p-4 md:flex md:flex-wrap md:items-end" aria-label="Lọc nhật ký">
         <label className="flex flex-col gap-1 text-sm">
@@ -88,6 +100,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/cai-dat/nh
         </label>
         {f.entityId && <input type="hidden" name="id" value={f.entityId} />}
         <button type="submit" className="btn-primary md:self-end">
+          <Glyph name="search" size={17} />
           Lọc
         </button>
         {filtered && (
@@ -97,32 +110,47 @@ export default async function AuditPage({ searchParams }: PageProps<"/cai-dat/nh
         )}
       </form>
       {f.entityId && (
-        <p className="mt-2 text-sm">
-          Đang xem lịch sử của một đối tượng · <span className="font-mono text-xs">{f.entityId}</span>{" "}
-          <Link href={`/cai-dat/nhat-ky${qs({ id: null })}`} className="underline">
-            xem tất cả
-          </Link>
-        </p>
+        <div className="callout mt-3" data-tone="info">
+          <Glyph name="history" size={16} />
+          <p>
+            Đang xem lịch sử của một đối tượng · <span className="chip">{f.entityId}</span>{" "}
+            <Link href={`/cai-dat/nhat-ky${qs({ id: null })}`} className="font-medium underline">
+              xem tất cả
+            </Link>
+          </p>
+        </div>
       )}
 
-      <div className="mt-4">
+      <div className="mt-5">
         {rows.length === 0 ? (
           <Empty>{filtered ? "Không có dòng nào khớp bộ lọc." : "Chưa có thao tác nào."}</Empty>
         ) : (
-          <ol className="flex flex-col gap-2" aria-label="Nhật ký">
-            {rows.map((r) => (
-              <Entry key={r.id} r={r} />
+          <div className="flex flex-col gap-5">
+            {days.map((g) => (
+              <section key={g.day} aria-label={`Ngày ${g.day}`}>
+                <h2 className="mb-2 flex items-baseline gap-2 px-1 text-sm font-semibold">
+                  {g.day === today ? "Hôm nay" : g.day === yesterday ? "Hôm qua" : g.day}
+                  {(g.day === today || g.day === yesterday) && <span className="text-xs font-normal text-muted">{g.day}</span>}
+                </h2>
+                <ol className="flex flex-col gap-2">
+                  {g.rows.map((r) => (
+                    <Entry key={r.id} r={r} />
+                  ))}
+                </ol>
+              </section>
             ))}
-          </ol>
+          </div>
         )}
       </div>
 
       {(f.beforeId || next) && (
-        <nav className="mt-4 flex gap-3 text-sm" aria-label="Trang">
-          {f.beforeId && (
+        <nav className="mt-5 flex justify-between gap-3 text-sm" aria-label="Trang">
+          {f.beforeId ? (
             <Link href={`/cai-dat/nhat-ky${qs({})}`} className="btn-secondary">
               ← Mới nhất
             </Link>
+          ) : (
+            <span />
           )}
           {next && (
             <Link href={`/cai-dat/nhat-ky${qs({ truoc: String(next) })}`} className="btn-secondary">
@@ -135,49 +163,84 @@ export default async function AuditPage({ searchParams }: PageProps<"/cai-dat/nh
   );
 }
 
+const ACTION_STYLE: Record<string, { tone: string; icon: GlyphName }> = {
+  CREATE: { tone: "ok", icon: "plus" },
+  UPDATE: { tone: "info", icon: "pencil" },
+  DELETE: { tone: "danger", icon: "trash" },
+  RESTORE: { tone: "ok", icon: "refresh" },
+  FINALIZE: { tone: "info", icon: "lock" },
+  REOPEN: { tone: "warn", icon: "unlock" },
+  LOGIN: { tone: "muted", icon: "login" },
+};
+
+/** Tạo / xoá ghi lại cả bản ghi → nhiều trường: quá ngưỡng này thì thu gọn, bấm mới mở. */
+const FOLD_AT = 4;
+
 function Entry({ r }: { r: AuditRow }) {
   const diff = changes(r.before, r.after);
   const href = entityHref(r.entityType, r.entityId);
   const label = ENTITY_LABEL[r.entityType] ?? r.entityType;
+  const st = ACTION_STYLE[r.action] ?? { tone: "muted", icon: "info" as const };
+  const isEdit = diff.some((c) => c.before !== null && c.after !== null);
+  const fold = !isEdit && diff.length > FOLD_AT;
   return (
-    <li className="card p-3 text-sm" data-testid="audit-row">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="tabular-nums text-muted">{r.at}</span>
-        <span className={`font-semibold ${ACTION_CLS[r.action] ?? ""}`}>{ACTION_LABEL[r.action] ?? r.action}</span>
-        <span>
-          {href ? (
-            <Link href={href} className="underline">
-              {label}
-            </Link>
-          ) : (
-            label
-          )}
+    <li className="card p-3.5 text-sm" data-testid="audit-row">
+      <div className="flex items-start gap-3">
+        <span className="icon-tile h-8 w-8 rounded-[10px]" data-tone={st.tone}>
+          <Glyph name={st.icon} size={16} />
         </span>
-        {r.entityId && (
-          <Link href={`/cai-dat/nhat-ky?id=${r.entityId}`} className="font-mono text-xs text-muted hover:text-text" title="Lịch sử của đối tượng này">
-            {r.entityId.slice(0, 8)}
-          </Link>
-        )}
-        {r.ip && <span className="text-xs text-muted">· IP {r.ip}</span>}
-      </div>
-      {diff.length > 0 && (
-        <table className="mt-2 w-full text-xs" aria-label="Thay đổi">
-          <tbody>
-            {diff.map((c) => (
-              <tr key={c.key} className="border-t border-border align-top">
-                <th scope="row" className="w-40 py-1 pr-2 text-left font-normal text-muted">
-                  {c.key}
-                </th>
-                <td className="break-all py-1 font-mono">
-                  {c.before !== null && <del className="text-danger no-underline line-through decoration-1">{c.before}</del>}
-                  {c.before !== null && c.after !== null && <span className="px-1 text-muted">→</span>}
-                  {c.after !== null && <ins className="text-[var(--ok)] no-underline">{c.after}</ins>}
-                </td>
-              </tr>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-semibold">{ACTION_LABEL[r.action] ?? r.action}</span>
+            <span>
+              {href ? (
+                <Link href={href} className="font-medium text-primary hover:underline">
+                  {label}
+                </Link>
+              ) : (
+                label
+              )}
+            </span>
+            {r.entityId && (
+              <Link href={`/cai-dat/nhat-ky?id=${r.entityId}`} className="chip hover:bg-[var(--fill-strong)]" title="Lịch sử của đối tượng này">
+                {r.entityId.slice(0, 8)}
+              </Link>
+            )}
+            <span className="ml-auto text-xs tabular-nums text-muted">
+              {r.at.slice(11)}
+              {r.ip && ` · IP ${r.ip}`}
+            </span>
+          </div>
+          {diff.length > 0 &&
+            (fold ? (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs font-medium text-muted">Xem {diff.length} trường</summary>
+                <Changes diff={diff} />
+              </details>
+            ) : (
+              <Changes diff={diff} />
             ))}
-          </tbody>
-        </table>
-      )}
+        </div>
+      </div>
     </li>
+  );
+}
+
+function Changes({ diff }: { diff: FieldChange[] }) {
+  return (
+    <dl className="mt-2 grid gap-x-3 gap-y-1.5 rounded-xl bg-[var(--fill)] p-2.5 text-xs sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]" aria-label="Thay đổi">
+      {diff.map((c) => (
+        <div key={c.key} className="contents">
+          <dt className="truncate pt-0.5 text-muted" title={c.key}>
+            {c.key}
+          </dt>
+          <dd className="flex min-w-0 flex-wrap items-center gap-1 font-mono">
+            {c.before !== null && <del className="break-all rounded-md bg-[var(--danger-bg)] px-1.5 py-0.5 text-danger decoration-1">{c.before}</del>}
+            {c.before !== null && c.after !== null && <Glyph name="arrow" size={12} className="shrink-0 text-muted" />}
+            {c.after !== null && <ins className="break-all rounded-md bg-[var(--ok-bg)] px-1.5 py-0.5 text-[var(--ok)] no-underline">{c.after}</ins>}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
