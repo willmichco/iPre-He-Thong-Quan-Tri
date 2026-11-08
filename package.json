@@ -19,6 +19,8 @@
     "auth:setup": "tsx scripts/auth-setup.ts",
     "sample:label": "tsx scripts/make-sample-label.ts",
     "build:standalone": "tsx scripts/build-standalone-scanner.ts",
+    "demo:data": "tsx scripts/demo-data.ts",
+    "build:site": "tsx scripts/build-static-site.ts",
     "test:db": "vitest run --project db",
     "costing:check": "tsx scripts/costing.ts check",
     "costing:recalc": "tsx scripts/costing.ts recalc",

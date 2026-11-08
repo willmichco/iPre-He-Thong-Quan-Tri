@@ -37,7 +37,8 @@ const reactGlobals: Plugin = {
   },
 };
 
-async function main() {
+/** Mã + tài nguyên của bộ quét độc lập (dùng chung cho dist/quet-ma-thu.html và trang Quét mã của site chụp tĩnh). */
+export async function scannerAssets() {
   const result = await build({
     entryPoints: [join(root, "src/features/scanner/standalone.tsx")],
     bundle: true,
@@ -73,7 +74,11 @@ async function main() {
         .replace(/\s+/g, " "),
     )
     .join("\n");
+  return { js, css, wasmB64, labelB64, fontFaces, reactVersion: REACT_VERSION };
+}
 
+async function main() {
+  const { js, css, wasmB64, labelB64, fontFaces } = await scannerAssets();
   const html = `<title>Quét mã iPre</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
@@ -148,7 +153,8 @@ ${html}</body>
   console.log("✓ dist/pages/ (index.html, nhan-mau.svg, .nojekyll) — cho GitHub Pages");
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+if (process.argv[1] && /build-standalone-scanner/.test(process.argv[1]))
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

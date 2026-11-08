@@ -107,7 +107,8 @@ export function Chat({ initial, quick }: { initial: MessageRow[]; quick: Chip[] 
             </div>
           </>
         )}
-        <div ref={endRef} />
+        {/* chừa chỗ cho ô nhập + thanh điều hướng dưới (điện thoại) để nút của phiếu mới không bị che khi cuộn tới */}
+        <div ref={endRef} data-chat-end className="scroll-mb-[280px] md:scroll-mb-[200px]" />
       </div>
 
       {error && (
@@ -117,6 +118,7 @@ export function Chat({ initial, quick }: { initial: MessageRow[]; quick: Chip[] 
       )}
 
       <form
+        data-testid="chat-form"
         className="glass-strong sticky bottom-[calc(env(safe-area-inset-bottom)+84px)] z-30 flex flex-col gap-2 rounded-[22px] p-2 md:bottom-4"
         onSubmit={(e) => {
           e.preventDefault();
@@ -125,7 +127,14 @@ export function Chat({ initial, quick }: { initial: MessageRow[]; quick: Chip[] 
       >
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
           {quick.map((c) => (
-            <button key={c.label} type="button" className="chip shrink-0 !font-sans !text-[13px] hover:bg-[var(--fill-strong)]" onClick={() => onChip(c)} disabled={isPending}>
+            <button
+              key={c.label}
+              type="button"
+              className="chip shrink-0 !font-sans !text-[13px] hover:bg-[var(--fill-strong)]"
+              onClick={() => onChip(c)}
+              disabled={isPending}
+              data-chip-text={c.text}
+            >
               {c.label}
             </button>
           ))}
@@ -192,7 +201,7 @@ function Welcome({ quick, onChip }: { quick: Chip[]; onChip: (c: Chip) => void }
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         {[...samples, ...quick.slice(0, 2)].map((c) => (
-          <button key={c.label} type="button" className="btn-secondary !min-h-9 !px-3 !py-1.5 text-sm" onClick={() => onChip(c)}>
+          <button key={c.label} type="button" className="btn-secondary !min-h-9 !px-3 !py-1.5 text-sm" onClick={() => onChip(c)} data-chip-text={c.text}>
             {c.label}
           </button>
         ))}
