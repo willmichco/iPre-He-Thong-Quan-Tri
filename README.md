@@ -20,7 +20,16 @@ với mốc thời gian rõ ràng cho từng chặng và giá vốn chính xác 
 
 ## Bản xem thử trực tuyến
 
-Bộ quét mã chạy thử: https://willmichco.github.io/iPre-He-Thong-Quan-Tri/ (nhánh `gh-pages`, chỉ chứa file đã build; số liệu trên nhãn mẫu là minh hoạ).
+https://willmichco.github.io/iPre-He-Thong-Quan-Tri/ — **bản chụp tĩnh** toàn bộ giao diện trên dữ liệu mẫu (nhánh `gh-pages`, không có máy chủ):
+xem được mọi màn hình, nút lưu chỉ báo thông báo. **Quét mã** chạy thật ngay trên máy; **Trợ lý** nhắn thử được — bộ đọc câu chạy trong trình duyệt,
+câu trả lời dựng sẵn lúc chụp bằng chính hàm truy vấn của máy chủ (khớp số liệu các trang), phiếu ghi lập tại chỗ nhưng không lưu.
+
+Chụp lại (sau mỗi lần thay đổi giao diện):
+
+```bash
+npm run db:seed && npm run demo:data      # CSDL dữ liệu mẫu riêng — KHÔNG chạy trên CSDL thật
+npm run build && npm run build:standalone && npm run build:site   # → dist/site/, đẩy lên nhánh gh-pages
+```
 
 ## Chạy trên máy
 
@@ -49,6 +58,13 @@ npm run dev
 Mở http://localhost:3000. Khi chưa cấu hình tài khoản chủ, máy phát triển cho vào thẳng kèm dải cảnh báo; môi trường thật luôn bắt buộc đăng nhập.
 
 > Camera trên web chỉ chạy qua **HTTPS** (hoặc `localhost`). Muốn thử quét bằng iPhone với máy chạy local, dùng `next dev --experimental-https` hoặc triển khai lên môi trường thật.
+
+### Dùng thật trên máy của bạn (không cần VPS) + Cloudflare
+
+Bấm đúp `khoi-dong-ipre.bat` (Windows) / `khoi-dong-ipre.command` (macOS), hoặc `npm run may:cloudflare`:
+tự bật PostgreSQL, migration, build, sao lưu, chạy iPre và mở đường hầm **Cloudflare Tunnel** — in đường dẫn `https://…` kèm mã QR
+để mở từ iPhone ở bất kỳ đâu (camera quét chạy được). Hướng dẫn đầy đủ, kể cả tên miền cố định và lớp khoá Cloudflare Access:
+[`docs/08-chay-tai-may-cloudflare.md`](docs/08-chay-tai-may-cloudflare.md).
 
 ### Cấu hình đăng nhập (một tài khoản chủ, xác thực 2 lớp)
 
@@ -82,12 +98,14 @@ ngoài. Mọi thao tác ghi đều qua **phiếu xem trước → Xác nhận** 
 | Lệnh | Việc |
 |---|---|
 | `npm run dev` | Chạy máy phát triển |
+| `npm run may` / `npm run may:cloudflare` | Chạy thật trên máy này / kèm đường hầm Cloudflare |
 | `npm run typecheck` · `npm run lint` | Kiểm tra kiểu dữ liệu · quy tắc mã |
 | `npm test` | Kiểm thử đơn vị (nhận dạng mã, trích xuất chữ OCR, gom máy theo vị trí, đăng nhập, mã vạch thật → giải mã) |
 | `npm run test:e2e` | Kiểm thử đầu-cuối bằng trình duyệt (máy tính, giả lập iPhone, 2 camera giả: nhãn hộp và màn hình Giới thiệu) |
 | `npm run db:migrate` | Áp dụng migration còn thiếu (`db/migrations/*.sql`) |
 | `npm run db:seed` | Migration + nạp dữ liệu ví dụ |
 | `npm run build:standalone` | Đóng gói bộ quét thành bản chạy thử: `dist/quet-ma-thu.html` (một file) và `dist/pages/` (trang web cho GitHub Pages, nhánh `gh-pages`) |
+| `npm run demo:data` · `npm run build:site` | Nạp dữ liệu mẫu cho bản xem thử · chụp bản xem thử tĩnh (`dist/site/`, cho nhánh `gh-pages`) |
 | `npm run sample:label` | Tạo lại nhãn hộp mẫu `public/nhan-mau.svg` |
 
 ## Cấu trúc mã nguồn
